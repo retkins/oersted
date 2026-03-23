@@ -29,3 +29,4 @@
 * Updated docs to use .svg, updated figures
 * Updated benchmarks to use different parameters if run by pytest vs by the user
 * Update docs homepage and readme
+* Added ellipsoid test (flat disc)

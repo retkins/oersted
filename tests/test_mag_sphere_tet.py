@@ -5,7 +5,7 @@ import time
 # Test parameters
 infile: str = "tests/data/sphere.stp"
 outfile: str = "tests/data/sphere.data"
-min_size: float = 10.0  # mm
+min_size: float = 15.0  # mm
 max_size: float = 15.0  # mm
 b_ext_mag: float = 1.0  # T
 mu_r: float = 1.5
@@ -55,8 +55,8 @@ print(f"Total solver time: {elapsed:.3f} sec")
 print(f"Avg/min/max M: {np.average(Mnorm)} / {np.min(Mnorm):.3e} / {np.max(Mnorm):.3e}")
 print(f"Avg/min/max H: {np.average(Hnorm)} / {np.min(Hnorm):.3e} / {np.max(Hnorm):.3e}")
 print(f"Bavg = {Bavg:.3f} T")
-print(f"M error: {M_error:.2f}%")
-print(f"B error: {B_error:.2f}%")
+print(f"M error: {100 * M_error:.2f}%")
+print(f"B error: {100 * B_error:.2f}%")
 
 
 def test_magnetized_sphere():
