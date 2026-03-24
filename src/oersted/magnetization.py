@@ -1,4 +1,5 @@
 """Operations for magnetic materials"""
+
 import oersted
 
 from collections.abc import Callable
@@ -106,20 +107,19 @@ def h_demag_tet4(
         nthreads_requested,
     )
 
-
     return np.hstack((hx[:, np.newaxis], hy[:, np.newaxis], hz[:, np.newaxis]))
 
 
 def h_demag_tet4_octree(
-    nodes: NDArray[float64], 
-    element_connectivity: NDArray[int64], 
-    material: Material, 
-    m_field: NDArray[float64], 
+    nodes: NDArray[float64],
+    element_connectivity: NDArray[int64],
+    material: Material,
+    m_field: NDArray[float64],
     centroids: NDArray[float64],
-    vol: NDArray[float64], 
+    vol: NDArray[float64],
     nthreads_requested: int = 0,
     theta: float = 0.5,
-    leaf_threshold: int = 16
+    leaf_threshold: int = 16,
 ) -> NDArray[float64]:
     """Compute the demagnetization field H(M) on mesh element centroids given the current M-field
 
@@ -174,7 +174,7 @@ def demag_tet4(
     max_iterations: int = 50,
     tol: float = 1e-6,
     nthreads_requested: int = 0,
-    octree: bool=False
+    octree: bool = False,
 ) -> tuple[NDArray[float64], NDArray[float64]]:
     """Compute magnetization field M and the total H field at element centroids
 
@@ -215,7 +215,7 @@ def demag_tet4(
     for i in range(max_iterations):
         # Get the demag and total H field at the element centroids
         if octree:
-            h_demag = h_demag_tet4_octree(nodes, element_connectivity, material, m_field,centroids,vol, nthreads_requested=nthreads_requested)
+            h_demag = h_demag_tet4_octree(nodes, element_connectivity, material, m_field, centroids, vol, nthreads_requested=nthreads_requested)
 
         else:
             h_demag = h_demag_tet4(nodes, element_connectivity, material, m_field, nthreads_requested=nthreads_requested)

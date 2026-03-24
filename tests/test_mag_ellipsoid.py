@@ -34,7 +34,7 @@ def test_mag_ellipsoid(min_size: float = 0.15, max_size: float = 0.15):
     mat = oersted.materials.LinearMaterial(mu_r)
     h_external = np.zeros((connectivity.shape[0], 3))
     h_external[:, 2] = h_ext
-    M, Htotal = oersted.magnetization.demag_tet4(nodes, connectivity, mat, h_external,octree=True)
+    M, Htotal = oersted.magnetization.demag_tet4(nodes, connectivity, mat, h_external, octree=False)
     Btotal = oersted.MU0 * (Htotal + M)
     Bavg = np.average(Btotal, axis=0)
     print(f"avg B (element): {Bavg}")
@@ -48,10 +48,10 @@ def test_mag_ellipsoid(min_size: float = 0.15, max_size: float = 0.15):
     err = (Banalytical - Bavg[2]) / Banalytical
     print(f"Error: {100 * err:.3f} %")
 
-    # Coarse error tolerance; a better mesh takes too long to run in the standard 
+    # Coarse error tolerance; a better mesh takes too long to run in the standard
     # test suite
-    assert(np.abs(err) < 4e-2)
+    assert np.abs(err) < 4e-2
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     test_mag_ellipsoid()

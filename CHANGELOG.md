@@ -29,4 +29,9 @@
 * Updated docs to use .svg, updated figures
 * Updated benchmarks to use different parameters if run by pytest vs by the user
 * Update docs homepage and readme
+
+## v0.2.0
 * Added ellipsoid test (flat disc)
+* Updated mesh handling interface to have its own class
+* Updated octree methods to operate on magnetized tet4's
+* Added Mesh object, methods for calculating volume and centroid of tet4 elements

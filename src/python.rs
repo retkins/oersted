@@ -8,6 +8,7 @@ use pyo3::prelude::*;
 use crate::biotsavart;
 use crate::biotsavart::hmag_direct_tet;
 use crate::biotsavart_parallel::hmag_direct_tet_parallel;
+use crate::mesh;
 use crate::sources::bfield_hexahedron;
 use crate::vec3::Vec3;
 
@@ -437,6 +438,42 @@ fn _h_demag_tet4(
     Ok(())
 }
 
+// ---
+// Mesh Operations
+// ---
+
+#[pyfunction]
+fn _mesh_centroids(
+    nodes_flat: PyReadonlyArray1<f64>,
+    connectivity_flat: PyReadonlyArray1<u32>,
+    mut x: PyReadwriteArray1<f64>,
+    mut y: PyReadwriteArray1<f64>,
+    mut z: PyReadwriteArray1<f64>,
+) -> PyResult<()> {
+    mesh::centroids(
+        nodes_flat.as_slice()?,
+        connectivity_flat.as_slice()?,
+        x.as_slice_mut()?,
+        y.as_slice_mut()?,
+        z.as_slice_mut()?,
+    );
+    Ok(())
+}
+
+#[pyfunction]
+fn _mesh_volumes(
+    nodes: PyReadonlyArray1<f64>,
+    connectivity: PyReadonlyArray1<u32>,
+    mut vol: PyReadwriteArray1<f64>,
+) -> PyResult<()> {
+    mesh::volumes(
+        nodes.as_slice()?,
+        connectivity.as_slice()?,
+        vol.as_slice_mut()?,
+    );
+    Ok(())
+}
+
 #[pymodule]
 fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_bfield_direct, m.clone())?)?;
@@ -448,6 +485,10 @@ fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_hfield_tetrahedrons_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_hfield_dipole_tetrahedrons, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_h_demag_tet4, m.clone())?)?;
+
+    // Mesh functions
+    m.add_function(wrap_pyfunction!(_mesh_centroids, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(_mesh_volumes, m.clone())?)?;
 
     Ok(())
 }

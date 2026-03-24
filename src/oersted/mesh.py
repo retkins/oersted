@@ -2,67 +2,96 @@
 
 import numpy as np
 from numpy.typing import NDArray
-from numpy import float64, uint32
-from ._oersted import (mesh_edges, mesh_faces, mesh_centroids, mesh_face_centroids, mesh_surface_faces)
+from numpy import float64, uint32, int64
+from ._oersted import _mesh_centroids, _mesh_volumes
 
 
 class Mesh:
-    """ A continuous finite element mesh made of tet4 elements
-    """
+    """A continuous finite element mesh made of tet4 elements"""
 
-    _nodes: NDArray[float64] 
-    _connectivity: NDArray[uint32] 
+    _nodes: NDArray[float64]
+    _connectivity: NDArray[uint32]
     _edges: NDArray[uint32] | None
     _faces: NDArray[uint32] | None
     _centroids: NDArray[float64] | None
+    _volumes: NDArray[float64] | None
     _face_centroids: NDArray[float64] | None
     _surface_faces: NDArray[uint32] | None
 
     def __init__(self, nodes, connectivity):
-        self._nodes = nodes 
+        self._nodes = nodes
         self._connectivity = connectivity
-        self._edges = None 
-        self._faces = None 
+        self._edges = None
+        self._faces = None
         self._centroids = None
         self._face_centroids = None
         self._surface_faces = None
 
     @property
     def nodes(self):
-        return self._nodes 
+        return self._nodes
 
-    @property 
+    @property
     def connectivity(self):
         return self._connectivity
 
     @property
+    def num_nodes(self):
+        return self._nodes.shape[0]
+
+    @property
+    def num_elems(self):
+        return self._connectivity.shape[0]
+
+    @property
     def edges(self):
-        if self._edges is None: 
-            self._edges = mesh_edges(self.nodes, self.connectivity)
+        if self._edges is None:
+            # self._edges = mesh_edges(self.nodes, self.connectivity)
+            pass
         return self._edges
 
     @property
     def faces(self):
         if self._faces is None:
-            self._faces = mesh_faces(self.nodes, self.connectivity)
+            # self._faces = mesh_faces(self.nodes, self.connectivity)
+            pass
         return self._faces
 
     @property
     def centroids(self):
-        if self._centroids is None: 
-            self._centroids = mesh_centroids(self.nodes, self.connectivity)
+        if self._centroids is None:
+            cx = np.zeros((self.num_elems,))
+            cy = np.zeros((self.num_elems,))
+            cz = np.zeros((self.num_elems,))
+            _mesh_centroids(
+                np.ascontiguousarray(self.nodes),
+                np.ascontiguousarray(self.connectivity),
+                np.ascontiguousarray(cx[:]),
+                np.ascontiguousarray(cy[:]),
+                np.ascontiguousarray(cz[:]),
+            )
+        self._centroids = np.hstack((cx[:, np.newaxis], cy[:, np.newaxis], cz[:, np.newaxis]))
         return self._centroids
 
-    @property 
+    @property
+    def volumes(self):
+        if self._volumes is None:
+            self._volumes: NDArray[float64] = np.zeros((self.num_elems,))
+            _mesh_volumes(np.ascontiguousarray(self.nodes), np.ascontiguousarray(self.connectivity), np.ascontiguousarray(self._volumes))
+        return self._volumes
+
+    @property
     def face_centroids(self):
-        if self._face_centroids is None: 
-            self._face_centroids = mesh_face_centroids(self.nodes, self.connectivity)
+        if self._face_centroids is None:
+            # self._face_centroids = mesh_face_centroids(self.nodes, self.connectivity)
+            pass
         return self._face_centroids
 
     @property
     def surface_faces(self):
         if self._surface_faces is None:
-            self._surface_faces = mesh_surface_faces(self.nodes, self.connectivity)
+            # self._surface_faces = mesh_surface_faces(self.nodes, self.connectivity)
+            pass
         return self._surface_faces
 
 
@@ -279,29 +308,30 @@ def process_elements(infile: str, outfile: str, scale: float = 1e-3):
 
 def centroids(nodes: NDArray[float64], connectivity: NDArray[int64]) -> NDArray[float64]:
     n_elements: int = connectivity.shape[0]
-    _centroids: NDArray[float64] = np.zeros((n_elements,3))
+    _centroids: NDArray[float64] = np.zeros((n_elements, 3))
 
     for i in range(n_elements):
-        n0 = connectivity[i,0]
-        n1 = connectivity[i,1]
-        n2 = connectivity[i,2]
-        n3 = connectivity[i,3]
-        x= np.average([nodes[n0,0],nodes[n1,0],nodes[n2,0],nodes[n3,0]])
-        y= np.average([nodes[n0,1],nodes[n1,1],nodes[n2,1],nodes[n3,1]])
-        z= np.average([nodes[n0,2],nodes[n1,2],nodes[n2,2],nodes[n3,2]])
-        _centroids[i] = np.array([x,y,z])
-    
+        n0 = connectivity[i, 0]
+        n1 = connectivity[i, 1]
+        n2 = connectivity[i, 2]
+        n3 = connectivity[i, 3]
+        x = np.average([nodes[n0, 0], nodes[n1, 0], nodes[n2, 0], nodes[n3, 0]])
+        y = np.average([nodes[n0, 1], nodes[n1, 1], nodes[n2, 1], nodes[n3, 1]])
+        z = np.average([nodes[n0, 2], nodes[n1, 2], nodes[n2, 2], nodes[n3, 2]])
+        _centroids[i] = np.array([x, y, z])
+
     return _centroids
+
 
 def volumes(nodes: NDArray[float64], connectivity: NDArray[int64]) -> NDArray[float64]:
     n_elements: int = connectivity.shape[0]
     _volumes: NDArray[float64] = np.zeros((n_elements,))
 
     for i in range(n_elements):
-        n0 = connectivity[i,0]
-        n1 = connectivity[i,1]
-        n2 = connectivity[i,2]
-        n3 = connectivity[i,3]
-        _volumes[i] = tet_volume(nodes[n0,:],nodes[n1,:],nodes[n2,:],nodes[n3,:])
-    
+        n0 = connectivity[i, 0]
+        n1 = connectivity[i, 1]
+        n2 = connectivity[i, 2]
+        n3 = connectivity[i, 3]
+        _volumes[i] = tet_volume(nodes[n0, :], nodes[n1, :], nodes[n2, :], nodes[n3, :])
+
     return _volumes
