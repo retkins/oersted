@@ -1,4 +1,5 @@
 """Operations for magnetic materials"""
+import oersted
 
 from collections.abc import Callable
 
@@ -8,7 +9,7 @@ from numpy import float64, int64
 
 from oersted import LinearMaterial, MU0
 from oersted.materials import Material
-from ._oersted import _h_demag_tet4
+from ._oersted import _h_demag_tet4, _hfield_dipole_tetrahedrons
 
 
 def mag_force(centroids: NDArray[float64], vol: NDArray[float64], material: LinearMaterial, h_ext: Callable) -> NDArray[float64]:
@@ -105,6 +106,63 @@ def h_demag_tet4(
         nthreads_requested,
     )
 
+
+    return np.hstack((hx[:, np.newaxis], hy[:, np.newaxis], hz[:, np.newaxis]))
+
+
+def h_demag_tet4_octree(
+    nodes: NDArray[float64], 
+    element_connectivity: NDArray[int64], 
+    material: Material, 
+    m_field: NDArray[float64], 
+    centroids: NDArray[float64],
+    vol: NDArray[float64], 
+    nthreads_requested: int = 0,
+    theta: float = 0.5,
+    leaf_threshold: int = 16
+) -> NDArray[float64]:
+    """Compute the demagnetization field H(M) on mesh element centroids given the current M-field
+
+    Args:
+        nodes: (Nn, 3) nodal coordinates per element
+        element_connectivity: (Ne, 4) indices of each node per element;
+            these are indices of the array `nodes`, not of the solver's node numbers
+        material: linear or nonlinear magnetic maaterial properties
+        m_field: (Ne,3) current M-field at each element centroid
+        max_iterations: number of solver iterations before exit
+        tol: maximum amount of change per individual component of M at each element
+
+    Returns:
+        (Ne 3): demagnetization field H(M) at each node
+    """
+
+    # Check that the M field is calculated at the element centroids
+    try:
+        assert element_connectivity.shape[0] == m_field.shape[0]
+    except AssertionError:
+        print("Error. The M-field should be calculated at element centroids.")
+
+    n_elements: int = element_connectivity.shape[0]
+    hx = np.zeros(n_elements)
+    hy = np.zeros(n_elements)
+    hz = np.zeros(n_elements)
+
+    _hfield_dipole_tetrahedrons(
+        np.ascontiguousarray(nodes.flatten()),
+        np.ascontiguousarray(centroids.flatten()),
+        np.ascontiguousarray(vol),
+        np.ascontiguousarray(m_field.flatten()),
+        np.ascontiguousarray(m_field[:, 0]),
+        np.ascontiguousarray(m_field[:, 1]),
+        np.ascontiguousarray(m_field[:, 2]),
+        np.ascontiguousarray(hx),
+        np.ascontiguousarray(hy),
+        np.ascontiguousarray(hz),
+        theta,
+        leaf_threshold,
+        nthreads_requested,
+    )
+
     return np.hstack((hx[:, np.newaxis], hy[:, np.newaxis], hz[:, np.newaxis]))
 
 
@@ -116,6 +174,7 @@ def demag_tet4(
     max_iterations: int = 50,
     tol: float = 1e-6,
     nthreads_requested: int = 0,
+    octree: bool=False
 ) -> tuple[NDArray[float64], NDArray[float64]]:
     """Compute magnetization field M and the total H field at element centroids
 
@@ -141,6 +200,9 @@ def demag_tet4(
     except AssertionError:
         print("Error. The external should be calculated at mesh nodes.")
 
+    centroids = oersted.mesh.centroids(nodes, element_connectivity)
+    vol = oersted.mesh.volumes(nodes, element_connectivity)
+
     # We need the magnetization curve; sometimes users may have a B-H curve
     h_values, m_values = material.to_mh_curve()
 
@@ -152,7 +214,11 @@ def demag_tet4(
 
     for i in range(max_iterations):
         # Get the demag and total H field at the element centroids
-        h_demag = h_demag_tet4(nodes, element_connectivity, material, m_field, nthreads_requested=nthreads_requested)
+        if octree:
+            h_demag = h_demag_tet4_octree(nodes, element_connectivity, material, m_field,centroids,vol, nthreads_requested=nthreads_requested)
+
+        else:
+            h_demag = h_demag_tet4(nodes, element_connectivity, material, m_field, nthreads_requested=nthreads_requested)
         h_total = h_demag + h_external
 
         # We consider isotropic materials for the B-H curve iteration

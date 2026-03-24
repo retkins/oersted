@@ -34,7 +34,7 @@ def test_mag_ellipsoid(min_size: float = 0.15, max_size: float = 0.15):
     mat = oersted.materials.LinearMaterial(mu_r)
     h_external = np.zeros((connectivity.shape[0], 3))
     h_external[:, 2] = h_ext
-    M, Htotal = oersted.magnetization.demag_tet4(nodes, connectivity, mat, h_external)
+    M, Htotal = oersted.magnetization.demag_tet4(nodes, connectivity, mat, h_external,octree=True)
     Btotal = oersted.MU0 * (Htotal + M)
     Bavg = np.average(Btotal, axis=0)
     print(f"avg B (element): {Bavg}")
