@@ -2,7 +2,7 @@
 
 import numpy as np
 from numpy.typing import NDArray
-from numpy import float64, uint32, int64
+from numpy import float64, uint32
 from ._oersted import _mesh_centroids, _mesh_volumes
 
 
@@ -24,6 +24,7 @@ class Mesh:
         self._edges = None
         self._faces = None
         self._centroids = None
+        self._volumes = None
         self._face_centroids = None
         self._surface_faces = None
 
@@ -64,8 +65,8 @@ class Mesh:
             cy = np.zeros((self.num_elems,))
             cz = np.zeros((self.num_elems,))
             _mesh_centroids(
-                np.ascontiguousarray(self.nodes),
-                np.ascontiguousarray(self.connectivity),
+                np.ascontiguousarray(self.nodes.flatten()),
+                np.ascontiguousarray(self.connectivity.flatten()),
                 np.ascontiguousarray(cx[:]),
                 np.ascontiguousarray(cy[:]),
                 np.ascontiguousarray(cz[:]),
@@ -77,7 +78,9 @@ class Mesh:
     def volumes(self):
         if self._volumes is None:
             self._volumes: NDArray[float64] = np.zeros((self.num_elems,))
-            _mesh_volumes(np.ascontiguousarray(self.nodes), np.ascontiguousarray(self.connectivity), np.ascontiguousarray(self._volumes))
+            _mesh_volumes(
+                np.ascontiguousarray(self.nodes.flatten()), np.ascontiguousarray(self.connectivity.flatten()), np.ascontiguousarray(self._volumes)
+            )
         return self._volumes
 
     @property
@@ -109,17 +112,18 @@ def plot_mesh(x, y, z):
         print("Error - matplotlib is not installed. Could not plot mesh.")
 
 
-def mesh_step(infile: str, outfile: str, min_size: float, max_size: float, process: bool = True) -> tuple[NDArray[float64], NDArray[int64]]:
+def mesh_step(infile: str, outfile: str, min_size: float, max_size: float, scale=1e-3) -> Mesh:
     """Mesh a step file using gmsh"""
 
     mshfile = infile.split(".")[0] + ".msh"
     nodes: NDArray[float64]
-    connectivity: NDArray[int64]
+    connectivity: NDArray[uint32]
 
     try:
         import gmsh
 
         gmsh.initialize()
+        gmsh.option.setNumber("General.Terminal", 0)  # suppress output
         gmsh.model.occ.importShapes(infile)
         gmsh.model.occ.synchronize()
         gmsh.option.setNumber("Mesh.CharacteristicLengthMin", min_size)
@@ -133,7 +137,7 @@ def mesh_step(infile: str, outfile: str, min_size: float, max_size: float, proce
         node_tags, coords, _ = gmsh.model.mesh.getNodes()
 
         # coords is flat [x0,y0,z0,x1,y1,z1,...], reshape to (Nn, 3)
-        nodes = np.array(coords).reshape(-1, 3)
+        nodes = np.array(coords).reshape(-1, 3) * scale
 
         # Build compact renumbering: gmsh tags can be sparse/non-sequential
         tag_to_compact = {tag: i for i, tag in enumerate(node_tags)}
@@ -147,14 +151,11 @@ def mesh_step(infile: str, outfile: str, min_size: float, max_size: float, proce
         # Renumber to compact 0-based indices
         connectivity = np.array([[tag_to_compact[tag] for tag in elem] for elem in raw_connectivity], dtype=np.uint32)
         gmsh.finalize()
-        if process:
-            process_elements(mshfile, outfile)
 
-        return nodes, connectivity
+        return Mesh(nodes, connectivity)
 
     except ImportError:
-        print(f"Error - gmsh is not installed. Could not mesh file `{infile}`")
-        return nodes, connectivity
+        raise RuntimeError(f"Error - gmsh is not installed. Could not mesh file `{infile}`") from None
 
 
 def mesh_step_tets(
@@ -304,34 +305,3 @@ def process_elements(infile: str, outfile: str, scale: float = 1e-3):
 
     except ImportError:
         print(f"Error - gmsh is not installed. Could not process elements in file `{infile}`")
-
-
-def centroids(nodes: NDArray[float64], connectivity: NDArray[int64]) -> NDArray[float64]:
-    n_elements: int = connectivity.shape[0]
-    _centroids: NDArray[float64] = np.zeros((n_elements, 3))
-
-    for i in range(n_elements):
-        n0 = connectivity[i, 0]
-        n1 = connectivity[i, 1]
-        n2 = connectivity[i, 2]
-        n3 = connectivity[i, 3]
-        x = np.average([nodes[n0, 0], nodes[n1, 0], nodes[n2, 0], nodes[n3, 0]])
-        y = np.average([nodes[n0, 1], nodes[n1, 1], nodes[n2, 1], nodes[n3, 1]])
-        z = np.average([nodes[n0, 2], nodes[n1, 2], nodes[n2, 2], nodes[n3, 2]])
-        _centroids[i] = np.array([x, y, z])
-
-    return _centroids
-
-
-def volumes(nodes: NDArray[float64], connectivity: NDArray[int64]) -> NDArray[float64]:
-    n_elements: int = connectivity.shape[0]
-    _volumes: NDArray[float64] = np.zeros((n_elements,))
-
-    for i in range(n_elements):
-        n0 = connectivity[i, 0]
-        n1 = connectivity[i, 1]
-        n2 = connectivity[i, 2]
-        n3 = connectivity[i, 3]
-        _volumes[i] = tet_volume(nodes[n0, :], nodes[n1, :], nodes[n2, :], nodes[n3, :])
-
-    return _volumes

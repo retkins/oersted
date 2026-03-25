@@ -9,13 +9,15 @@ The problem has the following parameters:
 
 """
 
+from oersted.mesh import Mesh
+
 import oersted
 import numpy as np
 
 
 def test_mag_ellipsoid(min_size: float = 0.15, max_size: float = 0.15):
     # Mesh the part
-    nodes, connectivity = oersted.mesh.mesh_step("tests/data/ellipsoid.stp", "tests/data/ellipsoid.msh", min_size, max_size)
+    mesh: Mesh = oersted.mesh_step("tests/data/ellipsoid.stp", "tests/data/ellipsoid.msh", min_size, max_size)
 
     # Parameters
     a: float = 1.0
@@ -32,9 +34,9 @@ def test_mag_ellipsoid(min_size: float = 0.15, max_size: float = 0.15):
 
     # Finite element solution
     mat = oersted.materials.LinearMaterial(mu_r)
-    h_external = np.zeros((connectivity.shape[0], 3))
+    h_external = np.zeros((mesh.num_elems, 3))
     h_external[:, 2] = h_ext
-    M, Htotal = oersted.magnetization.demag_tet4(nodes, connectivity, mat, h_external, octree=False)
+    M, Htotal = oersted.magnetization.demag_tet4(mesh, mat, h_external, tol=1.0, octree=False)
     Btotal = oersted.MU0 * (Htotal + M)
     Bavg = np.average(Btotal, axis=0)
     print(f"avg B (element): {Bavg}")

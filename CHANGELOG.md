@@ -35,3 +35,5 @@
 * Updated mesh handling interface to have its own class
 * Updated octree methods to operate on magnetized tet4's
 * Added Mesh object, methods for calculating volume and centroid of tet4 elements
+* Update magnetization functions and related tests to use Mesh object
+* Reduce default error tolerance of demag calc to 1.0 without loss of Bfield precision to 6 decimal places

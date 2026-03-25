@@ -11,7 +11,7 @@ from .biotsavart import (
     hfield_dipole_tetrahedrons,
 )
 from .materials import MU0, FreeSpace, LinearMaterial, NonlinearMaterial, BHCurve
-from . import mesh
+from .mesh import Mesh, mesh_step
 from .magnetization import mag_force
 from . import testing
 
@@ -25,7 +25,8 @@ __all__ = [
     "bfield_direct",
     "bfield_octree",
     "testing",
-    "mesh",
+    "Mesh",
+    "mesh_step",
     "bfield_dualtree",
     "bfield_hexahedron",
     "bfield_tetrahedrons",

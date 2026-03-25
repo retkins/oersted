@@ -1,14 +1,12 @@
 """Operations for magnetic materials"""
 
-import oersted
-
 from collections.abc import Callable
 
 import numpy as np
 from numpy.typing import NDArray
 from numpy import float64, int64
 
-from oersted import LinearMaterial, MU0
+from oersted import LinearMaterial, MU0, Mesh
 from oersted.materials import Material
 from ._oersted import _h_demag_tet4, _hfield_dipole_tetrahedrons
 
@@ -167,12 +165,11 @@ def h_demag_tet4_octree(
 
 
 def demag_tet4(
-    nodes: NDArray[float64],
-    element_connectivity: NDArray[int64],
+    mesh: Mesh,
     material: Material,
     h_external: NDArray[float64],
     max_iterations: int = 50,
-    tol: float = 1e-6,
+    tol: float = 1.0,
     nthreads_requested: int = 0,
     octree: bool = False,
 ) -> tuple[NDArray[float64], NDArray[float64]]:
@@ -196,17 +193,17 @@ def demag_tet4(
 
     # Check that the external field is calculated at the nodes
     try:
-        assert element_connectivity.shape[0] == h_external.shape[0]
+        assert mesh.num_elems == h_external.shape[0]
     except AssertionError:
         print("Error. The external should be calculated at mesh nodes.")
 
-    centroids = oersted.mesh.centroids(nodes, element_connectivity)
-    vol = oersted.mesh.volumes(nodes, element_connectivity)
+    centroids = mesh.centroids
+    vol = mesh.volumes
 
     # We need the magnetization curve; sometimes users may have a B-H curve
     h_values, m_values = material.to_mh_curve()
 
-    n_elements: int = element_connectivity.shape[0]
+    n_elements: int = mesh.num_elems
 
     m_field = np.zeros((n_elements, 3))
     h_hat = np.zeros((n_elements, 3))
@@ -215,10 +212,10 @@ def demag_tet4(
     for i in range(max_iterations):
         # Get the demag and total H field at the element centroids
         if octree:
-            h_demag = h_demag_tet4_octree(nodes, element_connectivity, material, m_field, centroids, vol, nthreads_requested=nthreads_requested)
+            h_demag = h_demag_tet4_octree(mesh.nodes, mesh.connectivity, material, m_field, centroids, vol, nthreads_requested=nthreads_requested)
 
         else:
-            h_demag = h_demag_tet4(nodes, element_connectivity, material, m_field, nthreads_requested=nthreads_requested)
+            h_demag = h_demag_tet4(mesh.nodes, mesh.connectivity, material, m_field, nthreads_requested=nthreads_requested)
         h_total = h_demag + h_external
 
         # We consider isotropic materials for the B-H curve iteration

@@ -1,5 +1,6 @@
 import numpy as np
 import oersted
+from oersted import Mesh
 import time
 
 # Test parameters
@@ -11,17 +12,17 @@ b_ext_mag: float = 1.0  # T
 mu_r: float = 1.5
 
 # Mesh the sphere
-nodes, connectivity = oersted.mesh.mesh_step(infile, outfile, min_size, max_size)
+mesh: Mesh = oersted.mesh.mesh_step(infile, outfile, min_size, max_size)
 
 # Create material properties and calculate uniform background fiel
 mat = oersted.materials.LinearMaterial(mu_r)
-h_external = np.zeros((connectivity.shape[0], 3))
+h_external = np.zeros((mesh.num_elems, 3))
 h_ext_mag: float = b_ext_mag / oersted.MU0
 h_external[:, 2] = b_ext_mag / oersted.MU0
 
 # Compute demag parameters: magnetization and internal H field
 start = time.perf_counter()
-M, Htotal = oersted.magnetization.demag_tet4(nodes, connectivity, mat, h_external, nthreads_requested=6)
+M, Htotal = oersted.magnetization.demag_tet4(mesh, mat, h_external, nthreads_requested=6)
 elapsed = time.perf_counter() - start
 
 # Postprocessing
@@ -44,7 +45,7 @@ M_error = (M_analytical - Mavg) / M_analytical
 B_error = (B_analytical - Bavg) / B_analytical
 
 print("\n\nDemag tet test - magnetized sphere\n---\n")
-print(f"{nodes.shape[0]} nodes, {connectivity.shape[0]} elements")
+print(f"{mesh.num_nodes} nodes, {mesh.num_elems} elements")
 print(f"Background field: {b_ext_mag:.3f} T")
 print(f"Relative permeability: {mu_r:.3f}")
 print("")
