@@ -2,7 +2,7 @@
 
 use std::cmp::max;
 
-use numpy::{PyReadonlyArray1, PyReadwriteArray1};
+use numpy::{PyArray1, PyArray2, PyArrayMethods, PyReadonlyArray1, PyReadwriteArray1};
 use pyo3::prelude::*;
 
 use crate::biotsavart;
@@ -474,6 +474,17 @@ fn _mesh_volumes(
     Ok(())
 }
 
+#[pyfunction]
+fn _mesh_surface_faces<'py>(
+    py: Python<'py>,
+    connectivity: PyReadonlyArray1<u32>,
+) -> PyResult<Bound<'py, PyArray2<u32>>> {
+    let surface_faces = mesh::surface_faces(&connectivity.as_slice()?);
+    let n = surface_faces.len() / 3;
+    let result = PyArray1::from_vec(py, surface_faces);
+    result.reshape([n, 3])
+}
+
 #[pymodule]
 fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_bfield_direct, m.clone())?)?;
@@ -489,6 +500,7 @@ fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     // Mesh functions
     m.add_function(wrap_pyfunction!(_mesh_centroids, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_mesh_volumes, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(_mesh_surface_faces, m.clone())?)?;
 
     Ok(())
 }

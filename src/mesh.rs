@@ -1,6 +1,7 @@
 //! Finite element mesh operations
 
 use crate::vec3::Vec3;
+use std::collections::HashMap;
 
 /// Return the coordinates of a node with number `idx`
 ///
@@ -71,6 +72,48 @@ pub fn volumes(nodes: &[f64], connectivity: &[u32], vol: &mut [f64]) {
 
         vol[i] = (1.0 / 6.0) * (a.dot(&b.cross(&c))).abs();
     }
+}
+
+/// Determine which faces in a mesh are on the surface
+///
+/// Returns a flat vector of the indices for each node in the surface faces
+pub fn surface_faces(connectivity: &[u32]) -> Vec<u32> {
+    let n_elements: usize = connectivity.len() / 4;
+
+    // Waste a bit of memory by allocating more memory than we need...
+    let mut faces_out: Vec<u32> = Vec::with_capacity(n_elements);
+    let mut face_map: HashMap<[u32; 3], [u32; 3]> = HashMap::with_capacity(n_elements);
+
+    for elem in connectivity.chunks_exact(4) {
+        // Refer the gmsh docs for node numbering scheme:
+        // <https://gmsh.info/doc/texinfo/gmsh.html#Node-ordering>
+        let faces = [
+            [elem[0], elem[3], elem[2]],
+            [elem[0], elem[2], elem[1]],
+            [elem[0], elem[1], elem[3]],
+            [elem[1], elem[2], elem[3]],
+        ];
+
+        for face in faces {
+            let mut key = face;
+
+            // Internal faces will have opposite ordering, so these need to be sorted
+            key.sort();
+            if let std::collections::hash_map::Entry::Vacant(e) = face_map.entry(key) {
+                e.insert(face);
+            } else {
+                face_map.remove(&key);
+            }
+        }
+    }
+
+    for face in face_map.values() {
+        faces_out.push(face[0]);
+        faces_out.push(face[1]);
+        faces_out.push(face[2]);
+    }
+
+    faces_out
 }
 
 #[cfg(test)]

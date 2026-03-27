@@ -1,14 +1,24 @@
 """Mesh generation and processing routines"""
 
+import oersted
+
 import numpy as np
 from numpy.typing import NDArray
 from numpy import float64, uint32
-from ._oersted import _mesh_centroids, _mesh_volumes
+from ._oersted import (
+    _mesh_centroids,
+    _mesh_volumes,
+    _mesh_surface_faces,
+    # _mesh_surface_face_normals,
+    # _mesh_surface_face_areas,
+    # _maxwell_stress_tensor,
+)
 
 
 class Mesh:
     """A continuous finite element mesh made of tet4 elements"""
 
+    # Basic mesh topology data
     _nodes: NDArray[float64]
     _connectivity: NDArray[uint32]
     _edges: NDArray[uint32] | None
@@ -17,10 +27,19 @@ class Mesh:
     _volumes: NDArray[float64] | None
     _face_centroids: NDArray[float64] | None
     _surface_faces: NDArray[uint32] | None
+    _surface_face_centroids: NDArray[float64] | None
+    _surface_face_normals: NDArray[float64] | None
+    _surface_face_areas: NDArray[float64] | None
 
-    def __init__(self, nodes, connectivity):
+    # Results information is stored at the element centroids
+    _j_density: NDArray[float64] | None
+    _h_field: NDArray[float64] | None
+    _m_field: NDArray[float64] | None
+
+    def __init__(self, nodes: NDArray[float64], connectivity: NDArray[uint32], j_density: NDArray[float64] | None = None):
         self._nodes = nodes
         self._connectivity = connectivity
+        self._j_density = j_density
         self._edges = None
         self._faces = None
         self._centroids = None
@@ -29,37 +48,56 @@ class Mesh:
         self._surface_faces = None
 
     @property
-    def nodes(self):
+    def nodes(self) -> NDArray[float64]:
+        """Returns an (N,3) array of nodal coordinates in the mesh"""
         return self._nodes
 
     @property
-    def connectivity(self):
+    def connectivity(self) -> NDArray[uint32]:
+        """Returns an (N,4) array of the node numbers associated with each element
+
+        Node numbers are indices into the self._nodes array
+        """
         return self._connectivity
 
     @property
-    def num_nodes(self):
+    def num_nodes(self) -> int:
+        """Returns the number of nodes in the model"""
         return self._nodes.shape[0]
 
     @property
-    def num_elems(self):
+    def num_elems(self) -> int:
+        """Returns the number of elements in the model"""
         return self._connectivity.shape[0]
 
     @property
-    def edges(self):
+    def edges(self):  # -> NDArray[uint32]:
+        """Returns an (N,2) array of edges in the model
+
+        Each value in the array is a node number associated with that edge.
+        The first node is the start node, the second is the end node. This
+        provides directionality for the edge.
+        """
         if self._edges is None:
-            # self._edges = mesh_edges(self.nodes, self.connectivity)
+            # self._edges = _mesh_edges(self.nodes, self.connectivity)
             pass
         return self._edges
 
     @property
     def faces(self):
+        """Returns an (N,3) array of nodes associated with each element face
+        in the model
+
+        Nodes are ordered such that the right hand rule forms the face normal.
+        """
         if self._faces is None:
             # self._faces = mesh_faces(self.nodes, self.connectivity)
             pass
         return self._faces
 
     @property
-    def centroids(self):
+    def centroids(self) -> NDArray[float64]:
+        """Returns an (N,3) array of all element centroids in the mesh"""
         if self._centroids is None:
             cx = np.zeros((self.num_elems,))
             cy = np.zeros((self.num_elems,))
@@ -71,11 +109,12 @@ class Mesh:
                 np.ascontiguousarray(cy[:]),
                 np.ascontiguousarray(cz[:]),
             )
-        self._centroids = np.hstack((cx[:, np.newaxis], cy[:, np.newaxis], cz[:, np.newaxis]))
+            self._centroids = np.hstack((cx[:, np.newaxis], cy[:, np.newaxis], cz[:, np.newaxis]))
         return self._centroids
 
     @property
-    def volumes(self):
+    def volumes(self) -> NDArray[float64]:
+        """Return an (N,) array of the volume of each element in the mesh"""
         if self._volumes is None:
             self._volumes: NDArray[float64] = np.zeros((self.num_elems,))
             _mesh_volumes(
@@ -93,9 +132,79 @@ class Mesh:
     @property
     def surface_faces(self):
         if self._surface_faces is None:
-            # self._surface_faces = mesh_surface_faces(self.nodes, self.connectivity)
+            self._surface_faces = _mesh_surface_faces(self.connectivity)
             pass
         return self._surface_faces
+
+    @property
+    def surface_face_centroids(self):
+        if self._surface_face_centroids is None:
+            # self._surface_face_centroids = mesh_surface_face_centroids(self.nodes, self.surface_faces)
+            pass
+        return self._surface_face_centroids
+
+    @property
+    def surface_face_normals(self):
+        """Returns an (N,3) array of the normal vectors associated with each surface face in the model"""
+        if self._surface_face_normals is None:
+            # self._surface_face_normals = _mesh_surface_face_normals(self.nodes, self.surface_faces)
+            pass
+
+        return self._surface_face_normals
+
+    @property
+    def surface_face_areas(self):
+        """Returns an (N,) array of the area of each surface face"""
+        if self._surface_face_areas is None:
+            # self._surface_face_areas = _mesh_surface_face_areas(self.nodes, self.surface_faces)
+            pass
+        return self._surface_face_areas
+
+    @property
+    def h_field(self) -> NDArray[float64]:
+        """Return an (N,3) array of the magnetic field strength vector at each element centroid"""
+        if self._h_field is None:
+            raise Exception("Error - h field has not been calculated for this mesh.")
+
+        return self._h_field
+
+    @property
+    def m_field(self) -> NDArray[float64]:
+        """Return an (N,3) array of the magnetization vector at each element centroid"""
+        if self._m_field is None:
+            self._m_field = np.zeros((self.num_elems, 3))
+
+        return self._m_field
+
+    @property
+    def b_field(self) -> NDArray[float64]:
+        """Return an (N,3) array of the magnetic flux density at each element centroid"""
+        if self._h_field is None and self._m_field is None:
+            raise Exception("Error - results have not been calculated for this mesh.")
+
+        return oersted.MU0 * (self.m_field + self.h_field)
+
+    @property
+    def j_density(self) -> NDArray[float64]:
+        """Returns an (N,3) array of the current density at each element centroid
+
+        This function will return an empty array if current densities have not been
+        provided at object initiation.
+        """
+        if self._j_density is None:
+            return np.zeros((self.num_elems, 3))
+
+        else:
+            return self._j_density
+
+    @property
+    def surface_forces(self):  # -> NDArray[float64]:
+        """Compute the maxwell stress tensor and determine the force vector acting on each
+        surface face centroid. Returns an (N,3) array of the force vector
+        """
+
+        # return _maxwell_stress_tensor(self.surface_face_centroids, self.surface_face_normals, self.surface_face_areas, self.j_density, self.m_field)
+        pass
 
 
 def plot_mesh(x, y, z):
