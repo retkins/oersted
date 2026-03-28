@@ -8,9 +8,11 @@ from ._oersted import (
     _mesh_volumes,
     _mesh_surface_faces,
     _mesh_surface_face_properties,
+    _mesh_surface_tets,
     # _maxwell_stress_tensor,
 )
-from oersted import MU0, Solver
+from oersted import MU0, Solver 
+# from .magnetization import h_demag_tet4
 
 
 class CentroidMesh:
@@ -248,7 +250,12 @@ class Mesh:
 
         # h_ext = b_ext / MU0
         if self._m_field is not None:
+            (surface_nodes, surface_connectivity) = _mesh_surface_tets(
+                self.nodes, self.surface_faces, self.surface_face_centroids, self.surface_face_normals
+            )
+
             pass
+
 
         # return _maxwell_stress_tensor(self.surface_face_centroids, self.surface_face_normals, self.surface_face_areas, self.j_density, self.m_field)
         pass

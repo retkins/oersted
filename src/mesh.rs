@@ -2,8 +2,8 @@
 
 use crate::MU0;
 use crate::mat3::Mat3;
-use crate::vec3::Vec3;
 use crate::math::mag3;
+use crate::vec3::Vec3;
 use std::collections::HashMap;
 
 const INV_MU0: f64 = 1.0 / MU0;
@@ -211,6 +211,61 @@ pub fn surface_forces(
     }
 
     forces
+}
+
+/// Create surface tetrahedrons for calculating the gradient at the surface of a mesh
+///
+/// Returns (nodes, connectivity)
+pub fn surface_tets(
+    nodes: &[f64],
+    faces: &[u32],
+    centroids: &[f64],
+    normals: &[f64],
+) -> (Vec<f64>, Vec<u32>) {
+    let n_faces = faces.len() / 3;
+    let mut nodes_out: Vec<f64> = Vec::with_capacity(n_faces * 12); // 4 nodes x 3 coords per face
+    let mut connectivity_out: Vec<u32> = Vec::with_capacity(n_faces * 4);
+
+    for (i, face) in faces.chunks_exact(3).enumerate() {
+        let first_node: Vec3 = node_coords(nodes, face[0] as usize);
+        let centroid: Vec3 = node_coords(centroids, i); // still works for non-node things
+        let normal: Vec3 = node_coords(normals, i);
+
+        // Vector from centroid to 1st node in the surface triangle
+        let v0: Vec3 = first_node - centroid;
+        let v0_mag: f64 = v0.mag();
+        let delta: f64 = 0.01 * v0_mag; // edge length is 2*delta
+        let u0: Vec3 = v0 * (1.0 / v0_mag); // normal vector for two nodes outside the surface
+        let u1: Vec3 = normal.cross(&u0); // normal vector for two nodes inside the surface
+
+        // Now that we have our vectors, create nodes associated with them
+        // using the definition of a regular tetrahedron centered at the origin
+        // <https://en.wikipedia.org/wiki/Regular_tetrahedron#Cartesian_coordinates>
+        let n0 = centroid + (u0 * delta) + (normal * delta * (1.0 / 2.0f64.sqrt()));
+        let n1 = centroid + (u0 * (-delta)) + (normal * delta * (1.0 / 2.0f64.sqrt()));
+        let n2 = centroid + (u1 * delta) + (normal * delta * (-1.0 / 2.0f64.sqrt()));
+        let n3 = centroid + (u1 * (-delta)) + (normal * delta * (-1.0 / 2.0f64.sqrt()));
+
+        // Accumulate
+        nodes_out.push(n0[0]);
+        nodes_out.push(n0[1]);
+        nodes_out.push(n0[2]);
+        nodes_out.push(n1[0]);
+        nodes_out.push(n1[1]);
+        nodes_out.push(n1[2]);
+        nodes_out.push(n2[0]);
+        nodes_out.push(n2[1]);
+        nodes_out.push(n2[2]);
+        nodes_out.push(n3[0]);
+        nodes_out.push(n3[1]);
+        nodes_out.push(n3[2]);
+        connectivity_out.push((i * 4) as u32);
+        connectivity_out.push((i * 4 + 1) as u32);
+        connectivity_out.push((i * 4 + 2) as u32);
+        connectivity_out.push((i * 4 + 3) as u32);
+    }
+
+    (nodes_out, connectivity_out)
 }
 
 #[cfg(test)]

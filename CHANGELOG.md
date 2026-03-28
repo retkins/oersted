@@ -42,3 +42,4 @@
 * Move Solver into its own file
 * Add function for calculating surface face areas and normals
 * Add Maxwell stress tensor and surface force calculation functions
+* Add function for creating tetradhedrons at surface faces for magnetization calc

@@ -523,6 +523,27 @@ fn _mesh_surface_forces<'py>(
     Ok(PyArray1::from_vec(py, forces_out).reshape([forces.len(), 3])?)
 }
 
+#[pyfunction]
+fn _mesh_surface_tets<'py>(
+    py: Python<'py>,
+    nodes: PyReadonlyArray1<f64>,
+    faces: PyReadonlyArray1<u32>,
+    centroids: PyReadonlyArray1<f64>,
+    normals: PyReadonlyArray1<f64>,
+) -> PyResult<(Bound<'py, PyArray2<f64>>, Bound<'py, PyArray2<u32>>)> {
+    let (nodes_out, connectivity_out) = mesh::surface_tets(
+        &nodes.as_slice()?,
+        &faces.as_slice()?,
+        &centroids.as_slice()?,
+        &normals.as_slice()?,
+    );
+    let n_faces = connectivity_out.len() / 4;
+    Ok((
+        PyArray1::from_vec(py, nodes_out).reshape([n_faces, 3])?,
+        PyArray1::from_vec(py, connectivity_out).reshape([n_faces, 3])?,
+    ))
+}
+
 #[pymodule]
 fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_bfield_direct, m.clone())?)?;
