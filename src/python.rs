@@ -485,6 +485,20 @@ fn _mesh_surface_faces<'py>(
     result.reshape([n, 3])
 }
 
+#[pyfunction]
+fn _mesh_surface_face_properties<'py>(
+    py: Python<'py>,
+    nodes: PyReadonlyArray1<f64>,
+    faces: PyReadonlyArray1<u32>,
+) -> PyResult<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray2<f64>>)> {
+    let n_faces = faces.as_slice()?.len() / (3 as usize);
+    let (areas, normals) = mesh::surface_face_properties(&nodes.as_slice()?, faces.as_slice()?);
+
+    let area_out = PyArray1::from_vec(py, areas);
+    let normals_out = PyArray1::from_vec(py, normals);
+    Ok((area_out, normals_out.reshape([n_faces, 3])?))
+}
+
 #[pymodule]
 fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_bfield_direct, m.clone())?)?;
@@ -501,6 +515,7 @@ fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_mesh_centroids, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_mesh_volumes, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_mesh_surface_faces, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(_mesh_surface_face_properties, m.clone())?)?;
 
     Ok(())
 }

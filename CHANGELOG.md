@@ -39,3 +39,5 @@
 * Reduce default error tolerance of demag calc to 1.0 without loss of Bfield precision to 6 decimal places
 * Add function for computing which are surface faces on a tetrahedral mesh
 * Add Solver and CentroidMesh classes
+* Move Solver into its own file
+* Add function for calculating surface face areas and normals

@@ -6,6 +6,7 @@ use std::collections::HashMap;
 /// Return the coordinates of a node with number `idx`
 ///
 /// `nodes` is a flat array representing an Nx3 table of nodal coordinates
+#[inline]
 pub fn node_coords(nodes: &[f64], idx: usize) -> Vec3 {
     Vec3([nodes[3 * idx], nodes[3 * idx + 1], nodes[3 * idx + 2]])
 }
@@ -114,6 +115,34 @@ pub fn surface_faces(connectivity: &[u32]) -> Vec<u32> {
     }
 
     faces_out
+}
+
+/// Compute the area and normal vector of each of the surface faces on a tetrahedral mesh
+pub fn surface_face_properties(nodes: &[f64], surface_faces: &[u32]) -> (Vec<f64>, Vec<f64>) {
+    let n_faces = surface_faces.len() / 3;
+
+    let mut areas: Vec<f64> = vec![0.0; n_faces];
+    let mut normals: Vec<f64> = vec![0.0; 3 * n_faces];
+    for (i, face) in surface_faces.chunks_exact(3).enumerate() {
+        let n0 = node_coords(nodes, face[0] as usize);
+        let n1 = node_coords(nodes, face[1] as usize);
+        let n2 = node_coords(nodes, face[2] as usize);
+        let e0 = n2 - n1;
+        let e1 = n0 - n1;
+        let e0_cross_e1 = e0.cross(&e1);
+        let norm_e0_cross_e1 = e0_cross_e1.mag();
+        let normal = e0_cross_e1 * (1.0 / norm_e0_cross_e1);
+
+        // Accumulate
+
+        // area = 1/2 (e0 x e1)
+        areas[i] = 0.5 * norm_e0_cross_e1;
+        normals[i * 3] = normal[0];
+        normals[i * 3 + 1] = normal[1];
+        normals[i * 3 + 2] = normal[2];
+    }
+
+    (areas, normals)
 }
 
 #[cfg(test)]

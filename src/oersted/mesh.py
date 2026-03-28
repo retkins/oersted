@@ -1,7 +1,5 @@
 """Mesh generation and processing routines"""
 
-import oersted
-
 import numpy as np
 from numpy.typing import NDArray
 from numpy import float64, uint32
@@ -9,13 +7,10 @@ from ._oersted import (
     _mesh_centroids,
     _mesh_volumes,
     _mesh_surface_faces,
-    # _mesh_surface_face_normals,
-    # _mesh_surface_face_areas,
+    _mesh_surface_face_properties,
     # _maxwell_stress_tensor,
 )
-
-from .biotsavart import Solver
-
+from oersted import MU0, Solver
 
 class CentroidMesh:
     """A finite element mesh represented solely by the centroidal values of the elements
@@ -186,6 +181,11 @@ class Mesh:
             pass
         return self._surface_face_centroids
 
+    def _surface_face_properties(self):
+        self._surface_face_areas, self._surface_face_normals = _mesh_surface_face_properties(
+            np.ascontiguousarray(self._nodes), np.ascontiguousarray(self._surface_faces)
+        )
+
     @property
     def surface_face_normals(self):
         """Returns an (N,3) array of the normal vectors associated with each surface face in the model"""
@@ -225,7 +225,7 @@ class Mesh:
         if self._h_field is None and self._m_field is None:
             raise Exception("Error - results have not been calculated for this mesh.")
 
-        return oersted.MU0 * (self.m_field + self.h_field)
+        return MU0 * (self.m_field + self.h_field)
 
     @property
     def j_density(self) -> NDArray[float64]:
