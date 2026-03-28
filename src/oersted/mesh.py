@@ -14,6 +14,49 @@ from ._oersted import (
     # _maxwell_stress_tensor,
 )
 
+from .biotsavart import Solver
+
+
+class CentroidMesh:
+    """A finite element mesh represented solely by the centroidal values of the elements
+
+    This is used in the `point source` calculations. It is an approximation, but extremely
+    fast and accurate for far field or force calculations.
+    """
+
+    # Topology data
+    _centroids: NDArray[float64]
+    _volumes: NDArray[float64]
+
+    # Source and result data
+    _j_density: NDArray[float64] | None
+    _m_field: NDArray[float64] | None
+    _h_field: NDArray[float64] | None
+
+    def __init__(self, centroids: NDArray[float64], volumes: NDArray[float64], j_density: NDArray[float64] | None = None):
+        self._centroids = centroids
+        self._volumes = volumes
+        self._j_density = j_density
+
+    @property
+    def num_elems(self):
+        return self._centroids.shape[0]
+
+    @property
+    def centroids(self):
+        return self._centroids
+
+    @property
+    def volumes(self):
+        return self._volumes
+
+    @property
+    def j_density(self):
+        if self._j_density is None:
+            self._j_density = np.zeros((self.num_elems, 3))
+
+        return self._j_density
+
 
 class Mesh:
     """A continuous finite element mesh made of tet4 elements"""
@@ -197,8 +240,7 @@ class Mesh:
         else:
             return self._j_density
 
-    @property
-    def surface_forces(self):  # -> NDArray[float64]:
+    def surface_forces(self, solver: Solver):  # -> NDArray[float64]:
         """Compute the maxwell stress tensor and determine the force vector acting on each
         surface face centroid. Returns an (N,3) array of the force vector
         """

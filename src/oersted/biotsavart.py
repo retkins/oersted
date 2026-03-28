@@ -15,8 +15,68 @@ from ._oersted import (
     _hfield_dipole_tetrahedrons,
 )
 
+from .mesh import Mesh, CentroidMesh
+
 # For typing; currently unused
 Nx3Array = NDArray[float64]
+
+
+class Solver:
+    _n_threads: int
+
+    @property
+    def n_threads(self):
+        return self._n_threads
+
+
+class DirectSolver(Solver):
+    def __init__(self, n_threads: int = 0):
+        self._n_threads = n_threads
+
+
+class OctreeSolver(Solver):
+    _theta: float
+    _leaf_threshold: int
+
+    def __init__(self, theta: float = 0.25, leaf_threshold: int = 16, n_threads: int = 0):
+
+        self._theta = theta
+        self._leaf_threshold = leaf_threshold
+        self._n_threads = n_threads
+
+    @property
+    def theta(self):
+        return self._theta
+
+    @property
+    def leaf_threshold(self):
+        return self._leaf_threshold
+
+
+def b_field(source: Mesh | CentroidMesh, targets: NDArray[float64], solver: DirectSolver | OctreeSolver | None = None) -> NDArray[float64]:
+    """Compute the magnetic flux density at a collection of target points using the specific source mesh and
+    solver options, assuming the target points are in free space
+    """
+
+    if solver is None:
+        solver = DirectSolver()
+
+    if isinstance(source, CentroidMesh) and isinstance(solver, DirectSolver):
+        return bfield_direct(source.centroids, source.volumes, source.j_density, targets, solver.n_threads)
+
+    elif isinstance(source, CentroidMesh) and isinstance(solver, OctreeSolver):
+        return bfield_octree(source.centroids, source.volumes, source.j_density, targets, solver.theta, solver.leaf_threshold, solver.n_threads)
+
+    elif isinstance(source, Mesh) and isinstance(solver, DirectSolver):
+        return bfield_tetrahedrons_direct(source.nodes, source.centroids, source.volumes, source.j_density, targets, solver.n_threads)
+
+    elif isinstance(source, Mesh) and isinstance(solver, OctreeSolver):
+        return bfield_tetrahedrons(
+            source.nodes, source.centroids, source.volumes, source.j_density, targets, solver.theta, solver.leaf_threshold, solver.n_threads
+        )
+
+    else:
+        raise TypeError(f"Unsupported source/solver combination: {type(source)}, {type(solver)}")
 
 
 def bfield_direct(
