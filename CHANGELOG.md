@@ -41,3 +41,4 @@
 * Add Solver and CentroidMesh classes
 * Move Solver into its own file
 * Add function for calculating surface face areas and normals
+* Add Maxwell stress tensor and surface force calculation functions

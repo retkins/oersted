@@ -499,6 +499,30 @@ fn _mesh_surface_face_properties<'py>(
     Ok((area_out, normals_out.reshape([n_faces, 3])?))
 }
 
+#[pyfunction]
+fn _mesh_surface_forces<'py>(
+    py: Python<'py>,
+    face_areas: PyReadonlyArray1<f64>,
+    face_normals: PyReadonlyArray1<f64>,
+    b_field: PyReadonlyArray1<f64>,
+) -> PyResult<Bound<'py, PyArray2<f64>>> {
+    let stress_tensor = mesh::maxwell_stress_tensor(&b_field.as_slice()?);
+    let forces = mesh::surface_forces(
+        &face_areas.as_slice()?,
+        &face_normals.as_slice()?,
+        &stress_tensor,
+    );
+    let n_faces = stress_tensor.len();
+    let mut forces_out = vec![0.0; n_faces * 3];
+    for i in 0..n_faces {
+        forces_out[i * 3] = forces[i][0];
+        forces_out[i * 3 + 1] = forces[i][1];
+        forces_out[i * 3 + 2] = forces[i][2];
+    }
+
+    Ok(PyArray1::from_vec(py, forces_out).reshape([forces.len(), 3])?)
+}
+
 #[pymodule]
 fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_bfield_direct, m.clone())?)?;
@@ -516,6 +540,7 @@ fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_mesh_volumes, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_mesh_surface_faces, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_mesh_surface_face_properties, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(_mesh_surface_forces, m.clone())?)?;
 
     Ok(())
 }

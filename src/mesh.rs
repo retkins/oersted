@@ -1,7 +1,12 @@
 //! Finite element mesh operations
 
+use crate::MU0;
+use crate::mat3::Mat3;
 use crate::vec3::Vec3;
+use crate::math::mag3;
 use std::collections::HashMap;
+
+const INV_MU0: f64 = 1.0 / MU0;
 
 /// Return the coordinates of a node with number `idx`
 ///
@@ -143,6 +148,69 @@ pub fn surface_face_properties(nodes: &[f64], surface_faces: &[u32]) -> (Vec<f64
     }
 
     (areas, normals)
+}
+
+/// Compute the Maxwell stress tensor on a series of triangular surface faces
+///
+/// # Reference:
+/// "Theory and applications of the Maxwell stress tensor", Field Precision LLC
+/// <https://www.fieldp.com/tutorials/stresstensor.pdf>
+///
+pub fn maxwell_stress_tensor(b_field: &[f64]) -> Vec<Mat3> {
+    let n_faces: usize = b_field.len() / 3;
+    let mut stress_tensor: Vec<Mat3> = vec![Mat3::default(); n_faces];
+    let mut row: Vec3 = Vec3::default();
+
+    for (i, tensor) in stress_tensor.iter_mut().enumerate() {
+        let bx: f64 = b_field[i * 3];
+        let by: f64 = b_field[i * 3 + 1];
+        let bz: f64 = b_field[i * 3 + 2];
+        let b: f64 = mag3(bx, by, bz);
+        let b2_over_2: f64 = 0.5 * b * b;
+
+        // Update tensor
+        row[0] = bx * bx - b2_over_2;
+        row[1] = bx * by;
+        row[2] = bx * bz;
+        tensor[0] = row;
+        row[0] = by * bx;
+        row[1] = by * by - b2_over_2;
+        row[2] = by * bz;
+        tensor[1] = row;
+        row[0] = bz * bx;
+        row[1] = bz * by;
+        row[2] = bz * bz - b2_over_2;
+        tensor[2] = row;
+        *tensor *= INV_MU0;
+    }
+
+    stress_tensor
+}
+
+/// Compute the surface forces acting on a surface mesh using the Maxwell stress
+/// tensor
+pub fn surface_forces(
+    face_areas: &[f64],
+    face_normals: &[f64],
+    stress_tensor: &[Mat3],
+) -> Vec<Vec3> {
+    let n_faces: usize = face_areas.len();
+    assert_eq!(n_faces, face_areas.len());
+    assert_eq!(n_faces, face_normals.len() / 3);
+    assert_eq!(n_faces, stress_tensor.len());
+
+    let mut forces = vec![Vec3::default(); n_faces];
+
+    for (i, tensor) in stress_tensor.iter().enumerate() {
+        let normal = Vec3([
+            face_normals[i * 3],
+            face_normals[i * 3 + 1],
+            face_normals[i * 3 + 2],
+        ]);
+        forces[i] = tensor.mul_vec(&normal) * face_areas[i];
+    }
+
+    forces
 }
 
 #[cfg(test)]

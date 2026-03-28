@@ -12,6 +12,7 @@ from ._oersted import (
 )
 from oersted import MU0, Solver
 
+
 class CentroidMesh:
     """A finite element mesh represented solely by the centroidal values of the elements
 
@@ -240,10 +241,14 @@ class Mesh:
         else:
             return self._j_density
 
-    def surface_forces(self, solver: Solver):  # -> NDArray[float64]:
+    def surface_forces(self, b_ext: NDArray[float64], solver: Solver):  # -> NDArray[float64]:
         """Compute the maxwell stress tensor and determine the force vector acting on each
         surface face centroid. Returns an (N,3) array of the force vector
         """
+
+        # h_ext = b_ext / MU0
+        if self._m_field is not None:
+            pass
 
         # return _maxwell_stress_tensor(self.surface_face_centroids, self.surface_face_normals, self.surface_face_areas, self.j_density, self.m_field)
         pass
