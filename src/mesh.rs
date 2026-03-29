@@ -122,16 +122,18 @@ pub fn surface_faces(connectivity: &[u32]) -> Vec<u32> {
     faces_out
 }
 
-/// Compute the area and normal vector of each of the surface faces on a tetrahedral mesh
-pub fn surface_face_properties(nodes: &[f64], surface_faces: &[u32]) -> (Vec<f64>, Vec<f64>) {
+/// Compute the area, centroid, and normal vector of each of the surface faces on a tetrahedral mesh
+pub fn surface_face_properties(nodes: &[f64], surface_faces: &[u32]) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
     let n_faces = surface_faces.len() / 3;
 
     let mut areas: Vec<f64> = vec![0.0; n_faces];
+    let mut centroids: Vec<f64> = vec![0.0; 3 * n_faces];
     let mut normals: Vec<f64> = vec![0.0; 3 * n_faces];
     for (i, face) in surface_faces.chunks_exact(3).enumerate() {
         let n0 = node_coords(nodes, face[0] as usize);
         let n1 = node_coords(nodes, face[1] as usize);
         let n2 = node_coords(nodes, face[2] as usize);
+        let centroid = (n0 + n1 + n2) * (1.0/3.0);
         let e0 = n2 - n1;
         let e1 = n0 - n1;
         let e0_cross_e1 = e0.cross(&e1);
@@ -145,9 +147,12 @@ pub fn surface_face_properties(nodes: &[f64], surface_faces: &[u32]) -> (Vec<f64
         normals[i * 3] = normal[0];
         normals[i * 3 + 1] = normal[1];
         normals[i * 3 + 2] = normal[2];
+        centroids[i * 3] = centroid[0];
+        centroids[i * 3 + 1] = centroid[1];
+        centroids[i * 3 + 2] = centroid[2];
     }
 
-    (areas, normals)
+    (areas, centroids, normals)
 }
 
 /// Compute the Maxwell stress tensor on a series of triangular surface faces

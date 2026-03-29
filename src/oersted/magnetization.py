@@ -6,8 +6,9 @@ import numpy as np
 from numpy.typing import NDArray
 from numpy import float64, uint32
 
-from oersted import LinearMaterial, MU0, Mesh
-from oersted.materials import Material
+from .mesh import Mesh
+from .constants import MU0
+from .materials import Material, LinearMaterial
 from ._oersted import _h_demag_tet4, _hfield_dipole_tetrahedrons
 
 
@@ -65,7 +66,13 @@ def mag_force(centroids: NDArray[float64], vol: NDArray[float64], material: Line
 
 
 def h_demag_tet4(
-    nodes: NDArray[float64], element_connectivity: NDArray[uint32], material: Material, m_field: NDArray[float64], nthreads_requested: int = 0
+    src_nodes: NDArray[float64],
+    src_connectivity: NDArray[uint32],
+    material: Material,
+    m_field: NDArray[float64],
+    tgt_nodes: NDArray[float64] | None = None,
+    tgt_connectivity: NDArray[uint32] | None = None,
+    nthreads_requested: int = 0,
 ) -> NDArray[float64]:
     """Compute the demagnetization field H(M) on mesh element centroids given the current M-field
 
@@ -84,20 +91,27 @@ def h_demag_tet4(
 
     # Check that the M field is calculated at the element centroids
     try:
-        assert element_connectivity.shape[0] == m_field.shape[0]
+        assert src_connectivity.shape[0] == m_field.shape[0]
     except AssertionError:
         print("Error. The M-field should be calculated at element centroids.")
 
-    n_elements: int = element_connectivity.shape[0]
+    if tgt_connectivity is None:
+        tgt_connectivity = src_connectivity
+
+    if tgt_nodes is None:
+        tgt_nodes = src_nodes
+    n_elements: int = tgt_connectivity.shape[0]
     hx = np.zeros(n_elements)
     hy = np.zeros(n_elements)
     hz = np.zeros(n_elements)
 
     _h_demag_tet4(
-        np.ascontiguousarray(nodes.flatten()),
-        np.ascontiguousarray(element_connectivity.flatten().astype(np.uint32)),
+        np.ascontiguousarray(src_nodes.flatten()),
+        np.ascontiguousarray(src_connectivity.flatten().astype(np.uint32)),
+        np.ascontiguousarray(tgt_nodes.flatten()),
+        np.ascontiguousarray(tgt_connectivity.flatten().astype(np.uint32)),
         np.ascontiguousarray(m_field[:, 0]),
-        np.ascontiguousarray(m_field[:, 1]),
+        np.ascontiguousarray(m_field[:, 1], dtype=float64),
         np.ascontiguousarray(m_field[:, 2]),
         np.ascontiguousarray(hx),
         np.ascontiguousarray(hy),
@@ -149,7 +163,7 @@ def h_demag_tet4_octree(
         np.ascontiguousarray(nodes.flatten()),
         np.ascontiguousarray(centroids.flatten()),
         np.ascontiguousarray(vol),
-        np.ascontiguousarray(m_field.flatten()),
+        np.ascontiguousarray(m_field.flatten(), dtype=float64),
         np.ascontiguousarray(m_field[:, 0]),
         np.ascontiguousarray(m_field[:, 1]),
         np.ascontiguousarray(m_field[:, 2]),
@@ -205,7 +219,7 @@ def demag_tet4(
 
     n_elements: int = mesh.num_elems
 
-    m_field = np.zeros((n_elements, 3))
+    m_field = np.zeros((n_elements, 3), dtype=float64)
     h_hat = np.zeros((n_elements, 3))
     h_total = np.zeros((n_elements, 3))
 

@@ -3,16 +3,10 @@
 import numpy as np
 from numpy.typing import NDArray
 from numpy import float64, uint32
-from ._oersted import (
-    _mesh_centroids,
-    _mesh_volumes,
-    _mesh_surface_faces,
-    _mesh_surface_face_properties,
-    _mesh_surface_tets,
-    # _maxwell_stress_tensor,
-)
-from oersted import MU0, Solver 
-# from .magnetization import h_demag_tet4
+from ._oersted import _mesh_centroids, _mesh_volumes, _mesh_surface_faces, _mesh_surface_face_properties, _mesh_surface_tets, _mesh_surface_forces
+from oersted import MU0, Solver
+
+from .materials import LinearMaterial
 
 
 class CentroidMesh:
@@ -87,6 +81,9 @@ class Mesh:
         self._volumes = None
         self._face_centroids = None
         self._surface_faces = None
+        self._surface_face_centroids = None
+        self._surface_face_normals = None
+        self._surface_face_areas = None
 
     @property
     def nodes(self) -> NDArray[float64]:
@@ -173,28 +170,26 @@ class Mesh:
     @property
     def surface_faces(self):
         if self._surface_faces is None:
-            self._surface_faces = _mesh_surface_faces(self.connectivity)
+            self._surface_faces = _mesh_surface_faces(self.connectivity.flatten())
             pass
         return self._surface_faces
 
     @property
     def surface_face_centroids(self):
         if self._surface_face_centroids is None:
-            # self._surface_face_centroids = mesh_surface_face_centroids(self.nodes, self.surface_faces)
-            pass
+            self._surface_face_properties()
         return self._surface_face_centroids
 
     def _surface_face_properties(self):
-        self._surface_face_areas, self._surface_face_normals = _mesh_surface_face_properties(
-            np.ascontiguousarray(self._nodes), np.ascontiguousarray(self._surface_faces)
+        self._surface_face_areas, self._surface_face_centroids, self._surface_face_normals = _mesh_surface_face_properties(
+            np.ascontiguousarray(self._nodes.flatten()), np.ascontiguousarray(self.surface_faces.flatten())
         )
 
     @property
     def surface_face_normals(self):
         """Returns an (N,3) array of the normal vectors associated with each surface face in the model"""
         if self._surface_face_normals is None:
-            # self._surface_face_normals = _mesh_surface_face_normals(self.nodes, self.surface_faces)
-            pass
+            self._surface_face_properties()
 
         return self._surface_face_normals
 
@@ -202,8 +197,8 @@ class Mesh:
     def surface_face_areas(self):
         """Returns an (N,) array of the area of each surface face"""
         if self._surface_face_areas is None:
-            # self._surface_face_areas = _mesh_surface_face_areas(self.nodes, self.surface_faces)
-            pass
+            self._surface_face_properties()
+
         return self._surface_face_areas
 
     @property
@@ -243,22 +238,33 @@ class Mesh:
         else:
             return self._j_density
 
-    def surface_forces(self, b_ext: NDArray[float64], solver: Solver):  # -> NDArray[float64]:
+    def surface_forces(self, b_ext: NDArray[float64], mat: LinearMaterial, solver: Solver):  # -> NDArray[float64]:
         """Compute the maxwell stress tensor and determine the force vector acting on each
         surface face centroid. Returns an (N,3) array of the force vector
         """
 
-        # h_ext = b_ext / MU0
+        from .magnetization import h_demag_tet4
+
+        h_field = b_ext / MU0
+        hmag: NDArray | None = None
         if self._m_field is not None:
             (surface_nodes, surface_connectivity) = _mesh_surface_tets(
-                self.nodes, self.surface_faces, self.surface_face_centroids, self.surface_face_normals
+                self.nodes.flatten(), self.surface_faces.flatten(), self.surface_face_centroids.flatten(), self.surface_face_normals.flatten()
+            )
+            hmag = h_demag_tet4(
+                self.nodes.flatten(),
+                self.connectivity.flatten(),
+                mat,
+                self.m_field,
+                surface_nodes.reshape((int(surface_nodes.shape[0] / 3), 3)),
+                surface_connectivity.reshape((int(surface_connectivity.shape[0] / 4), 4)),
+                nthreads_requested=solver.n_threads,
             )
 
-            pass
+        if hmag is not None:
+            h_field += hmag
 
-
-        # return _maxwell_stress_tensor(self.surface_face_centroids, self.surface_face_normals, self.surface_face_areas, self.j_density, self.m_field)
-        pass
+        return _mesh_surface_forces(self.surface_face_areas.flatten(), self.surface_face_normals.flatten(), h_field.flatten() * MU0)
 
 
 def plot_mesh(x, y, z):
