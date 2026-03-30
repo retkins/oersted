@@ -3,7 +3,7 @@ use std::f64::consts::{FRAC_PI_2, PI};
 /// Fast, approximate atan2(y,x)
 ///
 /// Follows the "atan2_auto_1" implementation described here:
-/// https://mazzo.li/posts/vectorized-atan2.html
+/// <https://mazzo.li/posts/vectorized-atan2.html>
 #[inline(always)]
 pub fn atan2(y: f64, x: f64) -> f64 {
     let ya: f64 = y.abs();

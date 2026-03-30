@@ -1,6 +1,7 @@
 #![allow(non_snake_case)]
 
 use crate::MU0_4PI;
+use crate::mesh::node_coords;
 use crate::vec3::Vec3;
 
 /// Compute the magnetic field at target points (x, y, z) using a direct (O(N^2)) Biot-Savart summation
@@ -127,9 +128,11 @@ fn bfield_direct_old(
 use crate::sources::tet4::h_field_tet4;
 
 /// Compute the magnetic field using the direct tetrahedral integration method
+///
+///
 pub fn hfield_direct_tet(
-    nodes_flat: &[f64],
-    vol: &[f64],
+    nodes: &[f64],
+    connectivity: &[u32],
     jdensity_flat: &[f64],
     x: &[f64],
     y: &[f64],
@@ -138,18 +141,16 @@ pub fn hfield_direct_tet(
     hy: &mut [f64],
     hz: &mut [f64],
 ) -> Result<(), ()> {
-    let n_sources = vol.len();
     let n_targets = x.len();
     let mut f = vec![Vec3([0.0; 3]); n_targets];
 
     // TODO: length checks
-    for i in 0..n_sources {
-        let node_slice = &nodes_flat[12 * i..12 * i + 12];
+    for (i, elem) in connectivity.chunks_exact(4).enumerate() {
         let nodes = [
-            Vec3([node_slice[0], node_slice[1], node_slice[2]]),
-            Vec3([node_slice[3], node_slice[4], node_slice[5]]),
-            Vec3([node_slice[6], node_slice[7], node_slice[8]]),
-            Vec3([node_slice[9], node_slice[10], node_slice[11]]),
+            node_coords(nodes, elem[0] as usize),
+            node_coords(nodes, elem[1] as usize),
+            node_coords(nodes, elem[2] as usize),
+            node_coords(nodes, elem[3] as usize),
         ];
 
         let jdensity = Vec3([

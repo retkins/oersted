@@ -4,6 +4,7 @@ from .materials import MU0, FreeSpace, LinearMaterial, NonlinearMaterial, BHCurv
 from .solver import Solver, DirectSolver, OctreeSolver
 
 from .biotsavart import (
+    b_field,
     bfield_direct,
     bfield_octree,
     bfield_dualtree,
@@ -31,6 +32,7 @@ __all__ = [
     "testing",
     "Mesh",
     "mesh_step",
+    "b_field",
     "bfield_dualtree",
     "bfield_hexahedron",
     "bfield_tetrahedrons",

@@ -16,7 +16,7 @@ use crate::sources::{edge_csys, edge_integral, transform};
 /// # Reference  
 ///
 /// CRYO-06-034: "MAGNUM - A Fortran Library for the Calculation of Magnetic Configurations"
-/// https://supermagnet.sourceforge.io/notes/CRYO-06-034.pdf
+/// <https://supermagnet.sourceforge.io/notes/CRYO-06-034.pdf>
 ///
 pub fn bfield_hexahedron(
     nx: &[f64],       // 8-length
@@ -27,8 +27,8 @@ pub fn bfield_hexahedron(
 ) -> [f64; 3] {
     // Compute a total of 24 line integrals, along each edge (4 on each face)
     // Refer to the gmsh or ansys documentation for node numbering on a hex element:
-    // https://gmsh.info/doc/texinfo/gmsh.html#Node-ordering
-    // https://ansyshelp.ansys.com/public/account/secured?returnurl=//////////Views/Secured/corp/v242/en/ans_elem/Hlp_E_SOLID236.html
+    // <https://gmsh.info/doc/texinfo/gmsh.html#Node-ordering>
+    // <https://ansyshelp.ansys.com/public/account/secured?returnurl=//////////Views/Secured/corp/v242/en/ans_elem/Hlp_E_SOLID236.html>
     let node_map: [[[usize; 3]; 4]; 6] = [
         [[0, 3, 2], [3, 2, 1], [2, 1, 0], [1, 0, 3]], // bottom face
         [[4, 5, 6], [5, 6, 7], [6, 7, 4], [7, 4, 5]], // top face

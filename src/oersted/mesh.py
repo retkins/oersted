@@ -84,6 +84,8 @@ class Mesh:
         self._surface_face_centroids = None
         self._surface_face_normals = None
         self._surface_face_areas = None
+        self._m_field = None
+        self._h_field = None
 
     @property
     def nodes(self) -> NDArray[float64]:

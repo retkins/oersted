@@ -100,10 +100,9 @@ def _hfield_dipole_tetrahedrons(
     nthreads_requested: int,
 ) -> None: ...
 def _hfield_tetrahedrons_direct(
-    nodes_flat: Float64Array,
-    centroids_flat: Float64Array,
-    vol: Float64Array,
-    jdensity_flat: Float64Array,
+    nodes: Float64Array,
+    connectivity: U32Array,
+    jdensity: Float64Array,
     x: Float64Array,
     y: Float64Array,
     z: Float64Array,

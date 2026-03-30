@@ -29,9 +29,9 @@ pub fn h_point(centroid: &Vec3, vj: &Vec3, radius: f64, target: &Vec3) -> Vec3 {
 /// For now, applies zero field to internal points. The use of this function should be limited
 /// to self (zero) or adjacent elements in the mesh, not arbitrary points in the mesh domain.
 /// TODO: Use the internal-sphere correction provided in ex 6.1 of griffith's:
-/// https://peppyhare.github.io/griffiths-em/ch6-2/
+/// <https://peppyhare.github.io/griffiths-em/ch6-2/>
 /// and in Fitzpatrick:
-/// https://farside.ph.utexas.edu/teaching/jk1/Electromagnetism/node61.html
+/// <https://farside.ph.utexas.edu/teaching/jk1/Electromagnetism/node61.html>
 pub fn h_point_dipole(centroid: &Vec3, moment: &Vec3, radius: f64, target: &Vec3) -> Vec3 {
     let r = *target - *centroid;
     let rmag = r.mag();

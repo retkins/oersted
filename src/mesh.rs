@@ -18,7 +18,13 @@ pub fn node_coords(nodes: &[f64], idx: usize) -> Vec3 {
 
 /// Compute the centroids of the elements in a mesh containing
 /// 4-node linear tetrahedral elements by taking the mean position
-/// of all 4 nodes.
+/// of all 4 nodes
+///
+/// # Arguments
+///
+/// * `nodes`: (m) flat array of (x,y,z) node coordinates in row-major order
+/// * `connectivity`: flat array of indices into `nodes` of the four nodes in each element; row-major order
+/// * `x`, `y`, `z`: (m) output buffers, allocated by the caller
 pub fn centroids(nodes: &[f64], connectivity: &[u32], x: &mut [f64], y: &mut [f64], z: &mut [f64]) {
     let n_elements: usize = connectivity.len() / 4;
     assert_eq!(n_elements, x.len());
@@ -48,9 +54,18 @@ pub fn centroids(nodes: &[f64], connectivity: &[u32], x: &mut [f64], y: &mut [f6
 /// Compute the volumes of the elements in a mesh containing
 /// 4-node linear tetrahedral elements:
 ///
-/// volume = (1/6) * |a x (b - c))|
+/// $$ volume = (1/6) \cdot |\vec{a} \times (\vec{b} - \vec{c}))| $$
 ///
-/// # Reference:
+/// # Arguments
+///
+/// * `nodes`: (m) flat array of (x,y,z) node coordinates in row-major order
+/// * `connectivity`: flat array of indices into `nodes` of the four nodes in each element; row-major order
+/// * `vol`: (m) output buffer, allocated by the caller
+///
+/// # Notes
+/// This function is tested via a part meshed in Python.
+///
+/// # Reference
 /// <https://en.wikipedia.org/wiki/Tetrahedron#Other_approaches>
 pub fn volumes(nodes: &[f64], connectivity: &[u32], vol: &mut [f64]) {
     let n_elements: usize = connectivity.len() / 4;
@@ -82,7 +97,16 @@ pub fn volumes(nodes: &[f64], connectivity: &[u32], vol: &mut [f64]) {
 
 /// Determine which faces in a mesh are on the surface
 ///
-/// Returns a flat vector of the indices for each node in the surface faces
+/// # Arguments
+/// * `connectivity`: flat array of indices into `nodes` of the four nodes in each element; row-major order
+///
+/// # Returns
+/// a flat vector of the indices for each node in the surface faces (3 nodes per face)
+///
+/// # Notes
+/// * This function is tested via a part meshed in Python.
+/// * This function cannot know the number of surface elements before it is called and
+///   therefore must allocate memory instead of writing to a fixed-size preallocated buffer.
 pub fn surface_faces(connectivity: &[u32]) -> Vec<u32> {
     let n_elements: usize = connectivity.len() / 4;
 
@@ -123,7 +147,22 @@ pub fn surface_faces(connectivity: &[u32]) -> Vec<u32> {
 }
 
 /// Compute the area, centroid, and normal vector of each of the surface faces on a tetrahedral mesh
-pub fn surface_face_properties(nodes: &[f64], surface_faces: &[u32]) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+///
+/// # Arguments
+/// * `nodes`: (m) flat array of nodal coordinates (row-major)
+/// * `surface_faces`: flat array of indices into `nodes` that define an element's surface face;
+///   row-major, 3 nodes per face
+///
+/// # Returns
+/// (areas, centroids, normal_vectors): (m^2, m) `centroids` and `normal_vectors` are flat
+/// arrays (row-major)
+///
+/// # Notes
+/// * This function is tested via the Python API.
+pub fn surface_face_properties(
+    nodes: &[f64],
+    surface_faces: &[u32],
+) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
     let n_faces = surface_faces.len() / 3;
 
     let mut areas: Vec<f64> = vec![0.0; n_faces];
@@ -133,7 +172,7 @@ pub fn surface_face_properties(nodes: &[f64], surface_faces: &[u32]) -> (Vec<f64
         let n0 = node_coords(nodes, face[0] as usize);
         let n1 = node_coords(nodes, face[1] as usize);
         let n2 = node_coords(nodes, face[2] as usize);
-        let centroid = (n0 + n1 + n2) * (1.0/3.0);
+        let centroid = (n0 + n1 + n2) * (1.0 / 3.0);
         let e0 = n2 - n1;
         let e1 = n0 - n1;
         let e0_cross_e1 = e0.cross(&e1);
@@ -296,6 +335,7 @@ mod tests {
             1.0 / (2.0f64).sqrt(),
         ];
         let connectivity: [u32; 4] = [0, 1, 2, 3];
+        // Set buffer to non-zero value
         let mut x = [1.0];
         let mut y = [1.0];
         let mut z = [1.0];

@@ -44,3 +44,9 @@
 * Add Maxwell stress tensor and surface force calculation functions
 * Add function for creating tetradhedrons at surface faces for magnetization calc
 * Added surface force test
+* rustdoc now refers to the katex header file
+* Updated interface to direct tet4 integration method to use nodes+connectivity
+* Small updates to function docstrings (Rust), fixed cargo doc warnings
+* Fixed bug in `surface_face_properties` causing incorrect face centroid/normal calculations (bad return order)
+* Added test for lorentz force calculations using maxwell stress tensor (passes)
+* Added test for mesh-related functionality

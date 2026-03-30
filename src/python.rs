@@ -294,10 +294,9 @@ fn _hfield_dipole_tetrahedrons(
 
 #[pyfunction]
 pub fn _hfield_tetrahedrons_direct(
-    nodes_flat: PyReadonlyArray1<f64>,
-    centroids_flat: PyReadonlyArray1<f64>,
-    vol: PyReadonlyArray1<f64>,
-    jdensity_flat: PyReadonlyArray1<f64>,
+    nodes: PyReadonlyArray1<f64>,
+    connectivity: PyReadonlyArray1<u32>,
+    jdensity: PyReadonlyArray1<f64>,
     x: PyReadonlyArray1<f64>,
     y: PyReadonlyArray1<f64>,
     z: PyReadonlyArray1<f64>,
@@ -308,9 +307,9 @@ pub fn _hfield_tetrahedrons_direct(
 ) -> PyResult<()> {
     use crate::biotsavart_parallel;
     biotsavart_parallel::hfield_direct_tet_parallel(
-        nodes_flat.as_slice()?,
-        vol.as_slice()?,
-        jdensity_flat.as_slice()?,
+        nodes.as_slice()?,
+        connectivity.as_slice()?,
+        jdensity.as_slice()?,
         x.as_slice()?,
         y.as_slice()?,
         z.as_slice()?,
@@ -519,14 +518,23 @@ fn _mesh_surface_face_properties<'py>(
     py: Python<'py>,
     nodes: PyReadonlyArray1<f64>,
     faces: PyReadonlyArray1<u32>,
-) -> PyResult<(Bound<'py, PyArray1<f64>>, Bound<'py, PyArray2<f64>>, Bound<'py, PyArray2<f64>>)> {
+) -> PyResult<(
+    Bound<'py, PyArray1<f64>>,
+    Bound<'py, PyArray2<f64>>,
+    Bound<'py, PyArray2<f64>>,
+)> {
     let n_faces = faces.as_slice()?.len() / (3 as usize);
-    let (areas, centroids, normals) = mesh::surface_face_properties(&nodes.as_slice()?, faces.as_slice()?);
+    let (areas, centroids, normals) =
+        mesh::surface_face_properties(&nodes.as_slice()?, faces.as_slice()?);
 
     let area_out = PyArray1::from_vec(py, areas);
     let centroids_out = PyArray1::from_vec(py, centroids);
     let normals_out = PyArray1::from_vec(py, normals);
-    Ok((area_out, normals_out.reshape([n_faces, 3])?, centroids_out.reshape([n_faces,3])?))
+    Ok((
+        area_out,
+        centroids_out.reshape([n_faces, 3])?,
+        normals_out.reshape([n_faces, 3])?,
+    ))
 }
 
 #[pyfunction]
@@ -569,8 +577,8 @@ fn _mesh_surface_tets<'py>(
     );
     let n_faces = connectivity_out.len() / 4;
     Ok((
-        PyArray1::from_vec(py, nodes_out), //.reshape([n_faces, 3])?,
-        PyArray1::from_vec(py, connectivity_out)//.reshape([n_faces, 3])?,
+        PyArray1::from_vec(py, nodes_out),        //.reshape([n_faces, 3])?,
+        PyArray1::from_vec(py, connectivity_out), //.reshape([n_faces, 3])?,
     ))
 }
 

@@ -13,8 +13,8 @@ Note: there's some sort of units mismatch with gmsh
 import numpy as np
 import matplotlib.pyplot as plt
 import oersted
+from oersted import Mesh
 from time import perf_counter
-import os
 
 #
 # Runtime parameters
@@ -31,24 +31,20 @@ nthreads: int = 1
 # Generate a mesh from a STEP file
 #
 
-if remesh or datafile + "_mesh.csv" not in os.listdir("tests/data"):
-    min_size: float = mesh_size
-    max_size: float = mesh_size
-    oersted.mesh.mesh_step(f"tests/data/{datafile}.stp", f"tests/data/{datafile}_mesh.csv", min_size, max_size)
-data = np.loadtxt(f"tests/data/{datafile}_mesh.csv", delimiter=",", skiprows=1)
+mesh: Mesh = oersted.mesh.mesh_step(f"tests/data/{datafile}.stp", f"tests/data/{datafile}_mesh.csv", mesh_size, mesh_size)
+
 
 #
 # Setup sources from the mesh
 #
 
-nsources = data.shape[0]
+nsources = mesh.num_elems
 
 # We need to assign current densities to the elements
 jmag: float = 1e8
-centroids = data[:, 0:3]
-vol = data[:, 3]
+
 jdensity = np.zeros((nsources, 3))
-phi = np.atan2(centroids[:, 1], centroids[:, 0])
+phi = np.atan2(mesh.centroids[:, 1], mesh.centroids[:, 0])
 jdensity[:, 0] = -jmag * np.sin(phi)
 jdensity[:, 1] = jmag * np.cos(phi)
 
@@ -59,23 +55,23 @@ jdensity[:, 1] = jmag * np.cos(phi)
 targets_axis = np.zeros((ntargets_axis, 3))
 targets_axis[:, 2] = np.linspace(-0.125, 0.125, ntargets_axis)
 
-bdirect_axis = oersted.bfield_direct(centroids, vol, jdensity, targets_axis)
-boctree_axis = oersted.bfield_octree(centroids, vol, jdensity, targets_axis, nthreads=nthreads, theta=theta)
+bdirect_axis = oersted.bfield_direct(mesh.centroids, mesh.volumes, jdensity, targets_axis)
+boctree_axis = oersted.bfield_octree(mesh.centroids, mesh.volumes, jdensity, targets_axis, nthreads=nthreads, theta=theta)
 
 #
 # Solve for self-fields
 #
 
-targets = centroids
+targets = mesh.centroids
 ntargets = targets.shape[0]
 
 start = perf_counter()
-bdirect = boctree = oersted.bfield_direct(centroids, vol, jdensity, targets, nthreads=nthreads)
+bdirect = boctree = oersted.bfield_direct(mesh.centroids, mesh.volumes, jdensity, targets, nthreads=nthreads)
 end = perf_counter()
 direct_elapsed = end - start
 
 start = perf_counter()
-boctree = oersted.bfield_octree(centroids, vol, jdensity, targets, nthreads=nthreads, theta=theta)
+boctree = oersted.bfield_octree(mesh.centroids, mesh.volumes, jdensity, targets, nthreads=nthreads, theta=theta)
 end = perf_counter()
 octree_elapsed = end - start
 
