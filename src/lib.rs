@@ -40,6 +40,8 @@ pub mod mat3;
 /// Define a 3-length vector type for math operations
 pub mod vec3;
 
+pub mod mesh;
+
 /// Compute Morton codes and related functions
 ///
 /// Notes:

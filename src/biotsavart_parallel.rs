@@ -68,9 +68,9 @@ pub fn bfield_direct_parallel(
 }
 
 pub fn hfield_direct_tet_parallel(
-    nodes_flat: &[f64],
-    vol: &[f64],
-    jdensity_flat: &[f64],
+    nodes: &[f64],
+    connectivity: &[u32],
+    jdensity: &[f64],
     x: &[f64],
     y: &[f64],
     z: &[f64],
@@ -95,7 +95,7 @@ pub fn hfield_direct_tet_parallel(
     (_x, _y, _z, _hx, _hy, _hz)
         .into_par_iter()
         .try_for_each(|(_x, _y, _z, _hx, _hy, _hz)| {
-            hfield_direct_tet(nodes_flat, vol, jdensity_flat, _x, _y, _z, _hx, _hy, _hz)
+            hfield_direct_tet(nodes, connectivity, jdensity, _x, _y, _z, _hx, _hy, _hz)
         })?;
 
     Ok(())

@@ -1,6 +1,6 @@
 """Magnetic field calculation routines"""
 
-from numpy import float64, ascontiguousarray, zeros, hstack, newaxis, array, pi
+from numpy import float64, uint32, ascontiguousarray, zeros, hstack, newaxis, array, pi
 from numpy.typing import NDArray
 
 # Create bindings for calculation engine written in Rust
@@ -15,8 +15,37 @@ from ._oersted import (
     _hfield_dipole_tetrahedrons,
 )
 
+from .mesh import Mesh, CentroidMesh
+from .solver import DirectSolver, OctreeSolver
+
 # For typing; currently unused
 Nx3Array = NDArray[float64]
+
+
+def b_field(source: Mesh | CentroidMesh, targets: NDArray[float64], solver: DirectSolver | OctreeSolver | None = None) -> NDArray[float64]:
+    """Compute the magnetic flux density at a collection of target points using the specific source mesh and
+    solver options, assuming the target points are in free space
+    """
+
+    if solver is None:
+        solver = DirectSolver()
+
+    if isinstance(source, CentroidMesh) and isinstance(solver, DirectSolver):
+        return bfield_direct(source.centroids, source.volumes, source.j_density, targets, solver.n_threads)
+
+    elif isinstance(source, CentroidMesh) and isinstance(solver, OctreeSolver):
+        return bfield_octree(source.centroids, source.volumes, source.j_density, targets, solver.theta, solver.leaf_threshold, solver.n_threads)
+
+    elif isinstance(source, Mesh) and isinstance(solver, DirectSolver):
+        return bfield_tetrahedrons_direct(source.nodes, source.connectivity, source.j_density, targets, solver.n_threads)
+
+    elif isinstance(source, Mesh) and isinstance(solver, OctreeSolver):
+        return bfield_tetrahedrons(
+            source.nodes, source.centroids, source.volumes, source.j_density, targets, solver.theta, solver.leaf_threshold, solver.n_threads
+        )
+
+    else:
+        raise TypeError(f"Unsupported source/solver combination: {type(source)}, {type(solver)}")
 
 
 def bfield_direct(
@@ -236,8 +265,7 @@ def bfield_tetrahedrons(
 
 def bfield_tetrahedrons_direct(
     nodes: NDArray[float64],
-    centroids: NDArray[float64],
-    vol: NDArray[float64],
+    connectivity: NDArray[uint32],
     jdensity: NDArray[float64],
     targets: NDArray[float64],
     nthreads: int = 0,
@@ -248,9 +276,8 @@ def bfield_tetrahedrons_direct(
         element in the mesh.
 
     Args:
-        nodes: (12*N,) nodal coordinates of each element
-        centroids: (N,3) coordinates of each element centroid
-        vol: (N,) volume of each element
+        nodes: (N,3) nodal coordinates of each element
+        connectivity: (N,4) indices into `nodes` for each element
         jdensity: (N,3) current density vector assumed constant over each element
         targets: (M,3) target point locations in 3d space
 
@@ -265,10 +292,9 @@ def bfield_tetrahedrons_direct(
     hz = zeros(ntargets)
 
     _hfield_tetrahedrons_direct(
-        ascontiguousarray(nodes[:]),
-        ascontiguousarray(centroids.ravel()),
-        ascontiguousarray(vol[:]),
-        ascontiguousarray(jdensity.ravel()),
+        ascontiguousarray(nodes.flatten()),
+        ascontiguousarray(connectivity.flatten()),
+        ascontiguousarray(jdensity.flatten()),
         ascontiguousarray(targets[:, 0]),
         ascontiguousarray(targets[:, 1]),
         ascontiguousarray(targets[:, 2]),

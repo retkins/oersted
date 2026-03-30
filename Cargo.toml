@@ -31,3 +31,6 @@ codegen-units = 1
 
 [profile.test]
 opt-level = 3
+
+[package.metadata.docs.rs]
+rustdoc-args = [ "--html-in-header", "src/docs-header.html" ]

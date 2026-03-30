@@ -16,3 +16,8 @@ rustflags = [
 ```
 
 Note that this is non-portable and therefore is not included in the repo.
+
+To do this locally and one-off, build the docs like this instead:
+```shell
+$ RUSTDOCFLAGS="--html-in-header src/docs-header.html" cargo doc --open
+```

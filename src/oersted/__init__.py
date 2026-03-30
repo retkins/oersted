@@ -1,6 +1,10 @@
 """Python bindings for oersted"""
 
+from .materials import MU0, FreeSpace, LinearMaterial, NonlinearMaterial, BHCurve
+from .solver import Solver, DirectSolver, OctreeSolver
+
 from .biotsavart import (
+    b_field,
     bfield_direct,
     bfield_octree,
     bfield_dualtree,
@@ -10,9 +14,10 @@ from .biotsavart import (
     hfield_dipole,
     hfield_dipole_tetrahedrons,
 )
-from .materials import MU0, FreeSpace, LinearMaterial, NonlinearMaterial, BHCurve
-from . import mesh
+
+from .mesh import Mesh, mesh_step
 from .magnetization import mag_force
+
 from . import testing
 
 
@@ -25,7 +30,9 @@ __all__ = [
     "bfield_direct",
     "bfield_octree",
     "testing",
-    "mesh",
+    "Mesh",
+    "mesh_step",
+    "b_field",
     "bfield_dualtree",
     "bfield_hexahedron",
     "bfield_tetrahedrons",
@@ -33,4 +40,7 @@ __all__ = [
     "hfield_dipole",
     "hfield_dipole_tetrahedrons",
     "mag_force",
+    "Solver",
+    "DirectSolver",
+    "OctreeSolver",
 ]

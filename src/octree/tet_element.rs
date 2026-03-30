@@ -1,5 +1,6 @@
 use crate::{
-    math::sort_by_indices,
+    mat3::Mat3,
+    math::{gradient::jmatrices, sort_by_indices},
     morton,
     octree::BoundingBox,
     octree::{CurrentSources, DipoleSources, HFieldSolver, Sources},
@@ -139,10 +140,24 @@ impl HFieldSolver for DipoleSources<TetSources> {
     }
 
     fn h_field_leaf(&self, start: usize, end: usize, target: &Vec3) -> Vec3 {
-        let mut h = Vec3([0.0; 3]);
+        let mut hx = [0.0];
+        let mut hy = [0.0];
+        let mut hz = [0.0];
+        let mut f = vec![Vec3([0.0; 3]); 1];
+        let elements: [[u32; 4]; 1] = [[0u32, 1u32, 2u32, 3u32]];
         for i in start..end {
-            // h += hmag_tetrahedron(&self.0.nodes[i], &(self.0.jdensity[i] * self.0.volumes[i]), target);
+            let j_invt: Vec<crate::mat3::Mat3> = jmatrices(&self.0.nodes[start], &elements);
+            hmag_tet4(
+                &self.0.nodes[i],
+                &self.0.jdensity[i], // TODO: make this its own value?
+                &j_invt,
+                (&[target[0]], &[target[1]], &[target[2]]),
+                &elements,
+                &mut f,
+                (&mut hx, &mut hy, &mut hz),
+            );
+            f.fill(Vec3([0.0; 3]));
         }
-        h
+        Vec3([hx[0], hy[0], hz[0]])
     }
 }

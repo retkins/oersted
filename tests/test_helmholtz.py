@@ -20,39 +20,36 @@ import numpy as np
 import matplotlib.pyplot as plt
 import oersted
 from time import perf_counter
-import os
+
 
 # Runtime parameters
 datafile: str = "ring"
 remesh: bool = True
-theta: float = 0.25
+theta: float = 0.1
 mesh_size: float = 5  # ~10M interactions; set to 33 for 1e6 interactions
 ntargets_axis: int = 100  # Along the axis
-nthreads = 1
+nthreads = 0
 leaf_threshold = 1
 axis_halfdistance = 0.3
 
 #
 # Generate a mesh from a STEP file
 #
+min_size: float = mesh_size
+max_size: float = mesh_size
+mesh = oersted.mesh_step(f"tests/data/{datafile}.stp", f"tests/data/{datafile}_mesh.csv", min_size, max_size)
 
-if remesh or datafile + "_mesh.csv" not in os.listdir("tests/data"):
-    min_size: float = mesh_size
-    max_size: float = mesh_size
-    oersted.mesh.mesh_step(f"tests/data/{datafile}.stp", f"tests/data/{datafile}_mesh.csv", min_size, max_size)
-data = np.loadtxt(f"tests/data/{datafile}_mesh.csv", delimiter=",", skiprows=1)
-
-nsources = data.shape[0]  # Targets are now the source centroids for self fields
+nsources = mesh.num_elems  # Targets are now the source centroids for self fields
 
 # The current mesh is centered on the xy plane and is only one circular ring
 # We need to split the single ring into twoand assign current densities to the elements
 jmag: float = 100.0e3 / (0.02 * 0.02)  # 100 A each
-centroids_upper = data[:, 0:3]
+centroids_upper = mesh.centroids
 centroids_upper[:, 2] += 0.1  # shift upper coil up
 centroids_lower = centroids_upper.copy()
 centroids_lower[:, 2] -= 0.2  # flip to lower side
 centroids = np.vstack((centroids_upper, centroids_lower))
-vol = np.hstack((data[:, 3], data[:, 3]))
+vol = np.hstack((mesh.volumes, mesh.volumes))
 nsources = vol.shape[0]
 jdensity = np.zeros((nsources, 3))
 phi = np.atan2(centroids[:, 1], centroids[:, 0])

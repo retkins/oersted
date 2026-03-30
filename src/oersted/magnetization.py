@@ -4,11 +4,12 @@ from collections.abc import Callable
 
 import numpy as np
 from numpy.typing import NDArray
-from numpy import float64, int64
+from numpy import float64, uint32
 
-from oersted import LinearMaterial, MU0
-from oersted.materials import Material
-from ._oersted import _h_demag_tet4
+from .mesh import Mesh
+from .constants import MU0
+from .materials import Material, LinearMaterial
+from ._oersted import _h_demag_tet4, _hfield_dipole_tetrahedrons
 
 
 def mag_force(centroids: NDArray[float64], vol: NDArray[float64], material: LinearMaterial, h_ext: Callable) -> NDArray[float64]:
@@ -65,7 +66,72 @@ def mag_force(centroids: NDArray[float64], vol: NDArray[float64], material: Line
 
 
 def h_demag_tet4(
-    nodes: NDArray[float64], element_connectivity: NDArray[int64], material: Material, m_field: NDArray[float64], nthreads_requested: int = 0
+    src_nodes: NDArray[float64],
+    src_connectivity: NDArray[uint32],
+    material: Material,
+    m_field: NDArray[float64],
+    tgt_nodes: NDArray[float64] | None = None,
+    tgt_connectivity: NDArray[uint32] | None = None,
+    nthreads_requested: int = 0,
+) -> NDArray[float64]:
+    """Compute the demagnetization field H(M) on mesh element centroids given the current M-field
+
+    Args:
+        nodes: (Nn, 3) nodal coordinates per element
+        element_connectivity: (Ne, 4) indices of each node per element;
+            these are indices of the array `nodes`, not of the solver's node numbers
+        material: linear or nonlinear magnetic maaterial properties
+        m_field: (Ne,3) current M-field at each element centroid
+        max_iterations: number of solver iterations before exit
+        tol: maximum amount of change per individual component of M at each element
+
+    Returns:
+        (Ne 3): demagnetization field H(M) at each node
+    """
+
+    # Check that the M field is calculated at the element centroids
+    try:
+        assert src_connectivity.shape[0] == m_field.shape[0]
+    except AssertionError:
+        print("Error. The M-field should be calculated at element centroids.")
+
+    if tgt_connectivity is None:
+        tgt_connectivity = src_connectivity
+
+    if tgt_nodes is None:
+        tgt_nodes = src_nodes
+    n_elements: int = tgt_connectivity.shape[0]
+    hx = np.zeros(n_elements)
+    hy = np.zeros(n_elements)
+    hz = np.zeros(n_elements)
+
+    _h_demag_tet4(
+        np.ascontiguousarray(src_nodes.flatten()),
+        np.ascontiguousarray(src_connectivity.flatten().astype(np.uint32)),
+        np.ascontiguousarray(tgt_nodes.flatten()),
+        np.ascontiguousarray(tgt_connectivity.flatten().astype(np.uint32)),
+        np.ascontiguousarray(m_field[:, 0]),
+        np.ascontiguousarray(m_field[:, 1], dtype=float64),
+        np.ascontiguousarray(m_field[:, 2]),
+        np.ascontiguousarray(hx),
+        np.ascontiguousarray(hy),
+        np.ascontiguousarray(hz),
+        nthreads_requested,
+    )
+
+    return np.hstack((hx[:, np.newaxis], hy[:, np.newaxis], hz[:, np.newaxis]))
+
+
+def h_demag_tet4_octree(
+    nodes: NDArray[float64],
+    element_connectivity: NDArray[uint32],
+    material: Material,
+    m_field: NDArray[float64],
+    centroids: NDArray[float64],
+    vol: NDArray[float64],
+    nthreads_requested: int = 0,
+    theta: float = 0.5,
+    leaf_threshold: int = 16,
 ) -> NDArray[float64]:
     """Compute the demagnetization field H(M) on mesh element centroids given the current M-field
 
@@ -93,15 +159,19 @@ def h_demag_tet4(
     hy = np.zeros(n_elements)
     hz = np.zeros(n_elements)
 
-    _h_demag_tet4(
+    _hfield_dipole_tetrahedrons(
         np.ascontiguousarray(nodes.flatten()),
-        np.ascontiguousarray(element_connectivity.flatten().astype(np.uint32)),
+        np.ascontiguousarray(centroids.flatten()),
+        np.ascontiguousarray(vol),
+        np.ascontiguousarray(m_field.flatten(), dtype=float64),
         np.ascontiguousarray(m_field[:, 0]),
         np.ascontiguousarray(m_field[:, 1]),
         np.ascontiguousarray(m_field[:, 2]),
         np.ascontiguousarray(hx),
         np.ascontiguousarray(hy),
         np.ascontiguousarray(hz),
+        theta,
+        leaf_threshold,
         nthreads_requested,
     )
 
@@ -109,13 +179,13 @@ def h_demag_tet4(
 
 
 def demag_tet4(
-    nodes: NDArray[float64],
-    element_connectivity: NDArray[int64],
+    mesh: Mesh,
     material: Material,
     h_external: NDArray[float64],
     max_iterations: int = 50,
-    tol: float = 1e-6,
+    tol: float = 1.0,
     nthreads_requested: int = 0,
+    octree: bool = False,
 ) -> tuple[NDArray[float64], NDArray[float64]]:
     """Compute magnetization field M and the total H field at element centroids
 
@@ -137,22 +207,29 @@ def demag_tet4(
 
     # Check that the external field is calculated at the nodes
     try:
-        assert element_connectivity.shape[0] == h_external.shape[0]
+        assert mesh.num_elems == h_external.shape[0]
     except AssertionError:
         print("Error. The external should be calculated at mesh nodes.")
+
+    centroids = mesh.centroids
+    vol = mesh.volumes
 
     # We need the magnetization curve; sometimes users may have a B-H curve
     h_values, m_values = material.to_mh_curve()
 
-    n_elements: int = element_connectivity.shape[0]
+    n_elements: int = mesh.num_elems
 
-    m_field = np.zeros((n_elements, 3))
+    m_field = np.zeros((n_elements, 3), dtype=float64)
     h_hat = np.zeros((n_elements, 3))
     h_total = np.zeros((n_elements, 3))
 
     for i in range(max_iterations):
         # Get the demag and total H field at the element centroids
-        h_demag = h_demag_tet4(nodes, element_connectivity, material, m_field, nthreads_requested=nthreads_requested)
+        if octree:
+            h_demag = h_demag_tet4_octree(mesh.nodes, mesh.connectivity, material, m_field, centroids, vol, nthreads_requested=nthreads_requested)
+
+        else:
+            h_demag = h_demag_tet4(mesh.nodes, mesh.connectivity, material, m_field, nthreads_requested=nthreads_requested)
         h_total = h_demag + h_external
 
         # We consider isotropic materials for the B-H curve iteration

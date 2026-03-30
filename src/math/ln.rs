@@ -11,11 +11,11 @@ use std::f64::consts::LN_2;
 ///
 /// Uses the algorithm described in the following reference to compute the
 /// value of ln1p(x) = ln(1+x) = 2*atanh(x / (2 + x)):
-/// https://en.wikipedia.org/wiki/Natural_logarithm#High_precision
+/// <https://en.wikipedia.org/wiki/Natural_logarithm#High_precision>
 ///
 /// atanh(x) itself is computed using a 15th-order polynomial expansion
 /// described here:
-/// https://en.wikipedia.org/wiki/Inverse_hyperbolic_functions#Series_expansions
+/// <https://en.wikipedia.org/wiki/Inverse_hyperbolic_functions#Series_expansions>
 ///
 /// The value of `x` is first reduced in range using these identities:
 /// `x = m * 2^e`
@@ -36,7 +36,7 @@ pub fn ln(x: f64) -> f64 {
 
     // get `e` by shifting mantissa out, masking the exponent bits,
     // and adjusting with offset described here:
-    // https://en.wikipedia.org/wiki/Double-precision_floating-point_format#Exponent_encoding
+    // <https://en.wikipedia.org/wiki/Double-precision_floating-point_format#Exponent_encoding>
     let e: f64 = (((bits >> 52) & 0x7FF) as i64 - 1023) as f64;
 
     // to compute `ln(m)`, we need to adjust `m`
