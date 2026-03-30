@@ -1,7 +1,6 @@
 # Changelog
 
 ## 0.1.0 
-
 * Added changelog 
 * Ran `rustfmt` and `clippy` and fixed all issues 
 * Using `std::f64::consts::{LN_2, PI}` instead of approximate values (2 places fixed)
@@ -50,3 +49,4 @@
 * Fixed bug in `surface_face_properties` causing incorrect face centroid/normal calculations (bad return order)
 * Added test for lorentz force calculations using maxwell stress tensor (passes)
 * Added test for mesh-related functionality
+* Remove maxwell force calculation on magnetized meshes (not currently working)

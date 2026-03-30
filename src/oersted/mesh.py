@@ -3,7 +3,7 @@
 import numpy as np
 from numpy.typing import NDArray
 from numpy import float64, uint32
-from ._oersted import _mesh_centroids, _mesh_volumes, _mesh_surface_faces, _mesh_surface_face_properties, _mesh_surface_tets, _mesh_surface_forces
+from ._oersted import _mesh_centroids, _mesh_volumes, _mesh_surface_faces, _mesh_surface_face_properties, _mesh_surface_forces
 from oersted import MU0, Solver
 
 from .materials import LinearMaterial
@@ -245,26 +245,34 @@ class Mesh:
         surface face centroid. Returns an (N,3) array of the force vector
         """
 
-        from .magnetization import h_demag_tet4
+        # from .magnetization import h_demag_tet4
+        # from .biotsavart import hfield_dipole
+        # from ._oersted import _mesh_surface_tets
 
         h_field = b_ext / MU0
-        hmag: NDArray | None = None
+        # hmag: NDArray | None = None
         if self._m_field is not None:
-            (surface_nodes, surface_connectivity) = _mesh_surface_tets(
-                self.nodes.flatten(), self.surface_faces.flatten(), self.surface_face_centroids.flatten(), self.surface_face_normals.flatten()
-            )
-            hmag = h_demag_tet4(
-                self.nodes.flatten(),
-                self.connectivity.flatten(),
-                mat,
-                self.m_field,
-                surface_nodes.reshape((int(surface_nodes.shape[0] / 3), 3)),
-                surface_connectivity.reshape((int(surface_connectivity.shape[0] / 4), 4)),
-                nthreads_requested=solver.n_threads,
-            )
+            raise NotImplementedError("Warning! Maxwell stress tensor calculation on magnetized components is not yet functional.")
+            # print("Calculation proceeding with Lorentz force evaluation only (using Maxwell stress tensor)")
+        #     (surface_nodes, surface_connectivity) = _mesh_surface_tets(
+        #         self.nodes.flatten(), self.surface_faces.flatten(), self.surface_face_centroids.flatten(), self.surface_face_normals.flatten()
+        #     )
+        #     hmag = h_demag_tet4(
+        #         self.nodes,
+        #         self.connectivity,
+        #         mat,
+        #         self.m_field,
+        #         surface_nodes.reshape((int(surface_nodes.shape[0] / 3), 3)),
+        #         surface_connectivity.reshape((int(surface_connectivity.shape[0] / 4), 4)),
+        #         nthreads_requested=solver.n_threads,
+        #     )
+        #     hmag = hfield_dipole(
+        #         self.centroids, self.volumes, self._m_field * self.volumes[:, np.newaxis],
+        #         self.surface_face_centroids,0.01
+        #     )
 
-        if hmag is not None:
-            h_field += hmag
+        # if hmag is not None:
+        #     h_field += hmag
 
         return _mesh_surface_forces(self.surface_face_areas.flatten(), self.surface_face_normals.flatten(), h_field.flatten() * MU0)
 

@@ -40,6 +40,8 @@ def test_mag_ellipsoid(min_size: float = 0.15, max_size: float = 0.15):
     Btotal = oersted.MU0 * (Htotal + M)
     Bavg = np.average(Btotal, axis=0)
     print(f"avg B (element): {Bavg}")
+    print(f"max B (element): {np.max(np.linalg.norm(Btotal, axis=1))}")
+    print(f"min B (element): {np.min(np.linalg.norm(Btotal, axis=1))}")
 
     # Analytical solution
     Manalytical = chi * h_ext / (1.0 + chi * demag_tensor[2])
