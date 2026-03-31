@@ -25,32 +25,6 @@ def b_current_point_octree(
     leaf_threshold: int,
     nthreads_requested: int,
 ) -> Float64Array: ...
-def _bfield_dualtree(
-    centx: Float64Array,
-    centy: Float64Array,
-    centz: Float64Array,
-    vol: Float64Array,
-    jx: Float64Array,
-    jy: Float64Array,
-    jz: Float64Array,
-    x: Float64Array,
-    y: Float64Array,
-    z: Float64Array,
-    bx: Float64Array,
-    by: Float64Array,
-    bz: Float64Array,
-    theta_source: float,
-    theta_target: float,
-    leaf_threshold: int,
-    nthreads_requested: int,
-) -> None: ...
-def _bfield_hexahedron(
-    nx: Float64Array,
-    ny: Float64Array,
-    nz: Float64Array,
-    jdensity: Float64Array,
-    target: Float64Array,
-) -> Vector3: ...
 def _hfield_tetrahedrons(
     nodes_flat: Float64Array,
     centroids_flat: Float64Array,

@@ -1,13 +1,11 @@
 #![allow(unused)]
 
-use std::cmp::max;
-
-use numpy::datetime::units::Years;
 use numpy::{
     PyArray1, PyArray2, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray1,
     PyUntypedArrayMethods,
 };
 use pyo3::prelude::*;
+use std::cmp::max;
 
 use crate::biotsavart;
 #[cfg(feature = "parallel")]
@@ -131,67 +129,6 @@ fn b_current_point_octree<'py>(
     );
 
     Ok(cols_to_pyarray(py, (bx, by, bz)))
-}
-
-#[pyfunction]
-fn _bfield_dualtree(
-    centx: PyReadonlyArray1<f64>,
-    centy: PyReadonlyArray1<f64>,
-    centz: PyReadonlyArray1<f64>,
-    vol: PyReadonlyArray1<f64>,
-    jx: PyReadonlyArray1<f64>,
-    jy: PyReadonlyArray1<f64>,
-    jz: PyReadonlyArray1<f64>,
-    x: PyReadonlyArray1<f64>,
-    y: PyReadonlyArray1<f64>,
-    z: PyReadonlyArray1<f64>,
-    mut bx: PyReadwriteArray1<f64>,
-    mut by: PyReadwriteArray1<f64>,
-    mut bz: PyReadwriteArray1<f64>,
-    theta_source: f64,
-    theta_target: f64,
-    leaf_threshold: u32,
-    nthreads_requested: u32,
-) -> PyResult<()> {
-    use crate::archive::dualtree;
-    dualtree::bfield_dualtree(
-        centx.as_slice()?,
-        centy.as_slice()?,
-        centz.as_slice()?,
-        vol.as_slice()?,
-        jx.as_slice()?,
-        jy.as_slice()?,
-        jz.as_slice()?,
-        x.as_slice()?,
-        y.as_slice()?,
-        z.as_slice()?,
-        bx.as_slice_mut()?,
-        by.as_slice_mut()?,
-        bz.as_slice_mut()?,
-        theta_source,
-        theta_target,
-        leaf_threshold,
-    );
-    Ok(())
-}
-
-#[pyfunction]
-fn _bfield_hexahedron(
-    nx: PyReadonlyArray1<f64>,
-    ny: PyReadonlyArray1<f64>,
-    nz: PyReadonlyArray1<f64>,
-    jdensity: PyReadonlyArray1<f64>,
-    target: PyReadonlyArray1<f64>,
-) -> PyResult<([f64; 3])> {
-    let b = crate::sources::hex8::bfield_hexahedron(
-        nx.as_slice()?,
-        ny.as_slice()?,
-        nz.as_slice()?,
-        jdensity.as_slice()?,
-        target.as_slice()?,
-    );
-
-    Ok(b)
 }
 
 #[pyfunction]
@@ -564,8 +501,6 @@ fn _mesh_surface_tets<'py>(
 fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(b_current_point_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(b_current_point_octree, m.clone())?)?;
-    m.add_function(wrap_pyfunction!(_bfield_dualtree, m.clone())?)?;
-    m.add_function(wrap_pyfunction!(_bfield_hexahedron, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_hfield_tetrahedrons, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_hfield_dipole, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_hfield_tetrahedrons_direct, m.clone())?)?;
