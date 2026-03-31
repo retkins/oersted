@@ -19,15 +19,14 @@ pub struct PointSources {
 
 impl PointSources {
     pub fn new(
-        x: &[f64],
-        y: &[f64],
-        z: &[f64],
+        centroids: (&[f64], &[f64], &[f64]),
         vol: &[f64],
-        jx: &[f64],
-        jy: &[f64],
-        jz: &[f64],
+        jdensity: (&[f64], &[f64], &[f64]),
     ) -> Self {
+        let (x, y, z) = centroids;
+        let (jx, jy, jz) = jdensity;
         let n = x.len();
+
         let xg: Vec<f64> = x.to_vec();
         let yg: Vec<f64> = y.to_vec();
         let zg: Vec<f64> = z.to_vec();

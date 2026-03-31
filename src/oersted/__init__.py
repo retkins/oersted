@@ -5,7 +5,6 @@ from .solver import Solver, DirectSolver, OctreeSolver
 
 from .biotsavart import (
     b_field,
-    bfield_octree,
     bfield_dualtree,
     bfield_hexahedron,
     bfield_tetrahedrons,
@@ -26,8 +25,6 @@ __all__ = [
     "LinearMaterial",
     "NonlinearMaterial",
     "BHCurve",
-    "bfield_direct",
-    "bfield_octree",
     "testing",
     "Mesh",
     "CentroidMesh",

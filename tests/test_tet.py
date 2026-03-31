@@ -9,7 +9,7 @@ TODO: rewrite tet/octree function to accept nodal connectivity
 """
 
 import oersted
-from oersted import Mesh, DirectSolver
+from oersted import Mesh, DirectSolver, OctreeSolver
 import numpy as np
 import matplotlib.pyplot as plt
 from time import perf_counter
@@ -50,7 +50,7 @@ targets_axis[:, 2] = np.linspace(-0.125, 0.125, ntargets_axis)
 # targets_axis[:,0] = np.linspace(0, 0.10, ntargets_axis)
 
 bdirect_pt_axis = oersted.b_field(mesh, mesh.j_density, targets_axis)
-boctree_pt_axis = oersted.bfield_octree(mesh.centroids, mesh.volumes, jdensity, targets_axis, nthreads=nthreads, theta=theta_pt)
+boctree_pt_axis = oersted.b_field(mesh, jdensity, targets_axis, solver=OctreeSolver(n_threads=nthreads, theta=theta_pt))
 bdirect_tet_axis = oersted.bfield_tetrahedrons_direct(mesh.nodes, mesh.connectivity, jdensity, targets_axis, nthreads=nthreads)
 # boctree_tet_axis = oersted.bfield_tetrahedrons(nodes, centroids, vol, jdensity, targets_axis, theta=theta_tet, nthreads=nthreads)
 
@@ -96,7 +96,7 @@ end = perf_counter()
 direct_tet_elapsed = end - start
 
 start = perf_counter()
-boctree_pt = oersted.bfield_octree(mesh.centroids, mesh.volumes, mesh.j_density, targets, nthreads=nthreads, theta=theta_pt)
+boctree_pt = oersted.b_field(mesh, jdensity, targets_axis, solver=OctreeSolver(n_threads=nthreads, theta=theta_pt))
 end = perf_counter()
 octree_pt_elapsed = end - start
 

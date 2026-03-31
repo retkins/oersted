@@ -54,3 +54,4 @@
 * Added helper functions in `python.rs` for transposing memory at the boundary
 * Updated the interfaces for calling the flux density (B field) calculation for point sources using direct summation
 * Fixed bug in parallel direct point solver and multiple bugs in solenoid test
+* Updated interface for B field calculation on point sources with octree

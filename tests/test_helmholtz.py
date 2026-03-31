@@ -16,7 +16,7 @@ We basically do two tests in one:
 Note: there's some sort of units mismatch with gmsh
 """
 
-from oersted.mesh import CentroidMesh
+from oersted import CentroidMesh, DirectSolver, OctreeSolver
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -33,6 +33,8 @@ ntargets_axis: int = 100  # Along the axis
 nthreads = 0
 leaf_threshold = 1
 axis_halfdistance = 0.3
+direct_solver = DirectSolver(n_threads=nthreads)
+octree_solver = OctreeSolver(theta=theta, leaf_threshold=leaf_threshold, n_threads=nthreads)
 
 #
 # Generate a mesh from a STEP file
@@ -65,7 +67,7 @@ mesh = CentroidMesh(centroids, vol)
 targets_axis = np.zeros((ntargets_axis, 3))
 targets_axis[:, 2] = np.linspace(-axis_halfdistance, axis_halfdistance, ntargets_axis)
 bdirect_axis = oersted.b_field(mesh, jdensity, targets_axis)
-boctree_axis = oersted.bfield_octree(centroids, vol, jdensity, targets_axis, nthreads=nthreads, theta=theta, leaf_threshold=leaf_threshold)
+boctree_axis = oersted.b_field(mesh, jdensity, targets_axis, solver=octree_solver)
 
 # Targets are now the source centroids for self fields
 targets = centroids
@@ -84,7 +86,7 @@ end = perf_counter()
 direct_elapsed = end - start
 
 start = perf_counter()
-boctree = oersted.bfield_octree(centroids, vol, jdensity, targets, nthreads=nthreads, theta=theta, leaf_threshold=leaf_threshold)
+boctree = oersted.b_field(mesh, jdensity, targets, solver=octree_solver)
 end = perf_counter()
 octree_elapsed = end - start
 
