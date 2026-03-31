@@ -51,7 +51,7 @@ targets_axis[:, 2] = np.linspace(-0.125, 0.125, ntargets_axis)
 
 bdirect_pt_axis = oersted.b_field(mesh, mesh.j_density, targets_axis)
 boctree_pt_axis = oersted.b_field(mesh, jdensity, targets_axis, solver=OctreeSolver(n_threads=nthreads, theta=theta_pt))
-bdirect_tet_axis = oersted.bfield_tetrahedrons_direct(mesh.nodes, mesh.connectivity, jdensity, targets_axis, nthreads=nthreads)
+bdirect_tet_axis = oersted.b_field(mesh, jdensity, targets_axis, solver=DirectSolver(n_threads=nthreads))
 # boctree_tet_axis = oersted.bfield_tetrahedrons(nodes, centroids, vol, jdensity, targets_axis, theta=theta_tet, nthreads=nthreads)
 
 
@@ -91,7 +91,7 @@ end = perf_counter()
 direct_pt_elapsed = end - start
 
 start = perf_counter()
-bdirect_tet = oersted.bfield_tetrahedrons_direct(mesh.nodes, mesh.connectivity, mesh.j_density, targets, nthreads=nthreads)
+bdirect_tet = oersted.b_field(mesh, mesh.j_density, targets, solver=DirectSolver(n_threads=nthreads))
 end = perf_counter()
 direct_tet_elapsed = end - start
 

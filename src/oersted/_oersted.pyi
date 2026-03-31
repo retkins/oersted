@@ -16,13 +16,20 @@ def b_current_point_direct(
     tgt_pts: Float64Array,
     nthreads_requested: int,
 ) -> Float64Array: ...
-def b_current_point_octree(
+def h_current_point_octree(
     src_pts: Float64Array,
     src_vol: Float64Array,
     src_jdensity: Float64Array,
     tgt_pts: Float64Array,
     theta: float,
     leaf_threshold: int,
+    nthreads_requested: int,
+) -> Float64Array: ...
+def h_current_tet4_direct(
+    nodes: Float64Array,
+    connectivity: U32Array,
+    jdensity: Float64Array,
+    tgt_pts: Float64Array,
     nthreads_requested: int,
 ) -> Float64Array: ...
 def _hfield_tetrahedrons(
@@ -53,18 +60,6 @@ def _hfield_dipole_tetrahedrons(
     bz: Float64Array,
     theta: float,
     leaf_threshold: int,
-    nthreads_requested: int,
-) -> None: ...
-def _hfield_tetrahedrons_direct(
-    nodes: Float64Array,
-    connectivity: U32Array,
-    jdensity: Float64Array,
-    x: Float64Array,
-    y: Float64Array,
-    z: Float64Array,
-    hx: Float64Array,
-    hy: Float64Array,
-    hz: Float64Array,
     nthreads_requested: int,
 ) -> None: ...
 def _hfield_dipole(

@@ -6,7 +6,6 @@ from .solver import Solver, DirectSolver, OctreeSolver
 from .biotsavart import (
     b_field,
     bfield_tetrahedrons,
-    bfield_tetrahedrons_direct,
     hfield_dipole,
     hfield_dipole_tetrahedrons,
 )

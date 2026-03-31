@@ -74,15 +74,13 @@ pub fn hfield_direct_tet_parallel(
     nodes: &[f64],
     connectivity: &[u32],
     jdensity: &[f64],
-    x: &[f64],
-    y: &[f64],
-    z: &[f64],
-    hx: &mut [f64],
-    hy: &mut [f64],
-    hz: &mut [f64],
+    tgt_pts: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
     nthreads_requested: u32,
 ) -> Result<(), ()> {
     // TODO: length checks
+    let (x, y, z) = tgt_pts;
+    let (hx, hy, hz) = out;
     let n: usize = x.len();
     let nthreads: usize = get_nthreads(nthreads_requested);
     let chunk_size: usize = (n / nthreads).max(1);

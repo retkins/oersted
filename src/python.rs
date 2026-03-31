@@ -1,16 +1,12 @@
 #![allow(unused)]
 
 use numpy::{
-    PyArray1, PyArray2, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray1,
-    PyUntypedArrayMethods,
+    Element, PyArray1, PyArray2, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2,
+    PyReadwriteArray1, PyUntypedArrayMethods,
 };
 use pyo3::prelude::*;
-use std::cmp::max;
 
-use crate::biotsavart;
-#[cfg(feature = "parallel")]
 use crate::biotsavart_parallel;
-
 use crate::mesh;
 use crate::octree::{CurrentSources, HFieldSolver, Octree, point};
 use crate::vec3::Vec3;
@@ -20,11 +16,11 @@ use crate::vec3::Vec3;
 // ---
 
 // Transpose a row-major (N,3) PyArray2 to column vectors for SIMD operations in Rust
-fn pyarray_to_cols(arr: PyReadonlyArray2<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+fn pyarray_to_3cols<T: Element + Copy>(arr: PyReadonlyArray2<T>) -> (Vec<T>, Vec<T>, Vec<T>) {
     let n = arr.shape()[0];
-    let mut x: Vec<f64> = Vec::with_capacity(n);
-    let mut y: Vec<f64> = Vec::with_capacity(n);
-    let mut z: Vec<f64> = Vec::with_capacity(n);
+    let mut x: Vec<T> = Vec::with_capacity(n);
+    let mut y: Vec<T> = Vec::with_capacity(n);
+    let mut z: Vec<T> = Vec::with_capacity(n);
     for row in arr.as_array().rows() {
         x.push(row[0]);
         y.push(row[1]);
@@ -66,36 +62,26 @@ fn b_current_point_direct<'py>(
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
     // Transpose input data and allocate output arrays
     let n = tgt_pts.shape()[0];
-    let (centx, centy, centz): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_cols(src_pts);
+    let (centx, centy, centz): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_3cols(src_pts);
     let _src_vol: &[f64] = src_vol.as_slice()?;
-    let (jx, jy, jz): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_cols(src_jdensity);
-    let (x, y, z): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_cols(tgt_pts);
+    let (jx, jy, jz): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_3cols(src_jdensity);
+    let (x, y, z): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_3cols(tgt_pts);
     let (mut bx, mut by, mut bz): (Vec<f64>, Vec<f64>, Vec<f64>) = col_buffer(n);
 
-    if nthreads_requested != 1 {
-        biotsavart_parallel::bfield_direct_parallel(
-            (&centx, &centy, &centz),
-            &_src_vol,
-            (&jx, &jy, &jz),
-            (&x, &y, &z),
-            (&mut bx, &mut by, &mut bz),
-            nthreads_requested,
-        );
-    } else {
-        biotsavart::bfield_direct(
-            (&centx, &centy, &centz),
-            &_src_vol,
-            (&jx, &jy, &jz),
-            (&x, &y, &z),
-            (&mut bx, &mut by, &mut bz),
-        );
-    }
+    biotsavart_parallel::bfield_direct_parallel(
+        (&centx, &centy, &centz),
+        &_src_vol,
+        (&jx, &jy, &jz),
+        (&x, &y, &z),
+        (&mut bx, &mut by, &mut bz),
+        nthreads_requested,
+    );
 
     Ok(cols_to_pyarray(py, (bx, by, bz)))
 }
 
 #[pyfunction]
-fn b_current_point_octree<'py>(
+fn h_current_point_octree<'py>(
     py: Python<'py>,
     src_pts: PyReadonlyArray2<f64>,
     src_vol: PyReadonlyArray1<f64>,
@@ -107,10 +93,10 @@ fn b_current_point_octree<'py>(
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
     // Transpose input data and allocate output arrays
     let n = tgt_pts.shape()[0];
-    let (centx, centy, centz): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_cols(src_pts);
+    let (centx, centy, centz): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_3cols(src_pts);
     let _src_vol: &[f64] = src_vol.as_slice()?;
-    let (jx, jy, jz): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_cols(src_jdensity);
-    let (x, y, z): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_cols(tgt_pts);
+    let (jx, jy, jz): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_3cols(src_jdensity);
+    let (x, y, z): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_3cols(tgt_pts);
     let (mut bx, mut by, mut bz): (Vec<f64>, Vec<f64>, Vec<f64>) = col_buffer(n);
 
     let mut sources: CurrentSources<point::PointSources> = CurrentSources(
@@ -120,7 +106,6 @@ fn b_current_point_octree<'py>(
     let tree: Octree<CurrentSources<point::PointSources>> =
         Octree::build_from_sources(sources, max_depth, leaf_threshold);
 
-    #[cfg(feature = "parallel")]
     tree.h_field_parallel(
         (&x, &y, &z),
         (&mut bx, &mut by, &mut bz),
@@ -129,6 +114,32 @@ fn b_current_point_octree<'py>(
     );
 
     Ok(cols_to_pyarray(py, (bx, by, bz)))
+}
+
+#[pyfunction]
+pub fn h_current_tet4_direct<'py>(
+    py: Python<'py>,
+    nodes: PyReadonlyArray2<f64>,
+    connectivity: PyReadonlyArray2<u32>,
+    jdensity: PyReadonlyArray2<f64>,
+    tgts: PyReadonlyArray2<f64>,
+    nthreads_requested: u32,
+) -> PyResult<Bound<'py, PyArray2<f64>>> {
+    // Transpose input data and allocate output arrays
+    let n_tgts: usize = tgts.shape()[0];
+    let (x, y, z) = pyarray_to_3cols(tgts);
+    let (mut hx, mut hy, mut hz) = col_buffer(n_tgts);
+
+    biotsavart_parallel::hfield_direct_tet_parallel(
+        nodes.as_slice()?,
+        connectivity.as_slice()?,
+        jdensity.as_slice()?,
+        (&x, &y, &z),
+        (&mut hx, &mut hy, &mut hz),
+        nthreads_requested,
+    );
+
+    Ok(cols_to_pyarray(py, (hx, hy, hz)))
 }
 
 #[pyfunction]
@@ -204,36 +215,6 @@ fn _hfield_dipole_tetrahedrons(
         theta,
         nthreads_requested,
     );
-    Ok(())
-}
-
-#[pyfunction]
-pub fn _hfield_tetrahedrons_direct(
-    nodes: PyReadonlyArray1<f64>,
-    connectivity: PyReadonlyArray1<u32>,
-    jdensity: PyReadonlyArray1<f64>,
-    x: PyReadonlyArray1<f64>,
-    y: PyReadonlyArray1<f64>,
-    z: PyReadonlyArray1<f64>,
-    mut hx: PyReadwriteArray1<f64>,
-    mut hy: PyReadwriteArray1<f64>,
-    mut hz: PyReadwriteArray1<f64>,
-    nthreads_requested: u32,
-) -> PyResult<()> {
-    use crate::biotsavart_parallel;
-    biotsavart_parallel::hfield_direct_tet_parallel(
-        nodes.as_slice()?,
-        connectivity.as_slice()?,
-        jdensity.as_slice()?,
-        x.as_slice()?,
-        y.as_slice()?,
-        z.as_slice()?,
-        hx.as_slice_mut()?,
-        hy.as_slice_mut()?,
-        hz.as_slice_mut()?,
-        nthreads_requested,
-    );
-
     Ok(())
 }
 
@@ -500,10 +481,10 @@ fn _mesh_surface_tets<'py>(
 #[pymodule]
 fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(b_current_point_direct, m.clone())?)?;
-    m.add_function(wrap_pyfunction!(b_current_point_octree, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(h_current_point_octree, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_hfield_tetrahedrons, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_hfield_dipole, m.clone())?)?;
-    m.add_function(wrap_pyfunction!(_hfield_tetrahedrons_direct, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(h_current_tet4_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_hfield_dipole_tetrahedrons, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_h_demag_tet4, m.clone())?)?;
 

@@ -56,3 +56,5 @@
 * Fixed bug in parallel direct point solver and multiple bugs in solenoid test
 * Updated interface for B field calculation on point sources with octree
 * Removed bindings for dual-tree point and hexahedron source evaluations
+* Updates to cargo.toml: bump version to 0.2.0, make python feature depend on parallel feature
+* Updated bindings for direct tet4 solver

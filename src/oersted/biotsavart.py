@@ -6,10 +6,10 @@ from numpy.typing import NDArray
 # Create bindings for calculation engine written in Rust
 from ._oersted import (
     b_current_point_direct,
-    b_current_point_octree,
+    h_current_point_octree,
+    h_current_tet4_direct,
     _hfield_dipole,
     _hfield_tetrahedrons,
-    _hfield_tetrahedrons_direct,
     _hfield_dipole_tetrahedrons,
 )
 
@@ -42,8 +42,8 @@ def b_field(
             return b_current_point_direct(src_pts, src_vol, j_density, tgt_pts, solver.n_threads)
 
         elif isinstance(solver, OctreeSolver):
-            # TODO: update octree solver to output B field instead of H field
-            return MU0 * b_current_point_octree(src_pts, src_vol, j_density, tgt_pts, solver.theta, solver.leaf_threshold, solver.n_threads)
+            # Octree solvers return H instead of B field
+            return MU0 * h_current_point_octree(src_pts, src_vol, j_density, tgt_pts, solver.theta, solver.leaf_threshold, solver.n_threads)
 
         else:
             raise TypeError(f"Unsupported source/solver combination: {type(source)}, {type(solver)}")
@@ -52,7 +52,7 @@ def b_field(
         src_nodes = ascontiguousarray(source.nodes, dtype=float64)
         src_connectivity = ascontiguousarray(source.connectivity, dtype=uint32)
         if isinstance(solver, DirectSolver):
-            return bfield_tetrahedrons_direct(src_nodes, src_connectivity, j_density, tgt_pts, solver.n_threads)
+            return MU0 * h_current_tet4_direct(src_nodes, src_connectivity, j_density, tgt_pts, solver.n_threads)
 
         # elif isinstance(solver, OctreeSolver):
         #     src_vol = ascontiguousarray(source.volumes, dtype=float64)
@@ -111,50 +111,6 @@ def bfield_tetrahedrons(
         ascontiguousarray(hz[:]),
         theta,
         leaf_threshold,
-        nthreads,
-    )
-
-    return (4 * pi * 10**-7) * hstack((hx[:, newaxis], hy[:, newaxis], hz[:, newaxis]))
-
-
-def bfield_tetrahedrons_direct(
-    nodes: NDArray[float64],
-    connectivity: NDArray[uint32],
-    jdensity: NDArray[float64],
-    targets: NDArray[float64],
-    nthreads: int = 0,
-) -> NDArray[float64]:
-    """Compute the magnetic flux density at a set of target points
-        using a tetrahedral finite element mesh as a source. This
-        function performs the analytic (exact) integral for every
-        element in the mesh.
-
-    Args:
-        nodes: (N,3) nodal coordinates of each element
-        connectivity: (N,4) indices into `nodes` for each element
-        jdensity: (N,3) current density vector assumed constant over each element
-        targets: (M,3) target point locations in 3d space
-
-    Returns:
-        (N,3) magnetic flux density at each target point
-
-    """
-
-    ntargets = targets.shape[0]
-    hx = zeros(ntargets)
-    hy = zeros(ntargets)
-    hz = zeros(ntargets)
-
-    _hfield_tetrahedrons_direct(
-        ascontiguousarray(nodes.flatten()),
-        ascontiguousarray(connectivity.flatten()),
-        ascontiguousarray(jdensity.flatten()),
-        ascontiguousarray(targets[:, 0]),
-        ascontiguousarray(targets[:, 1]),
-        ascontiguousarray(targets[:, 2]),
-        ascontiguousarray(hx[:]),
-        ascontiguousarray(hy[:]),
-        ascontiguousarray(hz[:]),
         nthreads,
     )
 
