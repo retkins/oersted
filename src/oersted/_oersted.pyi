@@ -9,22 +9,13 @@ Float64Array: TypeAlias = NDArray[float64]
 U32Array: TypeAlias = NDArray[uint32]
 Vector3: TypeAlias = tuple[float, float, float]
 
-def _bfield_direct(
-    centx: Float64Array,
-    centy: Float64Array,
-    centz: Float64Array,
-    vol: Float64Array,
-    jx: Float64Array,
-    jy: Float64Array,
-    jz: Float64Array,
-    x: Float64Array,
-    y: Float64Array,
-    z: Float64Array,
-    bx: Float64Array,
-    by: Float64Array,
-    bz: Float64Array,
+def b_current_point_direct(
+    src_pts: Float64Array,
+    src_vol: Float64Array,
+    src_jdensity: Float64Array,
+    tgt_pts: Float64Array,
     nthreads_requested: int,
-) -> None: ...
+) -> Float64Array: ...
 def _bfield_octree(
     centx: Float64Array,
     centy: Float64Array,

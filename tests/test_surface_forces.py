@@ -72,20 +72,18 @@ def test_lorentz_forces():
     phi = np.atan2(mesh1.centroids[:, 1], mesh1.centroids[:, 0])
     jdensity[:, 0] = -jmag * np.sin(phi)
     jdensity[:, 1] = jmag * np.cos(phi)
-    mesh1._j_density = jdensity
-    mesh2._j_density = jdensity
 
     solver = oersted.DirectSolver()
 
     # Compute the analytical solution by checking that the vertical force is approximately
     # equal to Fz = -2pi * R * Itotal * Br
-    bavg = oersted.b_field(mesh1, np.array([[radius, 0.0, -0.01]]))
+    bavg = oersted.b_field(mesh1, jdensity, np.array([[radius, 0.0, -0.01]]))
     fz_expected = -float(2 * np.pi * radius * total_current * bavg[0, 0])
     print(f"fz expected: {fz_expected:.3f} N")
 
     # Compute the field at the lower coil's surface elements using both coils
-    bext = oersted.b_field(mesh1, mesh2.surface_face_centroids, solver=solver)
-    bext += oersted.b_field(mesh2, mesh2.surface_face_centroids, solver=solver)
+    bext = oersted.b_field(mesh1, jdensity, mesh2.surface_face_centroids, solver=solver)
+    bext += oersted.b_field(mesh2, jdensity, mesh2.surface_face_centroids, solver=solver)
 
     forces = mesh2.surface_forces(bext, mat, solver)
     total_force = np.sum(forces, axis=0)

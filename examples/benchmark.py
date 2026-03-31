@@ -1,6 +1,7 @@
 """Use the helmholtz coil problem as a benchmarking example"""
 
 import oersted
+from oersted import CentroidMesh
 import numpy as np
 import matplotlib.pyplot as plt
 from time import perf_counter
@@ -23,7 +24,7 @@ def main(nbenches: int = 1, theta: float = 0.5, mesh_size_max: float = 33.0, mes
 
         if n < 50000:
             start = perf_counter()
-            _ = oersted.bfield_direct(centroids, vol, jdensity, centroids)
+            _ = oersted.b_field(CentroidMesh(centroids, vol), jdensity, centroids)
             end = perf_counter()
             direct_times.append(end - start)
             est_direct_times = [end - start]

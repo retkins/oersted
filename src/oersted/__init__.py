@@ -5,7 +5,6 @@ from .solver import Solver, DirectSolver, OctreeSolver
 
 from .biotsavart import (
     b_field,
-    bfield_direct,
     bfield_octree,
     bfield_dualtree,
     bfield_hexahedron,
@@ -15,7 +14,7 @@ from .biotsavart import (
     hfield_dipole_tetrahedrons,
 )
 
-from .mesh import Mesh, mesh_step
+from .mesh import Mesh, CentroidMesh, mesh_step
 from .magnetization import mag_force
 
 from . import testing
@@ -31,6 +30,7 @@ __all__ = [
     "bfield_octree",
     "testing",
     "Mesh",
+    "CentroidMesh",
     "mesh_step",
     "b_field",
     "bfield_dualtree",

@@ -15,20 +15,17 @@ use crate::vec3::Vec3;
 /// - `x`, `y`, `z`:             (m) location of each target point
 /// - `bx`, `by`, `bz`:          (T) magnetic flux density at each target point
 pub fn bfield_direct(
-    centx: &[f64],
-    centy: &[f64],
-    centz: &[f64],
-    vol: &[f64],
-    jx: &[f64],
-    jy: &[f64],
-    jz: &[f64],
-    x: &[f64],
-    y: &[f64],
-    z: &[f64],
-    bx: &mut [f64],
-    by: &mut [f64],
-    bz: &mut [f64],
+    src_pts: (&[f64], &[f64], &[f64]),
+    src_vol: &[f64],
+    src_jdensity: (&[f64], &[f64], &[f64]),
+    tgt_pts: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
 ) -> Result<(), ()> {
+    // Unpack
+    let (centx, centy, centz) = src_pts;
+    let (jx, jy, jz) = src_jdensity;
+    let (x, y, z) = tgt_pts;
+    let (bx, by, bz) = out;
     // TODO: length checks on input arrays
 
     // Outer loop over source elements
@@ -37,7 +34,7 @@ pub fn bfield_direct(
         let centxi: f64 = centx[i];
         let centyi: f64 = centy[i];
         let centzi: f64 = centz[i];
-        let vol_mu0_4pi: f64 = vol[i] * MU0_4PI;
+        let vol_mu0_4pi: f64 = src_vol[i] * MU0_4PI;
         let jxi = jx[i];
         let jyi = jy[i];
         let jzi = jz[i];

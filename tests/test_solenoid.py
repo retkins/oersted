@@ -13,7 +13,7 @@ Note: there's some sort of units mismatch with gmsh
 import numpy as np
 import matplotlib.pyplot as plt
 import oersted
-from oersted import Mesh
+from oersted import Mesh, DirectSolver
 from time import perf_counter
 
 #
@@ -55,7 +55,7 @@ jdensity[:, 1] = jmag * np.cos(phi)
 targets_axis = np.zeros((ntargets_axis, 3))
 targets_axis[:, 2] = np.linspace(-0.125, 0.125, ntargets_axis)
 
-bdirect_axis = oersted.bfield_direct(mesh.centroids, mesh.volumes, jdensity, targets_axis)
+bdirect_axis = oersted.b_field(mesh, jdensity, targets_axis)
 boctree_axis = oersted.bfield_octree(mesh.centroids, mesh.volumes, jdensity, targets_axis, nthreads=nthreads, theta=theta)
 
 #
@@ -66,7 +66,7 @@ targets = mesh.centroids
 ntargets = targets.shape[0]
 
 start = perf_counter()
-bdirect = boctree = oersted.bfield_direct(mesh.centroids, mesh.volumes, jdensity, targets, nthreads=nthreads)
+bdirect = boctree = oersted.b_field(mesh, jdensity, targets, solver=DirectSolver(n_threads=nthreads))
 end = perf_counter()
 direct_elapsed = end - start
 

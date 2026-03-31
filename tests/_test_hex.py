@@ -1,4 +1,4 @@
-from oersted import bfield_hexahedron, bfield_direct
+from oersted import bfield_hexahedron, b_field, CentroidMesh
 import numpy as np
 from numpy.linalg import norm
 import matplotlib.pyplot as plt
@@ -27,9 +27,10 @@ _b = np.zeros((n, 3))
 
 centroids = np.array([[0.0, 0.0, 0.0]])
 vol = np.array([1.0])
-jdensities = np.array([jdensity])
 
-_bpoint = bfield_direct(centroids, vol, jdensities, targets)
+mesh = CentroidMesh(centroids, vol)
+
+_bpoint = b_field(mesh, jdensity, targets)
 
 for i in range(0, n):
     _b[i, :] = bfield_hexahedron(nodes, jdensity, targets[i, :])

@@ -16,6 +16,8 @@ We basically do two tests in one:
 Note: there's some sort of units mismatch with gmsh
 """
 
+from oersted.mesh import CentroidMesh
+
 import numpy as np
 import matplotlib.pyplot as plt
 import oersted
@@ -44,24 +46,25 @@ nsources = mesh.num_elems  # Targets are now the source centroids for self field
 # The current mesh is centered on the xy plane and is only one circular ring
 # We need to split the single ring into twoand assign current densities to the elements
 jmag: float = 100.0e3 / (0.02 * 0.02)  # 100 A each
-centroids_upper = mesh.centroids
+centroids_upper = mesh.centroids.copy()
 centroids_upper[:, 2] += 0.1  # shift upper coil up
 centroids_lower = centroids_upper.copy()
 centroids_lower[:, 2] -= 0.2  # flip to lower side
 centroids = np.vstack((centroids_upper, centroids_lower))
 vol = np.hstack((mesh.volumes, mesh.volumes))
 nsources = vol.shape[0]
+
 jdensity = np.zeros((nsources, 3))
 phi = np.atan2(centroids[:, 1], centroids[:, 0])
 jdensity[:, 0] = -jmag * np.sin(phi)
 jdensity[:, 1] = jmag * np.cos(phi)
 
+mesh = CentroidMesh(centroids, vol)
 
 # Setup the targets for the axis accuracy test
 targets_axis = np.zeros((ntargets_axis, 3))
 targets_axis[:, 2] = np.linspace(-axis_halfdistance, axis_halfdistance, ntargets_axis)
-
-bdirect_axis = oersted.bfield_direct(centroids, vol, jdensity, targets_axis)
+bdirect_axis = oersted.b_field(mesh, jdensity, targets_axis)
 boctree_axis = oersted.bfield_octree(centroids, vol, jdensity, targets_axis, nthreads=nthreads, theta=theta, leaf_threshold=leaf_threshold)
 
 # Targets are now the source centroids for self fields
@@ -76,7 +79,7 @@ print("")
 
 # Compute magnetic fields
 start = perf_counter()
-bdirect = oersted.bfield_direct(centroids, vol, jdensity, targets, nthreads=nthreads)
+bdirect = oersted.b_field(mesh, jdensity, targets, solver=oersted.DirectSolver(n_threads=nthreads))
 end = perf_counter()
 direct_elapsed = end - start
 
@@ -87,7 +90,7 @@ octree_elapsed = end - start
 
 
 def total_force_on_coil(jdensity, bfield, vol):
-    fdensity = np.cross(jdensity[:], bfield)
+    fdensity = np.cross(jdensity, bfield)
     return np.sum(fdensity * vol[:, np.newaxis], axis=0)
 
 

@@ -21,30 +21,29 @@ pub fn get_nthreads(nthreads_requested: u32) -> usize {
 /// This version of the function uses a user-specified number of threads
 ///
 /// # Arguments
-/// - `centx`, `centy`, `centz`: (m) locations of source element centroids in 3D space
-/// - `vol`:                     (m^3) volume of each source element
-/// - `jx`, `jy`, `jz`:          (A/m^2) current density vector of each source element
-/// - `x`, `y`, `z`:             (m) location of each target point
-/// - `bx`, `by`, `bz`:          (T) magnetic flux density at each target point
+/// - `src_pts`: (m) locations of source element centroids in 3D space
+/// - `src_vol`:                     (m^3) volume of each source element
+/// - `src_jdensity`:          (A/m^2) current density vector of each source element
+/// - `tgt_pts`:             (m) location of each target point
+/// - `out`:          (T) magnetic flux density at each target point
 /// - `nthreads_requested`:      how many OS threads the calculation should run on
 pub fn bfield_direct_parallel(
-    centx: &[f64],
-    centy: &[f64],
-    centz: &[f64],
-    vol: &[f64],
-    jx: &[f64],
-    jy: &[f64],
-    jz: &[f64],
-    x: &[f64],
-    y: &[f64],
-    z: &[f64],
-    bx: &mut [f64],
-    by: &mut [f64],
-    bz: &mut [f64],
+    src_pts: (&[f64], &[f64], &[f64]),
+    src_vol: &[f64],
+    src_jdensity: (&[f64], &[f64], &[f64]),
+    tgt_pts: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
     nthreads_requested: u32,
 ) -> Result<(), ()> {
+    // Unpack
+    let (centx, centy, centz) = src_pts;
+    let (jx, jy, jz) = src_jdensity;
+    let (x, y, z) = tgt_pts;
+    let (bx, by, bz) = out;
+
     // TODO: length checks
-    let n: usize = x.len();
+    let n: usize = src_vol.len();
+
     let nthreads: usize = get_nthreads(nthreads_requested);
     let chunk_size: usize = (n / nthreads).max(1);
 
@@ -60,7 +59,11 @@ pub fn bfield_direct_parallel(
         .into_par_iter()
         .try_for_each(|(_x, _y, _z, _bx, _by, _bz)| {
             bfield_direct(
-                centx, centy, centz, vol, jx, jy, jz, _x, _y, _z, _bx, _by, _bz,
+                (centx, centy, centz),
+                src_vol,
+                (jx, jy, jz),
+                (_x, _y, _z),
+                (_bx, _by, _bz),
             )
         })?;
 

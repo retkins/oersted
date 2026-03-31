@@ -1,6 +1,7 @@
 from oersted.testing import make_helmholtz
 
 import oersted
+from oersted import CentroidMesh
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
@@ -10,7 +11,7 @@ def main(nthetas: int = 1, size: float = 15.0, theta_min: float = 0.5, theta_max
     theta_vals = np.linspace(theta_min, theta_max, nthetas)
     errs = np.zeros(nthetas)
     centroids, vol, jdensity = make_helmholtz(size)
-    bdirect = oersted.bfield_direct(centroids, vol, jdensity, centroids)
+    bdirect = oersted.b_field(CentroidMesh(centroids, vol), jdensity, centroids)
     for i, theta in enumerate(theta_vals):
         boctree = oersted.bfield_octree(centroids, vol, jdensity, centroids, theta=theta, leaf_threshold=1)
         bmag_direct = np.linalg.norm(bdirect, axis=1)

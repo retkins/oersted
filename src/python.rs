@@ -2,71 +2,97 @@
 
 use std::cmp::max;
 
-use numpy::{PyArray1, PyArray2, PyArrayMethods, PyReadonlyArray1, PyReadwriteArray1};
+use numpy::datetime::units::Years;
+use numpy::{
+    PyArray1, PyArray2, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2, PyReadwriteArray1,
+    PyUntypedArrayMethods,
+};
 use pyo3::prelude::*;
 
 use crate::biotsavart;
-use crate::biotsavart::hmag_direct_tet;
-use crate::biotsavart_parallel::hmag_direct_tet_parallel;
+#[cfg(feature = "parallel")]
+use crate::biotsavart_parallel;
 use crate::mesh;
-use crate::sources::bfield_hexahedron;
 use crate::vec3::Vec3;
 
-#[pyfunction]
-fn _bfield_direct(
-    centx: PyReadonlyArray1<f64>,
-    centy: PyReadonlyArray1<f64>,
-    centz: PyReadonlyArray1<f64>,
-    vol: PyReadonlyArray1<f64>,
-    jx: PyReadonlyArray1<f64>,
-    jy: PyReadonlyArray1<f64>,
-    jz: PyReadonlyArray1<f64>,
-    x: PyReadonlyArray1<f64>,
-    y: PyReadonlyArray1<f64>,
-    z: PyReadonlyArray1<f64>,
-    mut bx: PyReadwriteArray1<f64>,
-    mut by: PyReadwriteArray1<f64>,
-    mut bz: PyReadwriteArray1<f64>,
-    nthreads_requested: u32,
-) -> PyResult<()> {
-    #[cfg(feature = "parallel")]
-    if nthreads_requested != 1 {
-        use crate::biotsavart_parallel;
-        biotsavart_parallel::bfield_direct_parallel(
-            centx.as_slice()?,
-            centy.as_slice()?,
-            centz.as_slice()?,
-            vol.as_slice()?,
-            jx.as_slice()?,
-            jy.as_slice()?,
-            jz.as_slice()?,
-            x.as_slice()?,
-            y.as_slice()?,
-            z.as_slice()?,
-            bx.as_slice_mut()?,
-            by.as_slice_mut()?,
-            bz.as_slice_mut()?,
-            nthreads_requested,
-        );
-        return Ok(());
+// ---
+// Helpers
+// ---
+
+// Transpose a row-major (N,3) PyArray2 to column vectors for SIMD operations in Rust
+fn pyarray_to_cols(arr: PyReadonlyArray2<f64>) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let n = arr.shape()[0];
+    let mut x: Vec<f64> = Vec::with_capacity(n);
+    let mut y: Vec<f64> = Vec::with_capacity(n);
+    let mut z: Vec<f64> = Vec::with_capacity(n);
+    for row in arr.as_array().rows() {
+        x.push(row[0]);
+        y.push(row[1]);
+        z.push(row[2]);
+    }
+    (x, y, z)
+}
+
+// Transpose 3 column vectors into a row-major (N,3) PyArray2
+fn cols_to_pyarray(py: Python, cols: (Vec<f64>, Vec<f64>, Vec<f64>)) -> Bound<PyArray2<f64>> {
+    let (x, y, z) = cols;
+    let n = x.len();
+    assert_eq!(n, y.len());
+    assert_eq!(n, z.len());
+    let mut out: Vec<f64> = Vec::with_capacity(n * 3);
+    for i in 0..n {
+        out.push(x[i]);
+        out.push(y[i]);
+        out.push(z[i]);
     }
 
-    biotsavart::bfield_direct(
-        centx.as_slice()?,
-        centy.as_slice()?,
-        centz.as_slice()?,
-        vol.as_slice()?,
-        jx.as_slice()?,
-        jy.as_slice()?,
-        jz.as_slice()?,
-        x.as_slice()?,
-        y.as_slice()?,
-        z.as_slice()?,
-        bx.as_slice_mut()?,
-        by.as_slice_mut()?,
-        bz.as_slice_mut()?,
-    );
-    Ok(())
+    // Reshape is guaranteed to succeed because the memory was allocated as n*3 above
+    PyArray1::from_vec(py, out).reshape([n, 3]).unwrap()
+}
+
+// Allocate memory for a results buffer filled with zeros
+fn col_buffer(n: usize) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    (vec![0.0; n], vec![0.0; n], vec![0.0; n])
+}
+
+#[pyfunction]
+fn b_current_point_direct<'py>(
+    py: Python<'py>,
+    src_pts: PyReadonlyArray2<f64>,
+    src_vol: PyReadonlyArray1<f64>,
+    src_jdensity: PyReadonlyArray2<f64>,
+    tgt_pts: PyReadonlyArray2<f64>,
+    nthreads_requested: u32,
+) -> PyResult<Bound<'py, PyArray2<f64>>> {
+    
+    // Transpose input data and allocate output arrays
+    let n = tgt_pts.shape()[0];
+    let (centx, centy, centz): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_cols(src_pts);
+    let _src_vol: &[f64] = src_vol.as_slice()?;
+    let (jx, jy, jz): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_cols(src_jdensity);
+    let (x, y, z): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_cols(tgt_pts);
+    let (mut bx, mut by, mut bz): (Vec<f64>, Vec<f64>, Vec<f64>) = col_buffer(n);
+
+    if nthreads_requested != 1 {
+        biotsavart_parallel::bfield_direct_parallel(
+            (&centx, &centy, &centz),
+            &_src_vol,
+            (&jx, &jy, &jz),
+            (&x, &y, &z),
+            (&mut bx, &mut by, &mut bz),
+            nthreads_requested,
+        );
+    } else {
+        biotsavart::bfield_direct(
+            (&centx, &centy, &centz),
+            &_src_vol,
+            (&jx, &jy, &jz),
+            (&x, &y, &z),
+            (&mut bx, &mut by, &mut bz),
+        );
+    }
+
+    Ok(cols_to_pyarray(py, (bx, by, bz)))
 }
 
 #[pyfunction]
@@ -204,8 +230,8 @@ fn _bfield_hexahedron(
     nz: PyReadonlyArray1<f64>,
     jdensity: PyReadonlyArray1<f64>,
     target: PyReadonlyArray1<f64>,
-) -> PyResult<(f64, f64, f64)> {
-    let b = bfield_hexahedron(
+) -> PyResult<([f64; 3])> {
+    let b = crate::sources::hex8::bfield_hexahedron(
         nx.as_slice()?,
         ny.as_slice()?,
         nz.as_slice()?,
@@ -213,7 +239,7 @@ fn _bfield_hexahedron(
         target.as_slice()?,
     );
 
-    Ok((b[0], b[1], b[2]))
+    Ok(b)
 }
 
 #[pyfunction]
@@ -451,7 +477,7 @@ fn _h_demag_tet4(
     }
 
     // Source and target are the same mesh
-    hmag_direct_tet_parallel(
+    biotsavart_parallel::hmag_direct_tet_parallel(
         (&src_nx, &src_ny, &src_nz),
         &src_elements,
         &mvectors,
@@ -584,7 +610,7 @@ fn _mesh_surface_tets<'py>(
 
 #[pymodule]
 fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(_bfield_direct, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(b_current_point_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_bfield_octree, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_bfield_dualtree, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_bfield_hexahedron, m.clone())?)?;
