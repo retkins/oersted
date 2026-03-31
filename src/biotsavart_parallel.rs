@@ -42,10 +42,10 @@ pub fn bfield_direct_parallel(
     let (bx, by, bz) = out;
 
     // TODO: length checks
-    let n: usize = src_vol.len();
+    let n_tgt: usize = x.len();
 
     let nthreads: usize = get_nthreads(nthreads_requested);
-    let chunk_size: usize = (n / nthreads).max(1);
+    let chunk_size: usize = (n_tgt / nthreads).max(1);
 
     // chunk the inputs
     let _x = x.par_chunks(chunk_size);

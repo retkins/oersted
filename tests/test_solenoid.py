@@ -13,7 +13,7 @@ Note: there's some sort of units mismatch with gmsh
 import numpy as np
 import matplotlib.pyplot as plt
 import oersted
-from oersted import Mesh, DirectSolver
+from oersted import Mesh, DirectSolver, CentroidMesh
 from time import perf_counter
 
 #
@@ -23,9 +23,9 @@ from time import perf_counter
 datafile: str = "solenoid"
 remesh: bool = True
 theta: float = 0.1
-mesh_size: float = 15  # ~10M interactions; set to 33 for 1e6 interactions
+mesh_size: float = 15 # ~10M interactions; set to 33 for 1e6 interactions
 ntargets_axis: int = 25  # Along the axis
-nthreads: int = 1
+nthreads: int = 0
 
 #
 # Generate a mesh from a STEP file
@@ -66,7 +66,7 @@ targets = mesh.centroids
 ntargets = targets.shape[0]
 
 start = perf_counter()
-bdirect = boctree = oersted.b_field(mesh, jdensity, targets, solver=DirectSolver(n_threads=nthreads))
+bdirect = oersted.b_field(CentroidMesh(mesh.centroids,mesh.volumes), jdensity, targets, solver=DirectSolver(n_threads=nthreads))
 end = perf_counter()
 direct_elapsed = end - start
 
@@ -115,5 +115,10 @@ plt.savefig("tests/fig/solenoid_test.svg")
 
 
 def test_solenoid():
+    print(f"Error in mesh, direct vs octree: {err_mesh*100:.2f} %")
     assert err_mesh < 1e-2
     assert err_axis < 1e-2
+
+
+if __name__=="__main__":
+    test_solenoid()

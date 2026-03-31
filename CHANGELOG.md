@@ -50,5 +50,7 @@
 * Added test for lorentz force calculations using maxwell stress tensor (passes)
 * Added test for mesh-related functionality
 * Remove maxwell force calculation on magnetized meshes (not currently working)
+
 * Added helper functions in `python.rs` for transposing memory at the boundary
 * Updated the interfaces for calling the flux density (B field) calculation for point sources using direct summation
+* Fixed bug in parallel direct point solver and multiple bugs in solenoid test
