@@ -3,7 +3,7 @@
 import numpy as np
 from numpy.typing import NDArray
 from numpy import float64, uint32
-from ._oersted import _mesh_centroids, _mesh_volumes, _mesh_surface_faces, _mesh_surface_face_properties, _mesh_surface_forces
+from ._oersted import mesh_centroids, mesh_volumes, _mesh_surface_faces, _mesh_surface_face_properties, _mesh_surface_forces
 from oersted import MU0, Solver
 
 from .materials import LinearMaterial
@@ -20,15 +20,9 @@ class CentroidMesh:
     _centroids: NDArray[float64]
     _volumes: NDArray[float64]
 
-    # Source and result data
-    _j_density: NDArray[float64] | None
-    _m_field: NDArray[float64] | None
-    _h_field: NDArray[float64] | None
-
-    def __init__(self, centroids: NDArray[float64], volumes: NDArray[float64], j_density: NDArray[float64] | None = None):
+    def __init__(self, centroids: NDArray[float64], volumes: NDArray[float64]):
         self._centroids = centroids
         self._volumes = volumes
-        self._j_density = j_density
 
     @property
     def num_elems(self):
@@ -41,13 +35,6 @@ class CentroidMesh:
     @property
     def volumes(self):
         return self._volumes
-
-    @property
-    def j_density(self):
-        if self._j_density is None:
-            self._j_density = np.zeros((self.num_elems, 3))
-
-        return self._j_density
 
 
 class Mesh:
@@ -66,15 +53,14 @@ class Mesh:
     _surface_face_normals: NDArray[float64] | None
     _surface_face_areas: NDArray[float64] | None
 
-    # Results information is stored at the element centroids
-    _j_density: NDArray[float64] | None
-    _h_field: NDArray[float64] | None
-    _m_field: NDArray[float64] | None
-
-    def __init__(self, nodes: NDArray[float64], connectivity: NDArray[uint32], j_density: NDArray[float64] | None = None):
+    def __init__(self, nodes: NDArray[float64], connectivity: NDArray[uint32]):
+        assert len(nodes.shape) == 2
+        assert nodes.shape[1] == 3
+        assert len(connectivity.shape) == 2
+        assert connectivity.shape[1] == 4
         self._nodes = nodes
         self._connectivity = connectivity
-        self._j_density = j_density
+
         self._edges = None
         self._faces = None
         self._centroids = None
@@ -84,8 +70,6 @@ class Mesh:
         self._surface_face_centroids = None
         self._surface_face_normals = None
         self._surface_face_areas = None
-        self._m_field = None
-        self._h_field = None
 
     @property
     def nodes(self) -> NDArray[float64]:
@@ -109,6 +93,9 @@ class Mesh:
     def num_elems(self) -> int:
         """Returns the number of elements in the model"""
         return self._connectivity.shape[0]
+
+    def to_centroid_mesh(self)-> CentroidMesh:
+        return CentroidMesh(self.centroids, self.volumes)
 
     @property
     def edges(self):  # -> NDArray[uint32]:
@@ -139,26 +126,20 @@ class Mesh:
     def centroids(self) -> NDArray[float64]:
         """Returns an (N,3) array of all element centroids in the mesh"""
         if self._centroids is None:
-            cx = np.zeros((self.num_elems,))
-            cy = np.zeros((self.num_elems,))
-            cz = np.zeros((self.num_elems,))
-            _mesh_centroids(
-                np.ascontiguousarray(self.nodes.flatten()),
-                np.ascontiguousarray(self.connectivity.flatten()),
-                np.ascontiguousarray(cx[:]),
-                np.ascontiguousarray(cy[:]),
-                np.ascontiguousarray(cz[:]),
+            self._centroids = mesh_centroids(
+                np.ascontiguousarray(self.nodes),
+                np.ascontiguousarray(self.connectivity),
             )
-            self._centroids = np.hstack((cx[:, np.newaxis], cy[:, np.newaxis], cz[:, np.newaxis]))
+
         return self._centroids
 
     @property
     def volumes(self) -> NDArray[float64]:
         """Return an (N,) array of the volume of each element in the mesh"""
         if self._volumes is None:
-            self._volumes: NDArray[float64] = np.zeros((self.num_elems,))
-            _mesh_volumes(
-                np.ascontiguousarray(self.nodes.flatten()), np.ascontiguousarray(self.connectivity.flatten()), np.ascontiguousarray(self._volumes)
+            self._volumes = mesh_volumes(
+                np.ascontiguousarray(self.nodes),
+                np.ascontiguousarray(self.connectivity),
             )
         return self._volumes
 
@@ -203,43 +184,6 @@ class Mesh:
 
         return self._surface_face_areas
 
-    @property
-    def h_field(self) -> NDArray[float64]:
-        """Return an (N,3) array of the magnetic field strength vector at each element centroid"""
-        if self._h_field is None:
-            raise Exception("Error - h field has not been calculated for this mesh.")
-
-        return self._h_field
-
-    @property
-    def m_field(self) -> NDArray[float64]:
-        """Return an (N,3) array of the magnetization vector at each element centroid"""
-        if self._m_field is None:
-            self._m_field = np.zeros((self.num_elems, 3))
-
-        return self._m_field
-
-    @property
-    def b_field(self) -> NDArray[float64]:
-        """Return an (N,3) array of the magnetic flux density at each element centroid"""
-        if self._h_field is None and self._m_field is None:
-            raise Exception("Error - results have not been calculated for this mesh.")
-
-        return MU0 * (self.m_field + self.h_field)
-
-    @property
-    def j_density(self) -> NDArray[float64]:
-        """Returns an (N,3) array of the current density at each element centroid
-
-        This function will return an empty array if current densities have not been
-        provided at object initiation.
-        """
-        if self._j_density is None:
-            return np.zeros((self.num_elems, 3))
-
-        else:
-            return self._j_density
-
     def surface_forces(self, b_ext: NDArray[float64], mat: LinearMaterial, solver: Solver):  # -> NDArray[float64]:
         """Compute the maxwell stress tensor and determine the force vector acting on each
         surface face centroid. Returns an (N,3) array of the force vector
@@ -251,9 +195,9 @@ class Mesh:
 
         h_field = b_ext / MU0
         # hmag: NDArray | None = None
-        if self._m_field is not None:
-            raise NotImplementedError("Warning! Maxwell stress tensor calculation on magnetized components is not yet functional.")
-            # print("Calculation proceeding with Lorentz force evaluation only (using Maxwell stress tensor)")
+        # if self._m_field is not None:
+        #     raise NotImplementedError("Warning! Maxwell stress tensor calculation on magnetized components is not yet functional.")
+        # print("Calculation proceeding with Lorentz force evaluation only (using Maxwell stress tensor)")
         #     (surface_nodes, surface_connectivity) = _mesh_surface_tets(
         #         self.nodes.flatten(), self.surface_faces.flatten(), self.surface_face_centroids.flatten(), self.surface_face_normals.flatten()
         #     )
@@ -291,7 +235,7 @@ def plot_mesh(x, y, z):
         print("Error - matplotlib is not installed. Could not plot mesh.")
 
 
-def mesh_step(infile: str, outfile: str, min_size: float, max_size: float, scale=1e-3) -> Mesh:
+def mesh_step(infile: str, min_size: float, max_size: float, scale=1e-3) -> Mesh:
     """Mesh a step file using gmsh"""
 
     mshfile = infile.split(".")[0] + ".msh"
@@ -331,7 +275,10 @@ def mesh_step(infile: str, outfile: str, min_size: float, max_size: float, scale
         connectivity = np.array([[tag_to_compact[tag] for tag in elem] for elem in raw_connectivity], dtype=np.uint32)
         gmsh.finalize()
 
-        return Mesh(nodes, connectivity)
+        mesh_out: Mesh = Mesh(nodes, connectivity)
+        print(f"Nodes: {mesh_out.num_nodes}, Elems: {mesh_out.num_elems}\n")
+
+        return mesh_out
 
     except ImportError:
         raise RuntimeError(f"Error - gmsh is not installed. Could not mesh file `{infile}`") from None

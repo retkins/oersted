@@ -39,7 +39,6 @@ jdensity = np.zeros((n, 3))
 phi = np.atan2(mesh.centroids[:, 1], mesh.centroids[:, 0])
 jdensity[:, 0] = -jmag * np.sin(phi)
 jdensity[:, 1] = jmag * np.cos(phi)
-mesh._j_density = jdensity
 
 # ---
 # Solution at center of solenoid
@@ -49,7 +48,7 @@ targets_axis = np.zeros((ntargets_axis, 3))
 targets_axis[:, 2] = np.linspace(-0.125, 0.125, ntargets_axis)
 # targets_axis[:,0] = np.linspace(0, 0.10, ntargets_axis)
 
-bdirect_pt_axis = oersted.b_field(mesh, mesh.j_density, targets_axis)
+bdirect_pt_axis = oersted.b_field(mesh, jdensity, targets_axis)
 boctree_pt_axis = oersted.b_field(mesh, jdensity, targets_axis, solver=OctreeSolver(n_threads=nthreads, theta=theta_pt))
 bdirect_tet_axis = oersted.b_field(mesh, jdensity, targets_axis, solver=DirectSolver(n_threads=nthreads))
 # boctree_tet_axis = oersted.bfield_tetrahedrons(nodes, centroids, vol, jdensity, targets_axis, theta=theta_tet, nthreads=nthreads)
@@ -86,12 +85,12 @@ ntargets = targets.shape[0]
 nsources = n
 
 start = perf_counter()
-bdirect_pt = boctree = oersted.b_field(mesh, mesh.j_density, targets, solver=DirectSolver(n_threads=nthreads))
+bdirect_pt = boctree = oersted.b_field(mesh, jdensity, targets, solver=DirectSolver(n_threads=nthreads))
 end = perf_counter()
 direct_pt_elapsed = end - start
 
 start = perf_counter()
-bdirect_tet = oersted.b_field(mesh, mesh.j_density, targets, solver=DirectSolver(n_threads=nthreads))
+bdirect_tet = oersted.b_field(mesh, jdensity, targets, solver=DirectSolver(n_threads=nthreads))
 end = perf_counter()
 direct_tet_elapsed = end - start
 

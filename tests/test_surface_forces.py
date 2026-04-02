@@ -35,8 +35,6 @@ def test_magnetization_forces():
     elapsed = time.perf_counter() - start
     print(f"Calculation time elapsed: {elapsed:.3f} sec")
 
-    mesh._m_field = M
-
     # Compute external field at mesh face centroids
     b_ext = np.zeros(mesh.surface_face_centroids.shape)
     b_ext[:, 2] = b_ext_mag

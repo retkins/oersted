@@ -9,7 +9,8 @@ use crate::{
 };
 
 pub struct TetSources {
-    pub nodes: Vec<[Vec3; 4]>, // of the element, not the tree
+    pub nodes: Vec<Vec3>, // of the element, not the tree
+    pub connectivity: Vec<[u32; 4]>,
     pub centroids: Vec<Vec3>,
     pub volumes: Vec<f64>,
     pub jdensity: Vec<Vec3>,
@@ -19,41 +20,19 @@ pub struct TetSources {
 impl TetSources {
     /// Constructor
     pub fn new(
-        nodes_flat: &[f64],
-        centroids_flat: &[f64],
-        vol: &[f64],
-        jdensity_flat: &[f64],
+        nodes: &[Vec3],
+        connectivity: &[[u32; 4]],
+        centroids: &[Vec3],
+        volumes: &[f64],
+        jdensity: &[Vec3],
     ) -> Self {
-        // TODO: length check on inputs
-        let n: usize = vol.len();
-
-        let mut nodes: Vec<[Vec3; 4]> = vec![[Vec3([0.0; 3]); 4]; n];
-        let mut centroids: Vec<Vec3> = vec![Vec3([0.0; 3]); n];
-        let volumes: Vec<f64> = vol.to_vec();
-        let mut jdensity: Vec<Vec3> = vec![Vec3([0.0; 3]); n];
-
-        for i in 0..n {
-            let node_slice = &nodes_flat[12 * i..12 * i + 12];
-            for j in 0..4 {
-                for k in 0..3 {
-                    nodes[i][j][k] = node_slice[3 * j + k];
-                }
-            }
-            let j = 3 * i;
-            centroids[i] = Vec3([
-                centroids_flat[j],
-                centroids_flat[j + 1],
-                centroids_flat[j + 2],
-            ]);
-            jdensity[i] = Vec3([jdensity_flat[j], jdensity_flat[j + 1], jdensity_flat[j + 2]]);
-        }
-
-        let bbox = BoundingBox::from_centroids_vec(&centroids);
+        let bbox = BoundingBox::from_centroids_vec(centroids);
         Self {
-            nodes,
-            centroids,
-            volumes,
-            jdensity,
+            nodes: nodes.to_vec(),
+            connectivity: connectivity.to_vec(),
+            centroids: centroids.to_vec(),
+            volumes: volumes.to_vec(),
+            jdensity: jdensity.to_vec(),
             bbox,
         }
     }
@@ -74,12 +53,12 @@ impl Sources for TetSources {
 
     fn sort(&mut self, indices: &[usize]) {
         let n = self.len();
-        let mut scratch_nodes = vec![[Vec3([0.0; 3]); 4]; n];
-        sort_by_indices(&mut self.nodes, &mut scratch_nodes, indices);
-
         let mut scratch_vecs = vec![Vec3([0.0; 3]); n];
         sort_by_indices(&mut self.centroids, &mut scratch_vecs, indices);
         sort_by_indices(&mut self.jdensity, &mut scratch_vecs, indices);
+
+        let mut scratch_conn: Vec<[u32; 4]> = vec![[0u32; 4]; n];
+        sort_by_indices(&mut self.connectivity, &mut scratch_conn, indices);
 
         let mut scratch_vol = vec![0.0; n];
         sort_by_indices(&mut self.volumes, &mut scratch_vol, indices);
@@ -120,9 +99,17 @@ impl HFieldSolver for CurrentSources<TetSources> {
         let mut hy = [0.0];
         let mut hz = [0.0];
         let mut f = vec![Vec3([0.0; 3]); 1];
+
         for i in start..end {
+            let elem = self.0.connectivity[i];
+            let nodes = [
+                self.0.nodes[elem[0] as usize],
+                self.0.nodes[elem[1] as usize],
+                self.0.nodes[elem[2] as usize],
+                self.0.nodes[elem[3] as usize],
+            ];
             h_field_tet4(
-                &self.0.nodes[i],
+                &nodes,
                 &self.0.jdensity[i],
                 (&[target[0]], &[target[1]], &[target[2]]),
                 &mut f,
@@ -146,9 +133,16 @@ impl HFieldSolver for DipoleSources<TetSources> {
         let mut f = vec![Vec3([0.0; 3]); 1];
         let elements: [[u32; 4]; 1] = [[0u32, 1u32, 2u32, 3u32]];
         for i in start..end {
-            let j_invt: Vec<crate::mat3::Mat3> = jmatrices(&self.0.nodes[start], &elements);
+            let elem = self.0.connectivity[i];
+            let nodes = [
+                self.0.nodes[elem[0] as usize],
+                self.0.nodes[elem[1] as usize],
+                self.0.nodes[elem[2] as usize],
+                self.0.nodes[elem[3] as usize],
+            ];
+            let j_invt: Vec<crate::mat3::Mat3> = jmatrices(&nodes, &elements);
             hmag_tet4(
-                &self.0.nodes[i],
+                &nodes,
                 &self.0.jdensity[i], // TODO: make this its own value?
                 &j_invt,
                 (&[target[0]], &[target[1]], &[target[2]]),

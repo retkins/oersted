@@ -22,16 +22,13 @@ pub fn node_coords(nodes: &[f64], idx: usize) -> Vec3 {
 ///
 /// # Arguments
 ///
-/// * `nodes`: (m) flat array of (x,y,z) node coordinates in row-major order
-/// * `connectivity`: flat array of indices into `nodes` of the four nodes in each element; row-major order
-/// * `x`, `y`, `z`: (m) output buffers, allocated by the caller
-pub fn centroids(nodes: &[f64], connectivity: &[u32], x: &mut [f64], y: &mut [f64], z: &mut [f64]) {
-    let n_elements: usize = connectivity.len() / 4;
-    assert_eq!(n_elements, x.len());
-    assert_eq!(n_elements, y.len());
-    assert_eq!(n_elements, z.len());
+/// * `nodes`: (m) (x,y,z) node coordinates of each node in the mesh
+/// * `connectivity`: indices into `nodes` of the four nodes in each element
+/// * `out`: (m) output buffer, allocated by the caller
+pub fn centroids(nodes: &[Vec3], connectivity: &[[u32; 4]], out: &mut [Vec3]) {
+    assert_eq!(connectivity.len(), out.len());
 
-    for (i, elem) in connectivity.chunks_exact(4).enumerate() {
+    for (i, elem) in connectivity.iter().enumerate() {
         // Node numbers
         let [n0, n1, n2, n3] = [
             elem[0] as usize,
@@ -40,14 +37,7 @@ pub fn centroids(nodes: &[f64], connectivity: &[u32], x: &mut [f64], y: &mut [f6
             elem[3] as usize,
         ];
 
-        let centroid = (node_coords(nodes, n0)
-            + node_coords(nodes, n1)
-            + node_coords(nodes, n2)
-            + node_coords(nodes, n3))
-            * 0.25;
-        x[i] = centroid[0];
-        y[i] = centroid[1];
-        z[i] = centroid[2];
+        out[i] = (nodes[n0] + nodes[n1] + nodes[n2] + nodes[n3]) * 0.25;
     }
 }
 
@@ -58,20 +48,19 @@ pub fn centroids(nodes: &[f64], connectivity: &[u32], x: &mut [f64], y: &mut [f6
 ///
 /// # Arguments
 ///
-/// * `nodes`: (m) flat array of (x,y,z) node coordinates in row-major order
-/// * `connectivity`: flat array of indices into `nodes` of the four nodes in each element; row-major order
-/// * `vol`: (m) output buffer, allocated by the caller
+/// * `nodes`: (m) (x,y,z) node coordinates of each node in the mesh
+/// * `connectivity`: indices into `nodes` of the four nodes in each element
+/// * `out`: (m^3) output buffer, allocated by the caller
 ///
 /// # Notes
 /// This function is tested via a part meshed in Python.
 ///
 /// # Reference
 /// <https://en.wikipedia.org/wiki/Tetrahedron#Other_approaches>
-pub fn volumes(nodes: &[f64], connectivity: &[u32], vol: &mut [f64]) {
-    let n_elements: usize = connectivity.len() / 4;
-    assert_eq!(n_elements, vol.len());
+pub fn volumes(nodes: &[Vec3], connectivity: &[[u32; 4]], out: &mut [f64]) {
+    assert_eq!(connectivity.len(), out.len());
 
-    for (i, elem) in connectivity.chunks_exact(4).enumerate() {
+    for (i, elem) in connectivity.iter().enumerate() {
         // Node numbers
         let [n0, n1, n2, n3] = [
             elem[0] as usize,
@@ -81,17 +70,14 @@ pub fn volumes(nodes: &[f64], connectivity: &[u32], vol: &mut [f64]) {
         ];
 
         // Vertices
-        let v0: Vec3 = node_coords(nodes, n0);
-        let v1: Vec3 = node_coords(nodes, n1);
-        let v2: Vec3 = node_coords(nodes, n2);
-        let v3: Vec3 = node_coords(nodes, n3);
+        let [v0, v1, v2, v3] = [nodes[n0], nodes[n1], nodes[n2], nodes[n3]];
 
         // Edge vectors
         let a = v1 - v0;
         let b = v2 - v0;
         let c = v3 - v0;
 
-        vol[i] = (1.0 / 6.0) * (a.dot(&b.cross(&c))).abs();
+        out[i] = (1.0 / 6.0) * (a.dot(&b.cross(&c))).abs();
     }
 }
 
@@ -320,30 +306,20 @@ mod tests {
     // <https://en.wikipedia.org/wiki/Regular_tetrahedron#Cartesian_coordinates>
     #[test]
     fn test_centroids() {
-        let nodes = [
-            -1.0,
-            0.0,
-            -1.0 / (2.0f64).sqrt(),
-            1.0,
-            0.0,
-            -1.0 / (2.0f64).sqrt(),
-            0.0,
-            -1.0,
-            1.0 / (2.0f64).sqrt(),
-            0.0,
-            1.0,
-            1.0 / (2.0f64).sqrt(),
+        let nodes: [Vec3; 4] = [
+            Vec3([-1.0, 0.0, -1.0 / (2.0f64).sqrt()]),
+            Vec3([1.0, 0.0, -1.0 / (2.0f64).sqrt()]),
+            Vec3([0.0, -1.0, 1.0 / (2.0f64).sqrt()]),
+            Vec3([0.0, 1.0, 1.0 / (2.0f64).sqrt()]),
         ];
-        let connectivity: [u32; 4] = [0, 1, 2, 3];
+        let connectivity: [[u32; 4]; 1] = [[0, 1, 2, 3]];
         // Set buffer to non-zero value
-        let mut x = [1.0];
-        let mut y = [1.0];
-        let mut z = [1.0];
-        centroids(&nodes, &connectivity, &mut x, &mut y, &mut z);
+        let mut centroid = [Vec3::default()];
+        centroids(&nodes, &connectivity, &mut centroid);
 
         // Centroid should be at origin
-        assert!(x[0].abs() < 1e-8);
-        assert!(y[0].abs() < 1e-8);
-        assert!(z[0].abs() < 1e-8);
+        for i in 0..3 {
+            assert!(centroid[0][i].abs() < 1e-8);
+        }
     }
 }

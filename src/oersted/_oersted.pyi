@@ -32,21 +32,15 @@ def h_current_tet4_direct(
     tgt_pts: Float64Array,
     nthreads_requested: int,
 ) -> Float64Array: ...
-def _hfield_tetrahedrons(
-    nodes_flat: Float64Array,
-    centroids_flat: Float64Array,
-    vol: Float64Array,
-    jdensity_flat: Float64Array,
-    x: Float64Array,
-    y: Float64Array,
-    z: Float64Array,
-    bx: Float64Array,
-    by: Float64Array,
-    bz: Float64Array,
+def h_current_tet4_octree(
+    nodes: Float64Array,
+    connectivity: U32Array,
+    jdensity: Float64Array,
+    tgt_pts: Float64Array,
     theta: float,
     leaf_threshold: int,
     nthreads_requested: int,
-) -> None: ...
+) -> Float64Array: ...
 def _hfield_dipole_tetrahedrons(
     nodes_flat: Float64Array,
     centroids_flat: Float64Array,
@@ -93,8 +87,8 @@ def _h_demag_tet4(
     hz: Float64Array,
     nthreads_requested: int,
 ) -> None: ...
-def _mesh_volumes(nodes: Float64Array, connectivity: U32Array, vol: Float64Array) -> None: ...
-def _mesh_centroids(nodes: Float64Array, connectivity: U32Array, x: Float64Array, y: Float64Array, z: Float64Array) -> None: ...
+def mesh_volumes(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...
+def mesh_centroids(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...
 def _mesh_surface_faces(connectivity: U32Array) -> U32Array: ...
 def _mesh_surface_face_properties(nodes: Float64Array, faces: U32Array) -> tuple[Float64Array, Float64Array, Float64Array]: ...
 def _mesh_surface_forces(face_areas: Float64Array, face_normals: Float64Array, b_field: Float64Array) -> Float64Array: ...

@@ -5,7 +5,7 @@ from .solver import Solver, DirectSolver, OctreeSolver
 
 from .biotsavart import (
     b_field,
-    bfield_tetrahedrons,
+    h_field,
     hfield_dipole,
     hfield_dipole_tetrahedrons,
 )
@@ -27,6 +27,7 @@ __all__ = [
     "CentroidMesh",
     "mesh_step",
     "b_field",
+    "h_field",
     "bfield_tetrahedrons",
     "bfield_tetrahedrons_direct",
     "hfield_dipole",

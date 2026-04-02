@@ -58,3 +58,7 @@
 * Removed bindings for dual-tree point and hexahedron source evaluations
 * Updates to cargo.toml: bump version to 0.2.0, make python feature depend on parallel feature
 * Updated bindings for direct tet4 solver
+* Updated internal interfaces for Rust functions: now using Vec3 in centroids/volumes/octree functions
+* Added `h_field()` function
+* Mesh is now stateless: does not store jdensity or field results
+* Updated and simplified helmholtz coil test

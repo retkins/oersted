@@ -8,8 +8,8 @@ from ._oersted import (
     b_current_point_direct,
     h_current_point_octree,
     h_current_tet4_direct,
+    h_current_tet4_octree,
     _hfield_dipole,
-    _hfield_tetrahedrons,
     _hfield_dipole_tetrahedrons,
 )
 
@@ -27,6 +27,15 @@ def b_field(
     """Compute the magnetic flux density at a collection of target points using the specific source mesh and
     solver options, assuming the target points are in free space
     """
+    return MU0 * h_field(source, j_density, targets, solver)
+
+
+def h_field(
+    source: Mesh | CentroidMesh, j_density: NDArray[float64], targets: NDArray[float64], solver: DirectSolver | OctreeSolver | None = None
+) -> NDArray[float64]:
+    """Compute the magnetic field strength at a collection of target points using the specific source mesh and
+    solver options.
+    """
 
     if solver is None:
         solver = DirectSolver()
@@ -39,11 +48,10 @@ def b_field(
         src_vol = ascontiguousarray(source.volumes, dtype=float64)
 
         if isinstance(solver, DirectSolver):
-            return b_current_point_direct(src_pts, src_vol, j_density, tgt_pts, solver.n_threads)
+            return (1.0/MU0)* b_current_point_direct(src_pts, src_vol, j_density, tgt_pts, solver.n_threads)
 
         elif isinstance(solver, OctreeSolver):
-            # Octree solvers return H instead of B field
-            return MU0 * h_current_point_octree(src_pts, src_vol, j_density, tgt_pts, solver.theta, solver.leaf_threshold, solver.n_threads)
+            return h_current_point_octree(src_pts, src_vol, j_density, tgt_pts, solver.theta, solver.leaf_threshold, solver.n_threads)
 
         else:
             raise TypeError(f"Unsupported source/solver combination: {type(source)}, {type(solver)}")
@@ -52,69 +60,16 @@ def b_field(
         src_nodes = ascontiguousarray(source.nodes, dtype=float64)
         src_connectivity = ascontiguousarray(source.connectivity, dtype=uint32)
         if isinstance(solver, DirectSolver):
-            return MU0 * h_current_tet4_direct(src_nodes, src_connectivity, j_density, tgt_pts, solver.n_threads)
+            return h_current_tet4_direct(src_nodes, src_connectivity, j_density, tgt_pts, solver.n_threads)
 
-        # elif isinstance(solver, OctreeSolver):
-        #     src_vol = ascontiguousarray(source.volumes, dtype=float64)
-        #     return bfield_tetrahedrons(
-        #         src_nodes, src_connectivity, src_vol, j_density, tgt_pts, solver.theta, solver.leaf_threshold, solver.n_threads
-        #     )
+        elif isinstance(solver, OctreeSolver):
+            return h_current_tet4_octree(src_nodes, src_connectivity, j_density, tgt_pts, solver.theta, solver.leaf_threshold, solver.n_threads)
 
         else:
             raise TypeError(f"Unsupported source/solver combination: {type(source)}, {type(solver)}")
 
     else:
         raise TypeError(f"Unsupported source/solver combination: {type(source)}, {type(solver)}")
-
-
-def bfield_tetrahedrons(
-    nodes: NDArray[float64],
-    centroids: NDArray[float64],
-    vol: NDArray[float64],
-    jdensity: NDArray[float64],
-    targets: NDArray[float64],
-    theta: float = 0.5,
-    leaf_threshold: int = 1,
-    nthreads: int = 0,
-) -> NDArray[float64]:
-    """Compute the magnetic flux density at a set of target points
-        using a tetrahedral finite element mesh as a near-field source,
-        and a point approximation for the far-field.
-
-    Args:
-        nodes: (12*N,) nodal coordinates of each element
-        vol: (N,) volume of each element
-        jdensity: (N,3) current density vector assumed constant over each element
-        targets: (M,3) target point locations in 3d space
-        theta: angle-opening criteria for barnes-hut
-
-    Returns:
-        (N,3) magnetic flux density at each target point
-
-    """
-
-    ntargets = targets.shape[0]
-    hx = zeros(ntargets)
-    hy = zeros(ntargets)
-    hz = zeros(ntargets)
-
-    _hfield_tetrahedrons(
-        ascontiguousarray(nodes[:]),
-        ascontiguousarray(centroids.ravel()),
-        ascontiguousarray(vol[:]),
-        ascontiguousarray(jdensity.ravel()),
-        ascontiguousarray(targets[:, 0]),
-        ascontiguousarray(targets[:, 1]),
-        ascontiguousarray(targets[:, 2]),
-        ascontiguousarray(hx[:]),
-        ascontiguousarray(hy[:]),
-        ascontiguousarray(hz[:]),
-        theta,
-        leaf_threshold,
-        nthreads,
-    )
-
-    return (4 * pi * 10**-7) * hstack((hx[:, newaxis], hy[:, newaxis], hz[:, newaxis]))
 
 
 def hfield_dipole(
