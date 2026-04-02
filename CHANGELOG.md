@@ -61,4 +61,4 @@
 * Updated internal interfaces for Rust functions: now using Vec3 in centroids/volumes/octree functions
 * Added `h_field()` function
 * Mesh is now stateless: does not store jdensity or field results
-* Updated and simplified helmholtz coil test
+* Updated and simplified helmholtz coil and solenoid tests; added analytical comparisons

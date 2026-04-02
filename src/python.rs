@@ -1,3 +1,5 @@
+//! Python bindings for oersted
+
 #![allow(unused)]
 
 use numpy::{

@@ -1,14 +1,11 @@
 """Define material properties for magnetostatics calculations"""
 
 from dataclasses import dataclass
-from numpy import pi, array
+from numpy import array
 from numpy.typing import NDArray
 from numpy import float64, interp
 import oersted
-
-""" Magnetic permeability of free space
-"""
-MU0: float = (4.0 * pi) * 10**-7
+from .constants import MU0
 
 
 @dataclass

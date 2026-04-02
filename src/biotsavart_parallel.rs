@@ -1,3 +1,5 @@
+//! Parallel magnetic field calculations 
+
 use rayon::prelude::*;
 use std::num::NonZeroUsize;
 use std::thread::available_parallelism;

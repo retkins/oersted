@@ -4,7 +4,7 @@ from pathlib import Path
 import numpy as np
 from numpy import float64, uint32
 from numpy.typing import NDArray
-from .mesh import mesh_step, Mesh
+from .mesh import mesh_step, Mesh, MU0
 
 
 def mean_squared_error(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
@@ -97,3 +97,31 @@ def make_helmholtz(size, jmag: None | float = None, scale=1e-3) -> tuple[Mesh, N
     jdensity[:, 1] = jmag * np.cos(phi)
 
     return (helmholtz_mesh, jdensity)
+
+
+def bz_finite_length_solenoid(jmag: float, length: float, r: float, dr: float, z: float) -> float:
+    """Compute the magnetic field on the axis of a finite-length solenoid
+
+    This function assumes that the solenoid `dr` dimension is small relative to the
+    radius and thickness, and does not correct for finite radial thickness.
+
+    Args:
+        jmag: (A/m2) magnitude of current density in the solenoid
+        length: (m) length of the solenoid
+        r: (m) representative radius of the solenoid
+        dr: (m) thickness of the solenoid cross section
+        z: (m) position along the axis of the solenoid at which the field should be calculated
+
+    Returns:
+        (T) axial magnetic field
+
+    Reference:
+        <https://en.wikipedia.org/wiki/Solenoid#Finite_continuous_solenoid>
+        (with modifications for current density and finite thickness)
+    """
+
+    a: float = 0.5 * MU0 * jmag * dr
+    b: float = (z + 0.5 * length) / np.sqrt(r**2 + (z + 0.5 * length) ** 2)
+    c: float = (z - 0.5 * length) / np.sqrt(r**2 + (z - 0.5 * length) ** 2)
+
+    return a * (b - c)

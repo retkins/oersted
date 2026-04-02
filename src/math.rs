@@ -1,3 +1,5 @@
+//! Low-level math operations
+
 pub mod atan2;
 pub mod gradient;
 pub mod ln;

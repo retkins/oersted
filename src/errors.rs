@@ -1,6 +1,7 @@
-/// Error type for `oersted`  
-///
-/// WIP: perhaps this should be multiple errors?
+//! Error type for `oersted`  
+//!
+///! WIP: perhaps this should be multiple errors?
+
 #[derive(Debug)]
 pub enum OerstedError {
     FileOpenError,

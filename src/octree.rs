@@ -1,3 +1,5 @@
+//! Octree acceleration for magnetic fields calculations
+
 #![allow(unused)]
 
 pub mod bbox;

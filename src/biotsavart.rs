@@ -1,3 +1,5 @@
+//! Magnetic field calculations
+
 #![allow(non_snake_case)]
 
 use crate::MU0_4PI;

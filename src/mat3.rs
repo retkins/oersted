@@ -1,4 +1,4 @@
-//! A 3x3 matrix for common linear algebra operations
+//! A 3x3 row-major matrix for common linear algebra operations
 
 use crate::vec3::Vec3;
 
@@ -33,12 +33,14 @@ impl Mat3 {
         Vec3([self[0][i], self[1][i], self[2][i]])
     }
 
-    /// Compute the determinant of the matrix
+    /// Compute the determinant of the matrix:
     ///
+    /// ```
     /// | a b c |
     /// | d e f | = aei + bfg + cdh - ceg - bdi - afh
     /// | g h i |
-    ///
+    /// ```
+    /// 
     /// Reference:
     /// [https://en.wikipedia.org/wiki/Determinant](https://en.wikipedia.org/wiki/Determinant)
     pub fn det(&self) -> f64 {

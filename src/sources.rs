@@ -1,7 +1,5 @@
-/// Octree sources
-/// Represent monopole/dipole/quadrapole sources for a collection
-/// of source points acting on a target point
-///
+//! Expressions for various Biot-Savart sources
+
 use crate::math::cross;
 
 pub mod element;

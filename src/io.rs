@@ -1,3 +1,5 @@
+//! Basic file I/O
+
 use crate::errors::OerstedError;
 use std::{fs::read_to_string, process::Termination};
 
