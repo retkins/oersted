@@ -48,7 +48,7 @@ def h_field(
         src_vol = ascontiguousarray(source.volumes, dtype=float64)
 
         if isinstance(solver, DirectSolver):
-            return (1.0/MU0)* b_current_point_direct(src_pts, src_vol, j_density, tgt_pts, solver.n_threads)
+            return (1.0 / MU0) * b_current_point_direct(src_pts, src_vol, j_density, tgt_pts, solver.n_threads)
 
         elif isinstance(solver, OctreeSolver):
             return h_current_point_octree(src_pts, src_vol, j_density, tgt_pts, solver.theta, solver.leaf_threshold, solver.n_threads)

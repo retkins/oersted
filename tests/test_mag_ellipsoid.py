@@ -17,7 +17,7 @@ import numpy as np
 
 def test_mag_ellipsoid(min_size: float = 0.15, max_size: float = 0.15):
     # Mesh the part
-    mesh: Mesh = oersted.mesh_step("tests/data/ellipsoid.stp", "tests/data/ellipsoid.msh", min_size, max_size)
+    mesh: Mesh = oersted.mesh_step("tests/data/ellipsoid.stp", min_size, max_size)
 
     # Parameters
     a: float = 1.0

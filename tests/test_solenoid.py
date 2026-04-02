@@ -31,7 +31,7 @@ nthreads: int = 0
 # Generate a mesh from a STEP file
 #
 
-mesh = oersted.mesh.mesh_step(f"tests/data/{datafile}.stp", f"tests/data/{datafile}_mesh.csv", mesh_size, mesh_size)
+mesh = oersted.mesh.mesh_step(f"tests/data/{datafile}.stp", mesh_size, mesh_size)
 mesh = CentroidMesh(mesh.centroids, mesh.volumes)
 
 #

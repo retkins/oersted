@@ -86,7 +86,7 @@ def make_helmholtz(size, jmag: None | float = None, scale=1e-3) -> tuple[Mesh, N
     nodes_lower: NDArray[float64] = nodes_upper.copy()
     nodes_lower[:, 2] -= 0.2  # flip to lower side
     nodes = np.vstack((nodes_upper, nodes_lower))
-    connectivity_upper: NDArray[uint32] = ring_mesh.connectivity.copy() 
+    connectivity_upper: NDArray[uint32] = ring_mesh.connectivity.copy()
     connectivity_lower: NDArray[uint32] = ring_mesh.connectivity.copy() + ring_mesh.num_nodes
 
     helmholtz_mesh = Mesh(nodes, np.vstack((connectivity_upper, connectivity_lower)))
@@ -95,6 +95,5 @@ def make_helmholtz(size, jmag: None | float = None, scale=1e-3) -> tuple[Mesh, N
     phi = np.atan2(helmholtz_mesh.centroids[:, 1], helmholtz_mesh.centroids[:, 0])
     jdensity[:, 0] = -jmag * np.sin(phi)
     jdensity[:, 1] = jmag * np.cos(phi)
-
 
     return (helmholtz_mesh, jdensity)

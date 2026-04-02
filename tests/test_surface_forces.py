@@ -6,7 +6,6 @@ import pytest
 
 # Test parameters
 infile: str = "tests/data/sphere.stp"
-outfile: str = "tests/data/sphere.data"
 min_size: float = 5.0  # mm
 max_size: float = 15.0  # mm
 b_ext_mag: float = 1.0  # T
@@ -15,7 +14,7 @@ solver = oersted.DirectSolver()
 mat = oersted.materials.LinearMaterial(mu_r)
 
 # Mesh the sphere
-mesh: Mesh = oersted.mesh.mesh_step(infile, outfile, min_size, max_size)
+mesh: Mesh = oersted.mesh.mesh_step(infile, min_size, max_size)
 print(f"Number of elements: {mesh.num_elems}")
 
 
@@ -57,10 +56,10 @@ def test_lorentz_forces():
     radius = 0.2
     total_current = 1e4
     mesh_size: float = 10.0
-    mesh1 = oersted.mesh_step("tests/data/ring.stp", "", mesh_size, mesh_size)
+    mesh1 = oersted.mesh_step("tests/data/ring.stp", mesh_size, mesh_size)
     mesh1._nodes[:, 2] += 0.01
 
-    mesh2 = oersted.mesh_step("tests/data/ring.stp", "", mesh_size, mesh_size)
+    mesh2 = oersted.mesh_step("tests/data/ring.stp", mesh_size, mesh_size)
     mesh2._nodes[:, 2] -= 0.01
     print(f"Number of elements: {mesh1.num_elems}")
 

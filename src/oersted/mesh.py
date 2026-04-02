@@ -94,7 +94,7 @@ class Mesh:
         """Returns the number of elements in the model"""
         return self._connectivity.shape[0]
 
-    def to_centroid_mesh(self)-> CentroidMesh:
+    def to_centroid_mesh(self) -> CentroidMesh:
         return CentroidMesh(self.centroids, self.volumes)
 
     @property

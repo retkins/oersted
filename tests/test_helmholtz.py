@@ -22,11 +22,12 @@ from oersted.testing import make_helmholtz, smape
 import numpy as np
 import oersted
 
+
 def setup_test():
 
     # Runtime parameters
     theta: float = 0.1
-    mesh_size: float = 10.0 # ~10M interactions; set to 33 for 1e6 interactions
+    mesh_size: float = 10.0  # ~10M interactions; set to 33 for 1e6 interactions
     ntargets_axis: int = 100  # Along the axis
     nthreads = 0
     leaf_threshold = 16
@@ -48,9 +49,8 @@ def setup_test():
     return mesh, jdensity, targets_axis, direct_solver, octree_solver
 
 
-def test_rel_field_on_axis(mesh: Mesh, jdensity, targets_axis, direct_solver, octree_solver):
-    """ Test that the field on the axis is the same for all four solver methods
-    """
+def rel_field_on_axis(mesh: Mesh, jdensity, targets_axis, direct_solver, octree_solver):
+    """Test that the field on the axis is the same for all four solver methods"""
 
     centroid_mesh: CentroidMesh = mesh.to_centroid_mesh()
 
@@ -60,38 +60,40 @@ def test_rel_field_on_axis(mesh: Mesh, jdensity, targets_axis, direct_solver, oc
     b_point_octree = oersted.b_field(centroid_mesh, jdensity, targets_axis, solver=octree_solver)
 
     # Use the tet4 direct field as the comparison
-    # Field should only be in the z-axis    
-    err_tet4_octree = smape(b_tet4_direct[:,2], b_tet4_octree[:,2])
-    err_point_direct = smape(b_tet4_direct[:,2], b_point_direct[:,2])
-    err_point_octree = smape(b_tet4_direct[:,2], b_point_octree[:,2])
+    # Field should only be in the z-axis
+    err_tet4_octree = smape(b_tet4_direct[:, 2], b_tet4_octree[:, 2])
+    err_point_direct = smape(b_tet4_direct[:, 2], b_point_direct[:, 2])
+    err_point_octree = smape(b_tet4_direct[:, 2], b_point_octree[:, 2])
 
     assert err_tet4_octree < 1e-2
     assert err_point_direct < 1e-2
     assert err_point_octree < 1e-2
 
-    # Check that the x/y fields are near zero 
-    assert np.max(np.linalg.norm(b_tet4_direct[:,0:2])) < 1e-3
-    assert np.max(np.linalg.norm(b_tet4_octree[:,0:2])) < 1e-3
-    assert np.max(np.linalg.norm(b_point_direct[:,0:2])) < 1e-3
-    assert np.max(np.linalg.norm(b_point_octree[:,0:2])) < 1e-3
+    # Check that the x/y fields are near zero
+    assert np.max(np.linalg.norm(b_tet4_direct[:, 0:2])) < 1e-3
+    assert np.max(np.linalg.norm(b_tet4_octree[:, 0:2])) < 1e-3
+    assert np.max(np.linalg.norm(b_point_direct[:, 0:2])) < 1e-3
+    assert np.max(np.linalg.norm(b_point_octree[:, 0:2])) < 1e-3
 
     # Check that the field at the center matches analytical
     current: float = 100e3
     bz_analytical = (0.8**1.5) * oersted.MU0 * current / 0.2
     target_center = np.array([[0.0, 0.0, 0.0]])
-    bz_tet4_direct = oersted.b_field(mesh, jdensity, target_center, solver=direct_solver)[0,2]
-    bz_tet4_octree = oersted.b_field(mesh, jdensity, target_center, solver=octree_solver)[0,2]
-    bz_point_direct = oersted.b_field(centroid_mesh, jdensity, target_center, solver=direct_solver)[0,2]
-    bz_point_octree = oersted.b_field(centroid_mesh, jdensity, target_center, solver=octree_solver)[0,2]
+    bz_tet4_direct = oersted.b_field(mesh, jdensity, target_center, solver=direct_solver)[0, 2]
+    bz_tet4_octree = oersted.b_field(mesh, jdensity, target_center, solver=octree_solver)[0, 2]
+    bz_point_direct = oersted.b_field(centroid_mesh, jdensity, target_center, solver=direct_solver)[0, 2]
+    bz_point_octree = oersted.b_field(centroid_mesh, jdensity, target_center, solver=octree_solver)[0, 2]
 
-    assert np.abs(bz_analytical - bz_tet4_direct)/bz_analytical < 1e-3
-    assert np.abs(bz_analytical - bz_tet4_octree)/bz_analytical < 1e-3
-    assert np.abs(bz_analytical - bz_point_direct)/bz_analytical < 1e-3
-    assert np.abs(bz_analytical - bz_point_octree)/bz_analytical < 1e-3
+    assert np.abs(bz_analytical - bz_tet4_direct) / bz_analytical < 1e-3
+    assert np.abs(bz_analytical - bz_tet4_octree) / bz_analytical < 1e-3
+    assert np.abs(bz_analytical - bz_point_direct) / bz_analytical < 1e-3
+    assert np.abs(bz_analytical - bz_point_octree) / bz_analytical < 1e-3
 
-def main():
-    mesh, jdensity, targets_axis, direct_solver, octree_solver = setup_test() 
-    test_rel_field_on_axis(mesh, jdensity, targets_axis, direct_solver, octree_solver)
 
-if __name__=="__main__":
-    main()
+def test_helmholtz():
+    mesh, jdensity, targets_axis, direct_solver, octree_solver = setup_test()
+    rel_field_on_axis(mesh, jdensity, targets_axis, direct_solver, octree_solver)
+
+
+if __name__ == "__main__":
+    test_helmholtz()

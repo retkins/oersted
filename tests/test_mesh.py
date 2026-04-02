@@ -45,7 +45,7 @@ def test_volume():
     mesh_size: float = 5  # mm, gmsh units
     radius = 0.050  # m, user units
     volume_expected: float = (4.0 / 3.0) * np.pi * radius**3
-    mesh = oersted.mesh_step("tests/data/sphere.stp", "", mesh_size, mesh_size)
+    mesh = oersted.mesh_step("tests/data/sphere.stp", mesh_size, mesh_size)
     volume_mesh: float = float(np.sum(mesh.volumes))
     assert np.abs(volume_mesh - volume_expected) < diff_allowable
 
