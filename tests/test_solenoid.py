@@ -10,114 +10,85 @@ Solenoid has parameters:
 Note: there's some sort of units mismatch with gmsh
 """
 
-import numpy as np
-import matplotlib.pyplot as plt
 import oersted
-from oersted import DirectSolver, CentroidMesh, OctreeSolver
-from time import perf_counter
-
-#
-# Runtime parameters
-#
-
-datafile: str = "solenoid"
-remesh: bool = True
-theta: float = 0.1
-mesh_size: float = 15  # ~10M interactions; set to 33 for 1e6 interactions
-ntargets_axis: int = 25  # Along the axis
-nthreads: int = 0
-
-#
-# Generate a mesh from a STEP file
-#
-
-mesh = oersted.mesh.mesh_step(f"tests/data/{datafile}.stp", mesh_size, mesh_size)
-mesh = CentroidMesh(mesh.centroids, mesh.volumes)
-
-#
-# Setup sources from the mesh
-#
-
-nsources = mesh.num_elems
-
-# We need to assign current densities to the elements
-jmag: float = 1e8
-
-jdensity = np.zeros((nsources, 3))
-phi = np.atan2(mesh.centroids[:, 1], mesh.centroids[:, 0])
-jdensity[:, 0] = -jmag * np.sin(phi)
-jdensity[:, 1] = jmag * np.cos(phi)
-
-#
-# Setup targets for axis accuracy test and solve for fields
-#
-
-targets_axis = np.zeros((ntargets_axis, 3))
-targets_axis[:, 2] = np.linspace(-0.125, 0.125, ntargets_axis)
-
-bdirect_axis = oersted.b_field(mesh, jdensity, targets_axis)
-boctree_axis = oersted.b_field(mesh, jdensity, targets_axis, solver=OctreeSolver(n_threads=nthreads, theta=theta))
-
-#
-# Solve for self-fields
-#
-
-targets = mesh.centroids
-ntargets = targets.shape[0]
-
-start = perf_counter()
-bdirect = oersted.b_field(CentroidMesh(mesh.centroids, mesh.volumes), jdensity, targets, solver=DirectSolver(n_threads=nthreads))
-end = perf_counter()
-direct_elapsed = end - start
-
-start = perf_counter()
-boctree = oersted.b_field(mesh, jdensity, targets, solver=OctreeSolver(n_threads=nthreads, theta=theta))
-end = perf_counter()
-octree_elapsed = end - start
-
-print("oersted: Solenoid Test\n---")
-print(f"theta = {theta:.3}")
-print(f"Problem size: {nsources} x {ntargets} ({nsources * ntargets:.3e} interactions)")
-
-# Errors along axis
-print("Bfield at solenoid center: ")
-i: int = ntargets_axis // 2
-print(f"\tDirect solution: ({bdirect_axis[i, 0]:.6f}, {bdirect_axis[i, 1]:.6f}, {bdirect_axis[i, 2]:.6f})")
-print(f"\tOctree solution: ({boctree_axis[i, 0]:.6f}, {boctree_axis[i, 1]:.6f}, {boctree_axis[i, 2]:.6f})")
-err = (bdirect_axis[i, 2] - boctree_axis[i, 2]) / bdirect_axis[i, 2]
-print(f"Error at center: {100 * err:.3f} %")
-
-bmag_direct_axis = np.linalg.norm(bdirect_axis, axis=1)
-bmag_octree_axis = np.linalg.norm(boctree_axis, axis=1)
-err_axis = oersted.testing.smape(bmag_direct_axis, bmag_octree_axis)
-print(f"Mean error along solenoid axis (|z| < radius): {err_axis * 100:.2}%")
-
-# Errors on mesh
-bmag_direct = np.linalg.norm(bdirect, axis=1)
-bmag_octree = np.linalg.norm(boctree, axis=1)
-err_mesh = oersted.testing.smape(bmag_direct, bmag_octree)
-print(f"Mean fields error within the mesh: {err_mesh * 100:.2}%")
-
-print("Times: ")
-print(f"\tDirect solution time: {direct_elapsed * 1e3:.3f} ms")
-print(f"\tOctree solution time: {octree_elapsed * 1e3:.3f} ms")
-print(f"\tSpeedup: {direct_elapsed / octree_elapsed:.2f}x")
+from oersted import Mesh, DirectSolver, OctreeSolver
+import numpy as np
 
 
-fig = plt.figure()
-ax = fig.add_subplot()
-ax.plot(targets[:, 2], bdirect[:, 2], label="Direct")
-ax.plot(targets[:, 2], boctree[:, 2], "rs", label="Octree")
-ax.set_xlabel("Distance from Solenoid Center (Z-axis) [m]")
-ax.set_ylabel("Field Along Solenoid Axis (Bz) [T]")
-ax.set_title("oersted - Solenoid Test")
-plt.savefig("tests/fig/solenoid_test.svg")
+def check_solenoid():
+    mesh_size: float = 15.0
+    jmag: float = 1e8
+    theta: float = 0.1
+    nthreads: int = 0
+    ntargets_axis: int = 100
+    direct_solver = DirectSolver(n_threads=nthreads)
+    octree_solver = OctreeSolver(n_threads=nthreads, leaf_threshold=16, theta=theta)
+
+    # load mesh
+    mesh: Mesh = oersted.mesh_step("tests/data/solenoid.stp", mesh_size, mesh_size)
+    n: int = mesh.num_elems
+
+    # assign current density
+    jdensity = np.zeros((n, 3))
+    phi = np.atan2(mesh.centroids[:, 1], mesh.centroids[:, 0])
+    jdensity[:, 0] = -jmag * np.sin(phi)
+    jdensity[:, 1] = jmag * np.cos(phi)
+
+    # ---
+    # Solution at center of solenoid
+    # ---
+
+    targets_axis = np.zeros((ntargets_axis, 3))
+    targets_axis[:, 2] = np.linspace(-0.125, 0.125, ntargets_axis)
+    # targets_axis[:,0] = np.linspace(0, 0.10, ntargets_axis)
+
+    bdirect_pt_axis = oersted.b_field(mesh.to_centroid_mesh(), jdensity, targets_axis, solver=direct_solver)
+    boctree_pt_axis = oersted.b_field(mesh.to_centroid_mesh(), jdensity, targets_axis, solver=octree_solver)
+    bdirect_tet_axis = oersted.b_field(mesh, jdensity, targets_axis, solver=direct_solver)
+    boctree_tet_axis = oersted.b_field(mesh, jdensity, targets_axis, solver=octree_solver)
+
+    # Errors along axis
+    bmag_direct_pt_axis = np.linalg.norm(bdirect_pt_axis, axis=1)
+    bmag_direct_tet_axis = np.linalg.norm(bdirect_tet_axis, axis=1)
+    bmag_octree_pt_axis = np.linalg.norm(boctree_pt_axis, axis=1)
+    bmag_octree_tet_axis = np.linalg.norm(boctree_tet_axis, axis=1)
+
+    err_direct_pt_axis = oersted.testing.smape(bmag_direct_tet_axis, bmag_direct_pt_axis)
+    err_octree_pt_axis = oersted.testing.smape(bmag_direct_tet_axis, bmag_octree_pt_axis)
+    err_octree_tet_axis = oersted.testing.smape(bmag_direct_tet_axis, bmag_octree_tet_axis)
+
+    assert err_direct_pt_axis < 1e-2
+    assert err_octree_pt_axis < 1e-2
+    assert err_octree_tet_axis < 1e-2
+
+    #
+    # Solve for self-fields
+    #
+
+    targets = mesh.centroids
+
+    bdirect_pt = oersted.b_field(mesh.to_centroid_mesh(), jdensity, targets, solver=direct_solver)
+    bdirect_tet = oersted.b_field(mesh, jdensity, targets, solver=direct_solver)
+    boctree_pt = oersted.b_field(mesh.to_centroid_mesh(), jdensity, targets, solver=octree_solver)
+    boctree_tet = oersted.b_field(mesh, jdensity, targets, solver=octree_solver)
+
+    # Errors on mesh
+    bmag_direct_pt = np.linalg.norm(bdirect_pt, axis=1)
+    bmag_direct_tet = np.linalg.norm(bdirect_tet, axis=1)
+    bmag_octree_pt = np.linalg.norm(boctree_pt, axis=1)
+    bmag_octree_tet = np.linalg.norm(boctree_tet, axis=1)
+
+    err_mesh_pt_octree = oersted.testing.smape(bmag_direct_tet, bmag_octree_pt)
+    err_mesh_pt_direct = oersted.testing.smape(bmag_direct_tet, bmag_direct_pt)
+    err_mesh_tet_octree = oersted.testing.smape(bmag_direct_tet, bmag_octree_tet)
+
+    assert err_mesh_pt_octree < 1e-1  # pt method known to be inaccurate inside the mesh
+    assert err_mesh_pt_direct < 1e-1
+    assert err_mesh_tet_octree < 1e-2
 
 
 def test_solenoid():
-    print(f"Error in mesh, direct vs octree: {err_mesh * 100:.2f} %")
-    assert err_mesh < 1e-2
-    assert err_axis < 1e-2
+    check_solenoid()
 
 
 if __name__ == "__main__":
