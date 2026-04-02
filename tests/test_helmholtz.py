@@ -75,6 +75,20 @@ def test_rel_field_on_axis(mesh: Mesh, jdensity, targets_axis, direct_solver, oc
     assert np.max(np.linalg.norm(b_point_direct[:,0:2])) < 1e-3
     assert np.max(np.linalg.norm(b_point_octree[:,0:2])) < 1e-3
 
+    # Check that the field at the center matches analytical
+    current: float = 100e3
+    bz_analytical = (0.8**1.5) * oersted.MU0 * current / 0.2
+    target_center = np.array([[0.0, 0.0, 0.0]])
+    bz_tet4_direct = oersted.b_field(mesh, jdensity, target_center, solver=direct_solver)[0,2]
+    bz_tet4_octree = oersted.b_field(mesh, jdensity, target_center, solver=octree_solver)[0,2]
+    bz_point_direct = oersted.b_field(centroid_mesh, jdensity, target_center, solver=direct_solver)[0,2]
+    bz_point_octree = oersted.b_field(centroid_mesh, jdensity, target_center, solver=octree_solver)[0,2]
+
+    assert np.abs(bz_analytical - bz_tet4_direct)/bz_analytical < 1e-3
+    assert np.abs(bz_analytical - bz_tet4_octree)/bz_analytical < 1e-3
+    assert np.abs(bz_analytical - bz_point_direct)/bz_analytical < 1e-3
+    assert np.abs(bz_analytical - bz_point_octree)/bz_analytical < 1e-3
+
 def main():
     mesh, jdensity, targets_axis, direct_solver, octree_solver = setup_test() 
     test_rel_field_on_axis(mesh, jdensity, targets_axis, direct_solver, octree_solver)
