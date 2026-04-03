@@ -62,3 +62,4 @@
 * Added `h_field()` function
 * Mesh is now stateless: does not store jdensity or field results
 * Updated and simplified helmholtz coil and solenoid tests; added analytical comparisons
+* Cleanup duplicated functions

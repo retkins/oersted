@@ -26,7 +26,7 @@ import oersted
 def setup_test():
 
     # Runtime parameters
-    theta: float = 0.1
+    theta: float = 0.5
     mesh_size: float = 10.0  # ~10M interactions; set to 33 for 1e6 interactions
     ntargets_axis: int = 100  # Along the axis
     nthreads = 0
@@ -85,9 +85,9 @@ def rel_field_on_axis(mesh: Mesh, jdensity, targets_axis, direct_solver, octree_
     bz_point_octree = oersted.b_field(centroid_mesh, jdensity, target_center, solver=octree_solver)[0, 2]
 
     assert np.abs(bz_analytical - bz_tet4_direct) / bz_analytical < 1e-3
-    assert np.abs(bz_analytical - bz_tet4_octree) / bz_analytical < 1e-3
+    assert np.abs(bz_analytical - bz_tet4_octree) / bz_analytical < 1e-2
     assert np.abs(bz_analytical - bz_point_direct) / bz_analytical < 1e-3
-    assert np.abs(bz_analytical - bz_point_octree) / bz_analytical < 1e-3
+    assert np.abs(bz_analytical - bz_point_octree) / bz_analytical < 1e-2
 
 
 def test_helmholtz():

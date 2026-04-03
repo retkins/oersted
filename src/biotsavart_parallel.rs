@@ -1,4 +1,4 @@
-//! Parallel magnetic field calculations 
+//! Parallel magnetic field calculations
 
 use rayon::prelude::*;
 use std::num::NonZeroUsize;

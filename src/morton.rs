@@ -1,5 +1,5 @@
 //! Morton codes for the octree  
-//! 
+//!
 //! Note: Morton codes are calculated by considering a cube in 3D space.
 
 #![allow(non_snake_case)]

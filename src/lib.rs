@@ -19,20 +19,20 @@ pub const MU0_4PI: f64 = 1e-7;
 /// $$\mu_0 = 4\pi \cdot 10^{-7} H/m$$
 pub const MU0: f64 = 4.0 * PI * MU0_4PI;
 
-pub mod types;
-pub mod sources;
-pub mod biotsavart;
 pub mod analytical;
-pub mod io;
+pub mod archive;
+pub mod biotsavart;
 pub mod errors;
-pub mod math;
+pub mod io;
+pub mod magnetization;
 pub mod mat3;
-pub mod vec3;
+pub mod math;
 pub mod mesh;
 pub mod morton;
 pub mod octree;
-pub mod magnetization;
-pub mod archive;
+pub mod sources;
+pub mod types;
+pub mod vec3;
 
 #[cfg(feature = "python")]
 pub mod python;

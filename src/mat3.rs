@@ -40,7 +40,7 @@ impl Mat3 {
     /// | d e f | = aei + bfg + cdh - ceg - bdi - afh
     /// | g h i |
     /// ```
-    /// 
+    ///
     /// Reference:
     /// [https://en.wikipedia.org/wiki/Determinant](https://en.wikipedia.org/wiki/Determinant)
     pub fn det(&self) -> f64 {
