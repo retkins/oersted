@@ -1,11 +1,10 @@
 use crate::{
-    mat3::Mat3,
     math::{gradient::jmatrices, sort_by_indices},
     morton,
     octree::BoundingBox,
     octree::{CurrentSources, DipoleSources, HFieldSolver, Sources},
     sources::{h_field_tet4, h_point, h_point_dipole, hmag_tet4},
-    vec3::Vec3,
+    types::{Mat3, Vec3},
 };
 
 pub struct TetSources {
@@ -140,7 +139,7 @@ impl HFieldSolver for DipoleSources<TetSources> {
                 self.0.nodes[elem[2] as usize],
                 self.0.nodes[elem[3] as usize],
             ];
-            let j_invt: Vec<crate::mat3::Mat3> = jmatrices(&nodes, &elements);
+            let j_invt: Vec<Mat3> = jmatrices(&nodes, &elements);
             hmag_tet4(
                 &nodes,
                 &self.0.jdensity[i], // TODO: make this its own value?

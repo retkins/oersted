@@ -63,3 +63,4 @@
 * Mesh is now stateless: does not store jdensity or field results
 * Updated and simplified helmholtz coil and solenoid tests; added analytical comparisons
 * Cleanup duplicated functions
+* Move `Vec3` and Mat3 into `types`

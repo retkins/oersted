@@ -4,8 +4,10 @@ use rayon::prelude::*;
 use std::num::NonZeroUsize;
 use std::thread::available_parallelism;
 
-use crate::biotsavart::{bfield_direct, hfield_direct_tet, hmag_direct_tet};
-use crate::vec3::Vec3;
+use crate::{
+    biotsavart::{bfield_direct, hfield_direct_tet, hmag_direct_tet},
+    types::Vec3,
+};
 
 pub fn get_nthreads(nthreads_requested: u32) -> usize {
     let nthreads_available: usize = available_parallelism().unwrap_or(NonZeroUsize::MIN).get();

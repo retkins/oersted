@@ -1,5 +1,4 @@
-use crate::mat3::Mat3;
-use crate::vec3::Vec3;
+use crate::types::{Mat3, Vec3};
 
 /// Compute the `J^-T` matrix for every element in a tetrahedral finite element mesh
 pub fn jmatrices(nodes: &[Vec3], elements: &[[u32; 4]]) -> Vec<Mat3> {

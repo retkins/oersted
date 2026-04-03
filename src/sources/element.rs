@@ -1,5 +1,7 @@
-use crate::math::{atan, ln, mag3, unit_vector};
-use crate::vec3::Vec3;
+use crate::{
+    math::{atan, ln, mag3, unit_vector},
+    types::Vec3,
+};
 
 // Compute the indefinite edge integral of a finite element given the coordinates
 // of the target point in the edge reference frame.

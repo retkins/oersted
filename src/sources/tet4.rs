@@ -1,6 +1,8 @@
-use crate::mat3::Mat3;
-use crate::sources::element::{edge_csys, edge_integral, transform};
-use crate::vec3::Vec3;
+use crate::{
+    sources::element::{edge_csys, edge_integral, transform},
+    types::{Mat3, Vec3},
+};
+
 use std::f64::consts::PI;
 
 // Refer to the gmsh or ansys documentation for node numbering on a tet element:

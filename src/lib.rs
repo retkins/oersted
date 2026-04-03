@@ -25,14 +25,12 @@ pub mod biotsavart;
 pub mod errors;
 pub mod io;
 pub mod magnetization;
-pub mod mat3;
 pub mod math;
 pub mod mesh;
 pub mod morton;
 pub mod octree;
 pub mod sources;
 pub mod types;
-pub mod vec3;
 
 #[cfg(feature = "python")]
 pub mod python;

@@ -7,8 +7,10 @@ pub use bbox::BoundingBox;
 pub mod point;
 pub mod tet_element;
 
-use crate::math::{distance, mag, sort_by_indices};
-use crate::vec3::Vec3;
+use crate::{
+    math::{distance, mag, sort_by_indices},
+    types::Vec3,
+};
 
 /// Return the size of an octree node given the side length of the root
 /// node and the level in the tree

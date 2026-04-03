@@ -1,9 +1,8 @@
 //! Finite element mesh operations
 
 use crate::MU0;
-use crate::mat3::Mat3;
 use crate::math::mag3;
-use crate::vec3::Vec3;
+use crate::types::{Mat3, Vec3};
 use std::collections::HashMap;
 
 const INV_MU0: f64 = 1.0 / MU0;

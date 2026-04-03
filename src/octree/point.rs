@@ -1,9 +1,10 @@
-use crate::math::sort_by_indices;
-use crate::morton;
-use crate::octree::BoundingBox;
-use crate::octree::{CurrentSources, DipoleSources, HFieldSolver, Sources};
-use crate::sources::{h_point, h_point_dipole};
-use crate::vec3::Vec3;
+use crate::{
+    math::sort_by_indices,
+    morton,
+    octree::{BoundingBox, CurrentSources, DipoleSources, HFieldSolver, Sources},
+    sources::{h_point, h_point_dipole},
+    types::Vec3,
+};
 use std::f64::consts::PI;
 
 pub struct PointSources {

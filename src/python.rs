@@ -11,8 +11,7 @@ use pyo3::prelude::*;
 use crate::{
     biotsavart_parallel, mesh,
     octree::{CurrentSources, DipoleSources, HFieldSolver, Octree, point, tet_element},
-    types::{to_u32x4s, to_vec3s, to_vec3s_mut},
-    vec3::Vec3,
+    types::{Vec3, to_u32x4s, to_vec3s, to_vec3s_mut},
 };
 
 // ---

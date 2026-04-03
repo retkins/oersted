@@ -6,7 +6,11 @@
 //! by only considering meshes as the targets
 //! * Require iteration and therefore benefit from non-trivial solver techniques
 
-use crate::{math::gradient, sources::hmag_tet4, vec3::Vec3};
+use crate::{
+    math::gradient,
+    sources::hmag_tet4,
+    types::{Mat3, Vec3},
+};
 
 pub enum Solver {
     PointDirect(u32),           // num threads
@@ -54,7 +58,7 @@ pub fn magnetization(
     // Intermediate result: unit vector for direction of the magnetization field
     let [mut mhatx, mut mhaty, mut mhatz] =
         [vec![0.0; n_elem], vec![0.0; n_elem], vec![0.0; n_elem]];
-    let j_invt: Vec<crate::mat3::Mat3> = gradient::jmatrices(nodes, connectivity);
+    let j_invt: Vec<Mat3> = gradient::jmatrices(nodes, connectivity);
 
     for _ in 0..max_iterations {
         // Dispatch over solver method to compute the current iteration of the demag field

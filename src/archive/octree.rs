@@ -1,7 +1,9 @@
 #![allow(unused)]
-use crate::math::{mag, min_and_max, sort_by_indices};
-use crate::morton;
-use crate::vec3::Vec3;
+use crate::{
+    math::{mag, min_and_max, sort_by_indices},
+    morton,
+    types::Vec3,
+};
 
 /// Determines the location and extent of a collection of source points
 #[derive(Debug, Clone, Copy)]

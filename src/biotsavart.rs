@@ -2,9 +2,7 @@
 
 #![allow(non_snake_case)]
 
-use crate::MU0_4PI;
-use crate::mesh::node_coords;
-use crate::vec3::Vec3;
+use crate::{MU0_4PI, mesh::node_coords, types::Vec3};
 
 /// Compute the magnetic field at target points (x, y, z) using a direct (O(N^2)) Biot-Savart summation
 ///
