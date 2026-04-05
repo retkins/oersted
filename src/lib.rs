@@ -25,6 +25,7 @@ pub mod archive;
 pub mod biotsavart;
 pub mod errors;
 pub mod io;
+#[cfg(feature = "parallel")]
 pub mod magnetization;
 pub mod math;
 pub mod mesh;
