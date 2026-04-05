@@ -3,10 +3,15 @@
 //! These differ from the standard direct/octree calculations in that they:
 //! * Require a material defined for the targets
 //! * In the present form, require a gradient calculation at the targets, which is simplified
-//! by only considering meshes as the targets
+//!   by only considering meshes as the targets
 //! * Require iteration and therefore benefit from non-trivial solver techniques
 
-use crate::{biotsavart_parallel::h_mag_tet4_direct_parallel, types::Vec3};
+use crate::{
+    biotsavart_parallel::h_mag_tet4_direct_parallel,
+    mesh,
+    octree::{DipoleSources, Octree, tet_element::TetSources},
+    types::Vec3,
+};
 
 pub enum Solver {
     PointDirect(u32),           // num threads
@@ -21,11 +26,19 @@ pub enum Solver {
 /// Currently, this function is only defined for linear magnetic materials
 ///
 /// # Arguments
+/// * `nodes`: (m) x,y,z coordinates of each node in the mesh
+/// * `connectivity`: indices into `nodes` representing each node in the element
+/// * `centroids`: (m) x,y,z coordinates of the centroid of each element in the mesh
+/// * `chi`: magnetic susceptibility of the material
+/// * `hext`: (A/m) external magnetic field acting on the mesh
+/// * `solver`: select point/tet4 direct/octree integration
+/// * `tol`: (A/m) convergence criteria
+/// * `max_iterations`: number of iterations before exiting
 ///
 /// # Returns
 /// (H_total, M): total H and M fields acting on each element
 ///     H_total = H_external - H_demag
-/// B = mu0 * (H_total + M)
+///     B = mu0 * (H_total + M)
 pub fn magnetization(
     nodes: &[Vec3],
     connectivity: &[[u32; 4]],
@@ -42,13 +55,12 @@ pub fn magnetization(
     // Initialize memory for results
     let [mut hx, mut hy, mut hz] = [vec![0.0; n_elem], vec![0.0; n_elem], vec![0.0; n_elem]];
 
-    // // Intermediate result: unit vector for direction of the magnetization field
-    // let [mut mhatx, mut mhaty, mut mhatz] =
-    //     [vec![0.0; n_elem], vec![0.0; n_elem], vec![0.0; n_elem]];
-    // let [mut hhatx, mut hhaty, mut hhatz] =
-    //     [vec![0.0; n_elem], vec![0.0; n_elem], vec![0.0; n_elem]];
-
+    // initial guess: note that starting an initial guess of zeros causes the octree solver to calculate extremely slowly
     let mut mvectors = vec![Vec3::default(); n_centroids];
+    for (i, mvector) in mvectors.iter_mut().enumerate() {
+        *mvector = Vec3([hext.0[i], hext.1[i], hext.2[i]]) * chi;
+    }
+
     for it in 0..max_iterations {
         // Dispatch over solver method to compute the current iteration of the demag field
         match solver {
@@ -63,6 +75,37 @@ pub fn magnetization(
                 )
                 .unwrap();
             }
+
+            Solver::Tet4Octree(nthreads_requested, theta, leaf_threshold) => {
+                // Currently, we rebuild the octree every iteration, but it takes ~us to ~ms,
+                // meaning that it basically has zero computational cost relative to traversal
+                let tree: Octree<DipoleSources<TetSources>> = {
+                    let mut _centroids = vec![Vec3::default(); n_elem];
+                    let mut volumes = vec![0.0; n_elem];
+                    mesh::volumes(nodes, connectivity, &mut volumes);
+
+                    for i in 0..n_elem {
+                        _centroids[i] = Vec3([centroids.0[i], centroids.1[i], centroids.2[i]])
+                    }
+                    let sources: DipoleSources<TetSources> = DipoleSources(TetSources::new(
+                        nodes,
+                        connectivity,
+                        &_centroids,
+                        &volumes,
+                        &mvectors,
+                    ));
+                    let max_depth: u8 = 21;
+                    Octree::build_from_sources(sources, max_depth, leaf_threshold)
+                };
+                tree.h_field_parallel(
+                    centroids,
+                    (&mut hx, &mut hy, &mut hz),
+                    theta,
+                    nthreads_requested,
+                )
+                .unwrap();
+            }
+
             _ => {}
         }
 

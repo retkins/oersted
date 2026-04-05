@@ -67,3 +67,4 @@
 * Updated magnetized tetrahedral calcs to use analytical gradient and significantly cleaned up related functions
 * Added `SurfaceMesh` class
 * Moved magnetization calculation completely to Rust
+* Updated magnetization calculation to use octree methods

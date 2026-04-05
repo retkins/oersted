@@ -12,7 +12,7 @@ pub struct TetSources {
     pub connectivity: Vec<[u32; 4]>,
     pub centroids: Vec<Vec3>,
     pub volumes: Vec<f64>,
-    pub jdensity: Vec<Vec3>,
+    pub source_vectors: Vec<Vec3>,
     pub bbox: BoundingBox,
 }
 
@@ -23,7 +23,7 @@ impl TetSources {
         connectivity: &[[u32; 4]],
         centroids: &[Vec3],
         volumes: &[f64],
-        jdensity: &[Vec3],
+        source_vectors: &[Vec3],
     ) -> Self {
         let bbox = BoundingBox::from_centroids_vec(centroids);
         Self {
@@ -31,7 +31,7 @@ impl TetSources {
             connectivity: connectivity.to_vec(),
             centroids: centroids.to_vec(),
             volumes: volumes.to_vec(),
-            jdensity: jdensity.to_vec(),
+            source_vectors: source_vectors.to_vec(),
             bbox,
         }
     }
@@ -47,14 +47,14 @@ impl Sources for TetSources {
     }
 
     fn moment(&self, i: usize) -> Vec3 {
-        self.jdensity[i] * self.volumes[i]
+        self.source_vectors[i] * self.volumes[i]
     }
 
     fn sort(&mut self, indices: &[usize]) {
         let n = self.len();
         let mut scratch_vecs = vec![Vec3([0.0; 3]); n];
         sort_by_indices(&mut self.centroids, &mut scratch_vecs, indices);
-        sort_by_indices(&mut self.jdensity, &mut scratch_vecs, indices);
+        sort_by_indices(&mut self.source_vectors, &mut scratch_vecs, indices);
 
         let mut scratch_conn: Vec<[u32; 4]> = vec![[0u32; 4]; n];
         sort_by_indices(&mut self.connectivity, &mut scratch_conn, indices);
@@ -109,7 +109,7 @@ impl HFieldSolver for CurrentSources<TetSources> {
             ];
             h_field_tet4(
                 &nodes,
-                &self.0.jdensity[i],
+                &self.0.source_vectors[i],
                 (&[target[0]], &[target[1]], &[target[2]]),
                 &mut f,
                 (&mut hx, &mut hy, &mut hz),
@@ -126,14 +126,9 @@ impl HFieldSolver for DipoleSources<TetSources> {
     }
 
     fn h_field_leaf(&self, start: usize, end: usize, target: &Vec3) -> Vec3 {
-        let mut hx = [0.0];
-        let mut hy = [0.0];
-        let mut hz = [0.0];
-        let mut f = [Vec3([0.0; 3])];
-
-        let mut wx = [Vec3::default()];
-        let mut wy = [Vec3::default()];
-        let mut wz = [Vec3::default()];
+        // Output vectors and workspace
+        let (mut hx, mut hy, mut hz) = ([0.0], [0.0], [0.0]);
+        let (mut wx, mut wy, mut wz) = ([Vec3::default()], [Vec3::default()], [Vec3::default()]);
 
         for i in start..end {
             let elem = self.0.connectivity[i];
@@ -145,12 +140,11 @@ impl HFieldSolver for DipoleSources<TetSources> {
             ];
             h_mag_tet4(
                 &nodes,
-                &self.0.jdensity[i], // TODO: make this its own value?
+                &self.0.source_vectors[i],
                 (&[target[0]], &[target[1]], &[target[2]]),
                 (&mut wx, &mut wy, &mut wz),
                 (&mut hx, &mut hy, &mut hz),
             );
-            f.fill(Vec3([0.0; 3]));
         }
         Vec3([hx[0], hy[0], hz[0]])
     }

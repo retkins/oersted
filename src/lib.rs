@@ -8,6 +8,7 @@
 #![allow(clippy::too_many_arguments)]
 #![allow(clippy::result_unit_err)]
 #![allow(clippy::len_without_is_empty)]
+#![allow(clippy::type_complexity)]
 
 use std::f64::consts::PI;
 

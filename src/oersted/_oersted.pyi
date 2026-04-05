@@ -41,44 +41,13 @@ def h_current_tet4_octree(
     leaf_threshold: int,
     nthreads_requested: int,
 ) -> Float64Array: ...
-def _hfield_dipole_tetrahedrons(
-    nodes_flat: Float64Array,
-    centroids_flat: Float64Array,
-    vol: Float64Array,
-    jdensity_flat: Float64Array,
-    x: Float64Array,
-    y: Float64Array,
-    z: Float64Array,
-    bx: Float64Array,
-    by: Float64Array,
-    bz: Float64Array,
-    theta: float,
-    leaf_threshold: int,
-    nthreads_requested: int,
-) -> None: ...
-def _hfield_dipole(
-    centx: Float64Array,
-    centy: Float64Array,
-    centz: Float64Array,
-    vol: Float64Array,
-    mx: Float64Array,
-    my: Float64Array,
-    mz: Float64Array,
-    x: Float64Array,
-    y: Float64Array,
-    z: Float64Array,
-    hx: Float64Array,
-    hy: Float64Array,
-    hz: Float64Array,
-    theta: float,
-    leaf_threshold: int,
-    nthreads_requested: int,
-) -> None: ...
-def h_mag_tet4_direct(
+def h_mag_tet4(
     nodes: Float64Array,
     connectivity: U32Array,
     mvectors: Float64Array,
     targets: Float64Array,
+    theta: float,
+    leaf_threshold: uint32,
     nthreads_requested: int,
 ) -> Float64Array: ...
 def magnetization_tet4(
@@ -88,6 +57,8 @@ def magnetization_tet4(
     hext: Float64Array,
     tol: float,
     max_iterations: int,
+    theta: float,
+    leaf_threshold: int,
     nthreads_requested: int,
 ) -> tuple[Float64Array, Float64Array]: ...
 def mesh_volumes(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...

@@ -1,11 +1,11 @@
 import numpy as np
 import oersted
-from oersted import Mesh, MU0
+from oersted import Mesh, MU0, OctreeSolver
 import time
 
 # Test parameters
 infile: str = "tests/data/sphere.stp"
-mesh_size: float = 12.0  # mm
+mesh_size: float = 15  # mm
 b_ext_mag: float = 1.0  # T
 mu_r: float = 1.5
 solver = oersted.DirectSolver()
@@ -29,7 +29,7 @@ def test_magnetization_forces():
 
     # Compute demag parameters: magnetization and internal H field
     start = time.perf_counter()
-    M, Htotal = oersted.magnetization.demag_tet4(mesh, mat, h_external, nthreads_requested=solver.n_threads)
+    M, Htotal = oersted.magnetization.demag_tet4(mesh, mat, h_external, nthreads_requested=solver.n_threads, theta=0.5, leaf_threshold=16)
     elapsed = time.perf_counter() - start
     print(f"Calculation time elapsed: {elapsed:.3f} sec")
 
@@ -38,7 +38,8 @@ def test_magnetization_forces():
     b_ext[:, 2] = b_ext_mag
     offset = 1e-4  # small distance outward
     eval_pts = mesh.surface.centroids + offset * mesh.surface.normals
-    h_demag = oersted.magnetization.h_demag_tet4(mesh, mat, M, eval_pts)
+    # h_demag = oersted.magnetization.h_demag_tet4(mesh,M, eval_pts)
+    h_demag = oersted.biotsavart.h_mag(mesh, M, eval_pts, solver=OctreeSolver(0.5, 16, 0))
     b_ext = oersted.MU0 * (b_ext / MU0 + h_demag)
     forces = oersted.mesh.surface_forces(mesh.surface, b_ext, mat, solver)
 

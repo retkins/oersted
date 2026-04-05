@@ -3,12 +3,7 @@
 from .materials import MU0, FreeSpace, LinearMaterial, NonlinearMaterial, BHCurve
 from .solver import Solver, DirectSolver, OctreeSolver
 
-from .biotsavart import (
-    b_field,
-    h_field,
-    hfield_dipole,
-    hfield_dipole_tetrahedrons,
-)
+from .biotsavart import b_field, h_field, h_mag
 
 from .mesh import Mesh, CentroidMesh, mesh_step
 from . import testing
@@ -27,6 +22,7 @@ __all__ = [
     "mesh_step",
     "b_field",
     "h_field",
+    "h_mag",
     "bfield_tetrahedrons",
     "bfield_tetrahedrons_direct",
     "hfield_dipole",
