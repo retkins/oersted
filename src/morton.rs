@@ -1,3 +1,7 @@
+//! Morton codes for the octree  
+//!
+//! Note: Morton codes are calculated by considering a cube in 3D space.
+
 #![allow(non_snake_case)]
 
 /// Determine the scale factor based on the maximum quantized depth of the tree

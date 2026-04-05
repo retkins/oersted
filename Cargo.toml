@@ -1,6 +1,6 @@
 [package]
 name = "oersted"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 authors = ["Ryan Etkins <retkins@pm.me>"]
 description = "Lightning-fast magnetic fields calculations"
@@ -17,8 +17,9 @@ rayon = {version = "1.11.0", optional=true}
 # Enable features with the flag: --features python
 [features]
 default = [] 
-python = ["numpy", "pyo3"]
 parallel = ["rayon"]
+python = ["dep:numpy", "dep:pyo3", "parallel"]
+
 
 [lib]
 name = "oersted" 
@@ -33,4 +34,5 @@ codegen-units = 1
 opt-level = 3
 
 [package.metadata.docs.rs]
-rustdoc-args = [ "--html-in-header", "src/docs-header.html" ]
+all-features = true
+rustdoc-args = [ "--html-in-header", "src/docs-header.html", "--cfg", "docsrs"]

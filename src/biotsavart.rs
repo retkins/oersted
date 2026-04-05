@@ -1,8 +1,8 @@
+//! Magnetic field calculations
+
 #![allow(non_snake_case)]
 
-use crate::MU0_4PI;
-use crate::mesh::node_coords;
-use crate::vec3::Vec3;
+use crate::{MU0_4PI, mesh::node_coords, sources::tet4::h_mag_tet4, types::Vec3};
 
 /// Compute the magnetic field at target points (x, y, z) using a direct (O(N^2)) Biot-Savart summation
 ///
@@ -15,20 +15,17 @@ use crate::vec3::Vec3;
 /// - `x`, `y`, `z`:             (m) location of each target point
 /// - `bx`, `by`, `bz`:          (T) magnetic flux density at each target point
 pub fn bfield_direct(
-    centx: &[f64],
-    centy: &[f64],
-    centz: &[f64],
-    vol: &[f64],
-    jx: &[f64],
-    jy: &[f64],
-    jz: &[f64],
-    x: &[f64],
-    y: &[f64],
-    z: &[f64],
-    bx: &mut [f64],
-    by: &mut [f64],
-    bz: &mut [f64],
+    src_pts: (&[f64], &[f64], &[f64]),
+    src_vol: &[f64],
+    src_jdensity: (&[f64], &[f64], &[f64]),
+    tgt_pts: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
 ) -> Result<(), ()> {
+    // Unpack
+    let (centx, centy, centz) = src_pts;
+    let (jx, jy, jz) = src_jdensity;
+    let (x, y, z) = tgt_pts;
+    let (bx, by, bz) = out;
     // TODO: length checks on input arrays
 
     // Outer loop over source elements
@@ -37,7 +34,7 @@ pub fn bfield_direct(
         let centxi: f64 = centx[i];
         let centyi: f64 = centy[i];
         let centzi: f64 = centz[i];
-        let vol_mu0_4pi: f64 = vol[i] * MU0_4PI;
+        let vol_mu0_4pi: f64 = src_vol[i] * MU0_4PI;
         let jxi = jx[i];
         let jyi = jy[i];
         let jzi = jz[i];
@@ -165,72 +162,36 @@ pub fn hfield_direct_tet(
     Ok(())
 }
 
-use crate::math::gradient::jmatrices;
-use crate::sources::tet4::hmag_tet4;
-
-pub fn hmag_direct_tet(
-    source_nodes: (&[f64], &[f64], &[f64]),
-    source_element_connectivity: &[[u32; 4]],
-    source_mvectors: &[Vec3],
-    target_nodes: (&[f64], &[f64], &[f64]),
-    target_element_connectivity: &[[u32; 4]],
-    hx: &mut [f64],
-    hy: &mut [f64],
-    hz: &mut [f64],
+/// Compute the H field due to the magnetization of a source mesh at a collection of target points
+pub fn h_mag_tet4_direct(
+    nodes: &[Vec3],
+    connectivity: &[[u32; 4]],
+    mvectors: &[Vec3],
+    targets: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
 ) -> Result<(), ()> {
-    let n_sources = source_element_connectivity.len();
-    let n_target_nodes = target_nodes.0.len();
+    let n_targets = targets.0.len();
 
-    // Compute j_invt at each target element
-    let mut node_vecs = vec![Vec3::default(); n_target_nodes];
-    for i in 0..n_target_nodes {
-        node_vecs[i] = Vec3([target_nodes.0[i], target_nodes.1[i], target_nodes.2[i]]);
-    }
-    let j_invt = jmatrices(&node_vecs, target_element_connectivity);
+    let mut wx: Vec<Vec3> = vec![Vec3::default(); n_targets];
+    let mut wy: Vec<Vec3> = vec![Vec3::default(); n_targets];
+    let mut wz: Vec<Vec3> = vec![Vec3::default(); n_targets];
 
-    let mut f = vec![Vec3::default(); n_target_nodes];
-
-    for i in 0..n_sources {
-        let n_idx = source_element_connectivity[i];
-        let _source_nodes = [
-            Vec3([
-                source_nodes.0[n_idx[0] as usize],
-                source_nodes.1[n_idx[0] as usize],
-                source_nodes.2[n_idx[0] as usize],
-            ]),
-            Vec3([
-                source_nodes.0[n_idx[1] as usize],
-                source_nodes.1[n_idx[1] as usize],
-                source_nodes.2[n_idx[1] as usize],
-            ]),
-            Vec3([
-                source_nodes.0[n_idx[2] as usize],
-                source_nodes.1[n_idx[2] as usize],
-                source_nodes.2[n_idx[2] as usize],
-            ]),
-            Vec3([
-                source_nodes.0[n_idx[3] as usize],
-                source_nodes.1[n_idx[3] as usize],
-                source_nodes.2[n_idx[3] as usize],
-            ]),
+    for (i, elem) in connectivity.iter().enumerate() {
+        let elem_nodes = [
+            nodes[elem[0] as usize],
+            nodes[elem[1] as usize],
+            nodes[elem[2] as usize],
+            nodes[elem[3] as usize],
         ];
-        hmag_tet4(
-            &_source_nodes,
-            &source_mvectors[i],
-            &j_invt,
-            target_nodes,
-            target_element_connectivity,
-            &mut f,
-            (hx, hy, hz),
+
+        h_mag_tet4(
+            &elem_nodes,
+            &mvectors[i],
+            targets,
+            (&mut wx, &mut wy, &mut wz),
+            (out.0, out.1, out.2),
         );
     }
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-
-    #[test]
-    fn test_direct() {}
 }

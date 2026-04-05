@@ -1,3 +1,5 @@
+//! Analytical expressions for the magnetic field under highly specific conditions
+
 #![allow(non_snake_case)]
 
 use crate::MU0;

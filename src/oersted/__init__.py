@@ -3,22 +3,11 @@
 from .materials import MU0, FreeSpace, LinearMaterial, NonlinearMaterial, BHCurve
 from .solver import Solver, DirectSolver, OctreeSolver
 
-from .biotsavart import (
-    b_field,
-    bfield_direct,
-    bfield_octree,
-    bfield_dualtree,
-    bfield_hexahedron,
-    bfield_tetrahedrons,
-    bfield_tetrahedrons_direct,
-    hfield_dipole,
-    hfield_dipole_tetrahedrons,
-)
+from .biotsavart import b_field, h_field, h_mag
 
-from .mesh import Mesh, mesh_step
-from .magnetization import mag_force
-
+from .mesh import Mesh, CentroidMesh, mesh_step
 from . import testing
+from . import magnetization
 
 
 __all__ = [
@@ -27,20 +16,19 @@ __all__ = [
     "LinearMaterial",
     "NonlinearMaterial",
     "BHCurve",
-    "bfield_direct",
-    "bfield_octree",
     "testing",
     "Mesh",
+    "CentroidMesh",
     "mesh_step",
     "b_field",
-    "bfield_dualtree",
-    "bfield_hexahedron",
+    "h_field",
+    "h_mag",
     "bfield_tetrahedrons",
     "bfield_tetrahedrons_direct",
     "hfield_dipole",
     "hfield_dipole_tetrahedrons",
-    "mag_force",
     "Solver",
     "DirectSolver",
     "OctreeSolver",
+    "magnetization",
 ]

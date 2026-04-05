@@ -3,7 +3,7 @@
 import numpy as np
 from numpy.typing import NDArray
 from numpy import float64, uint32
-from ._oersted import _mesh_centroids, _mesh_volumes, _mesh_surface_faces, _mesh_surface_face_properties, _mesh_surface_forces
+from ._oersted import mesh_centroids, mesh_volumes, mesh_surface_faces, mesh_surface_face_properties, _mesh_surface_forces
 from oersted import MU0, Solver
 
 from .materials import LinearMaterial
@@ -20,18 +20,12 @@ class CentroidMesh:
     _centroids: NDArray[float64]
     _volumes: NDArray[float64]
 
-    # Source and result data
-    _j_density: NDArray[float64] | None
-    _m_field: NDArray[float64] | None
-    _h_field: NDArray[float64] | None
-
-    def __init__(self, centroids: NDArray[float64], volumes: NDArray[float64], j_density: NDArray[float64] | None = None):
+    def __init__(self, centroids: NDArray[float64], volumes: NDArray[float64]):
         self._centroids = centroids
         self._volumes = volumes
-        self._j_density = j_density
 
     @property
-    def num_elems(self):
+    def num_elems(self) -> int:
         return self._centroids.shape[0]
 
     @property
@@ -42,12 +36,82 @@ class CentroidMesh:
     def volumes(self):
         return self._volumes
 
-    @property
-    def j_density(self):
-        if self._j_density is None:
-            self._j_density = np.zeros((self.num_elems, 3))
 
-        return self._j_density
+class SurfaceMesh:
+    """The surface (triangle) mesh of a 3D volumetric mesh consisting solely of
+    4-node tetrahedral elements. This is primarily meant to be used for surface
+    force calculations.
+    """
+
+    # Basic topology data
+    _nodes: NDArray[float64]
+    _faces: NDArray[uint32]
+
+    # Information requested by the user
+    _centroids: NDArray[float64] | None
+    _normals: NDArray[float64] | None
+    _areas: NDArray[float64] | None
+
+    def __init__(self, nodes: NDArray[float64], faces: NDArray[uint32]):
+        assert nodes.shape[1] == 3
+        assert faces.shape[1] == 3
+        self._nodes = nodes
+        self._faces = faces
+
+        self._centroids = None
+        self._normals = None
+        self._areas = None
+
+    @property
+    def num_faces(self) -> int:
+        """Return the number of faces in the surface mesh"""
+        return self._faces.shape[0]
+
+    @property
+    def num_nodes(self) -> int:
+        """Return the number of nodes in the surface mesh
+
+        Note: this is all of the nodes in the volumetric mesh!
+        """
+        return self._nodes.shape[0]
+
+    @property
+    def nodes(self) -> NDArray[float64]:
+        """Return an (N,3) array of the x,y,z nodal coordinates in the surface mesh
+
+        Note: these are all of the nodes in the volumetric mesh!"""
+        return self._nodes
+
+    @property
+    def faces(self) -> NDArray[uint32]:
+        """Return an (N,3) array of the face connectivity"""
+        return self._faces
+
+    def _properties(self):
+        # Compute the properties of the surface mesh
+        self._areas, self._centroids, self._normals = mesh_surface_face_properties(self.nodes, self.faces)
+
+    @property
+    def areas(self):
+        """Return an (N,) array of the area of each surface face"""
+        if self._areas is None:
+            self._properties()
+        return self._areas
+
+    @property
+    def centroids(self):
+        """Return an (N,3) array of the x,y,z coordinates of each face centroid"""
+        if self._centroids is None:
+            self._properties()
+        return self._centroids
+
+    @property
+    def normals(self):
+        """Return an (N,3) array of the unit normal vectors on each face"""
+        if self._normals is None:
+            self._properties()
+
+        return self._normals
 
 
 class Mesh:
@@ -56,36 +120,29 @@ class Mesh:
     # Basic mesh topology data
     _nodes: NDArray[float64]
     _connectivity: NDArray[uint32]
+
+    # Information that is compute on-demand for the user
     _edges: NDArray[uint32] | None
     _faces: NDArray[uint32] | None
     _centroids: NDArray[float64] | None
     _volumes: NDArray[float64] | None
-    _face_centroids: NDArray[float64] | None
-    _surface_faces: NDArray[uint32] | None
-    _surface_face_centroids: NDArray[float64] | None
-    _surface_face_normals: NDArray[float64] | None
-    _surface_face_areas: NDArray[float64] | None
 
-    # Results information is stored at the element centroids
-    _j_density: NDArray[float64] | None
-    _h_field: NDArray[float64] | None
-    _m_field: NDArray[float64] | None
+    # Surface mesh data
+    _surface: SurfaceMesh | None
 
-    def __init__(self, nodes: NDArray[float64], connectivity: NDArray[uint32], j_density: NDArray[float64] | None = None):
+    def __init__(self, nodes: NDArray[float64], connectivity: NDArray[uint32]):
+        assert len(nodes.shape) == 2
+        assert nodes.shape[1] == 3
+        assert len(connectivity.shape) == 2
+        assert connectivity.shape[1] == 4
         self._nodes = nodes
         self._connectivity = connectivity
-        self._j_density = j_density
+
         self._edges = None
         self._faces = None
         self._centroids = None
         self._volumes = None
-        self._face_centroids = None
-        self._surface_faces = None
-        self._surface_face_centroids = None
-        self._surface_face_normals = None
-        self._surface_face_areas = None
-        self._m_field = None
-        self._h_field = None
+        self._surface = None
 
     @property
     def nodes(self) -> NDArray[float64]:
@@ -109,6 +166,10 @@ class Mesh:
     def num_elems(self) -> int:
         """Returns the number of elements in the model"""
         return self._connectivity.shape[0]
+
+    def to_centroid_mesh(self) -> CentroidMesh:
+        """Create a centroid mesh from a tet4 mesh"""
+        return CentroidMesh(self.centroids, self.volumes)
 
     @property
     def edges(self):  # -> NDArray[uint32]:
@@ -139,142 +200,39 @@ class Mesh:
     def centroids(self) -> NDArray[float64]:
         """Returns an (N,3) array of all element centroids in the mesh"""
         if self._centroids is None:
-            cx = np.zeros((self.num_elems,))
-            cy = np.zeros((self.num_elems,))
-            cz = np.zeros((self.num_elems,))
-            _mesh_centroids(
-                np.ascontiguousarray(self.nodes.flatten()),
-                np.ascontiguousarray(self.connectivity.flatten()),
-                np.ascontiguousarray(cx[:]),
-                np.ascontiguousarray(cy[:]),
-                np.ascontiguousarray(cz[:]),
+            self._centroids = mesh_centroids(
+                np.ascontiguousarray(self.nodes),
+                np.ascontiguousarray(self.connectivity),
             )
-            self._centroids = np.hstack((cx[:, np.newaxis], cy[:, np.newaxis], cz[:, np.newaxis]))
+
         return self._centroids
 
     @property
     def volumes(self) -> NDArray[float64]:
         """Return an (N,) array of the volume of each element in the mesh"""
         if self._volumes is None:
-            self._volumes: NDArray[float64] = np.zeros((self.num_elems,))
-            _mesh_volumes(
-                np.ascontiguousarray(self.nodes.flatten()), np.ascontiguousarray(self.connectivity.flatten()), np.ascontiguousarray(self._volumes)
+            self._volumes = mesh_volumes(
+                np.ascontiguousarray(self.nodes),
+                np.ascontiguousarray(self.connectivity),
             )
         return self._volumes
 
     @property
-    def face_centroids(self):
-        if self._face_centroids is None:
-            # self._face_centroids = mesh_face_centroids(self.nodes, self.connectivity)
-            pass
-        return self._face_centroids
+    def surface(self):
+        if self._surface is None:
+            faces = mesh_surface_faces(self.connectivity)
+            self._surface = SurfaceMesh(self.nodes.copy(), faces)
 
-    @property
-    def surface_faces(self):
-        if self._surface_faces is None:
-            self._surface_faces = _mesh_surface_faces(self.connectivity.flatten())
-            pass
-        return self._surface_faces
+        return self._surface
 
-    @property
-    def surface_face_centroids(self):
-        if self._surface_face_centroids is None:
-            self._surface_face_properties()
-        return self._surface_face_centroids
 
-    def _surface_face_properties(self):
-        self._surface_face_areas, self._surface_face_centroids, self._surface_face_normals = _mesh_surface_face_properties(
-            np.ascontiguousarray(self._nodes.flatten()), np.ascontiguousarray(self.surface_faces.flatten())
-        )
+def surface_forces(mesh: SurfaceMesh, b_ext: NDArray[float64], mat: LinearMaterial, solver: Solver):  # -> NDArray[float64]:
+    """Compute the maxwell stress tensor and determine the force vector acting on each
+    surface face centroid. Returns an (N,3) array of the force vector
+    """
 
-    @property
-    def surface_face_normals(self):
-        """Returns an (N,3) array of the normal vectors associated with each surface face in the model"""
-        if self._surface_face_normals is None:
-            self._surface_face_properties()
-
-        return self._surface_face_normals
-
-    @property
-    def surface_face_areas(self):
-        """Returns an (N,) array of the area of each surface face"""
-        if self._surface_face_areas is None:
-            self._surface_face_properties()
-
-        return self._surface_face_areas
-
-    @property
-    def h_field(self) -> NDArray[float64]:
-        """Return an (N,3) array of the magnetic field strength vector at each element centroid"""
-        if self._h_field is None:
-            raise Exception("Error - h field has not been calculated for this mesh.")
-
-        return self._h_field
-
-    @property
-    def m_field(self) -> NDArray[float64]:
-        """Return an (N,3) array of the magnetization vector at each element centroid"""
-        if self._m_field is None:
-            self._m_field = np.zeros((self.num_elems, 3))
-
-        return self._m_field
-
-    @property
-    def b_field(self) -> NDArray[float64]:
-        """Return an (N,3) array of the magnetic flux density at each element centroid"""
-        if self._h_field is None and self._m_field is None:
-            raise Exception("Error - results have not been calculated for this mesh.")
-
-        return MU0 * (self.m_field + self.h_field)
-
-    @property
-    def j_density(self) -> NDArray[float64]:
-        """Returns an (N,3) array of the current density at each element centroid
-
-        This function will return an empty array if current densities have not been
-        provided at object initiation.
-        """
-        if self._j_density is None:
-            return np.zeros((self.num_elems, 3))
-
-        else:
-            return self._j_density
-
-    def surface_forces(self, b_ext: NDArray[float64], mat: LinearMaterial, solver: Solver):  # -> NDArray[float64]:
-        """Compute the maxwell stress tensor and determine the force vector acting on each
-        surface face centroid. Returns an (N,3) array of the force vector
-        """
-
-        # from .magnetization import h_demag_tet4
-        # from .biotsavart import hfield_dipole
-        # from ._oersted import _mesh_surface_tets
-
-        h_field = b_ext / MU0
-        # hmag: NDArray | None = None
-        if self._m_field is not None:
-            raise NotImplementedError("Warning! Maxwell stress tensor calculation on magnetized components is not yet functional.")
-            # print("Calculation proceeding with Lorentz force evaluation only (using Maxwell stress tensor)")
-        #     (surface_nodes, surface_connectivity) = _mesh_surface_tets(
-        #         self.nodes.flatten(), self.surface_faces.flatten(), self.surface_face_centroids.flatten(), self.surface_face_normals.flatten()
-        #     )
-        #     hmag = h_demag_tet4(
-        #         self.nodes,
-        #         self.connectivity,
-        #         mat,
-        #         self.m_field,
-        #         surface_nodes.reshape((int(surface_nodes.shape[0] / 3), 3)),
-        #         surface_connectivity.reshape((int(surface_connectivity.shape[0] / 4), 4)),
-        #         nthreads_requested=solver.n_threads,
-        #     )
-        #     hmag = hfield_dipole(
-        #         self.centroids, self.volumes, self._m_field * self.volumes[:, np.newaxis],
-        #         self.surface_face_centroids,0.01
-        #     )
-
-        # if hmag is not None:
-        #     h_field += hmag
-
-        return _mesh_surface_forces(self.surface_face_areas.flatten(), self.surface_face_normals.flatten(), h_field.flatten() * MU0)
+    h_field = b_ext / MU0
+    return _mesh_surface_forces(mesh.areas.flatten(), mesh.normals.flatten(), h_field.flatten() * MU0)
 
 
 def plot_mesh(x, y, z):
@@ -291,7 +249,7 @@ def plot_mesh(x, y, z):
         print("Error - matplotlib is not installed. Could not plot mesh.")
 
 
-def mesh_step(infile: str, outfile: str, min_size: float, max_size: float, scale=1e-3) -> Mesh:
+def mesh_step(infile: str, min_size: float, max_size: float, scale=1e-3) -> Mesh:
     """Mesh a step file using gmsh"""
 
     mshfile = infile.split(".")[0] + ".msh"
@@ -331,156 +289,10 @@ def mesh_step(infile: str, outfile: str, min_size: float, max_size: float, scale
         connectivity = np.array([[tag_to_compact[tag] for tag in elem] for elem in raw_connectivity], dtype=np.uint32)
         gmsh.finalize()
 
-        return Mesh(nodes, connectivity)
+        mesh_out: Mesh = Mesh(nodes, connectivity)
+        print(f"Nodes: {mesh_out.num_nodes}, Elems: {mesh_out.num_elems}\n")
+
+        return mesh_out
 
     except ImportError:
         raise RuntimeError(f"Error - gmsh is not installed. Could not mesh file `{infile}`") from None
-
-
-def mesh_step_tets(
-    step_file: str, min_size: float, max_size: float, scale: float = 1e-3
-) -> tuple[NDArray[float64], NDArray[float64], NDArray[float64]]:
-    """
-    Mesh a step file with gmsh and return tet element data. This is meant to
-    be used with the tet element source functionality.
-
-    Args
-    ---
-    step_file: Path to STEP file
-    min_size, `max_size`: Mesh element size bounds (in model units, usually mm)
-
-    Returns
-    ---
-    (`nodes`, `centroids`, `volume`)
-    nodes: N*12-length flat array of nodal coordinates for each tet, row-major:
-        [x0,y0,z0, x1,y1,z1, x2,y2,z2, x3,y3,z3, ...]
-    centroids: Nx3 array of the centroids of each element
-    volume: N-length array of volume of each element
-    """
-
-    import gmsh
-
-    # Setup gmsh and generate elements
-    gmsh.initialize()
-    gmsh.option.setNumber("General.Terminal", 0)  # suppress output
-    gmsh.model.add("model")
-    gmsh.model.occ.importShapes(step_file)
-    gmsh.model.occ.synchronize()
-    gmsh.option.setNumber("Mesh.MeshSizeMin", min_size)
-    gmsh.option.setNumber("Mesh.MeshSizeMax", max_size)
-    gmsh.model.mesh.generate(3)
-
-    # Get all node coordinates: node_tags is 1-indexed
-    node_tags, node_coords, _ = gmsh.model.mesh.getNodes()
-    # node_coords is flat [x1,y1,z1, x2,y2,z2, ...]
-    # Build a lookup from tag -> coordinates
-    all_coords = node_coords.reshape(-1, 3)
-    # node_tags might not be contiguous, so use a dict
-    tag_to_idx = {int(tag): i for i, tag in enumerate(node_tags)}
-
-    # Get tet elements (type 4 = linear tet with 4 nodes)
-    tet_type = 4
-    tet_tags, tet_node_tags = gmsh.model.mesh.getElementsByType(tet_type)
-
-    n_tets = len(tet_tags)
-    tet_connectivity = tet_node_tags.reshape(n_tets, 4)  # each row: 4 node tags
-
-    # Build the 12*N flat node coordinate array
-    nodes = np.zeros((n_tets, 4, 3))
-    for i in range(n_tets):
-        for j in range(4):
-            idx = tag_to_idx[int(tet_connectivity[i, j])]
-            nodes[i, j, :] = all_coords[idx]
-
-    nodes *= scale
-
-    # Centroids: average of 4 nodes (TODO: should this be done differently?)
-    centroids = nodes.mean(axis=1)
-
-    # Volumes: V = |det([v1-v0, v2-v0, v3-v0])| / 6 like below, but now vectorized
-    v0 = nodes[:, 0, :]
-    v1 = nodes[:, 1, :]
-    v2 = nodes[:, 2, :]
-    v3 = nodes[:, 3, :]
-
-    d1 = v1 - v0
-    d2 = v2 - v0
-    d3 = v3 - v0
-
-    cross = np.cross(d1, d2)
-    det = np.sum(cross * d3, axis=1)
-    volumes = np.abs(det) / 6.0
-
-    # Flatten nodes to row-major 12*N
-    nodes_flat = nodes.reshape(-1)  # [x0,y0,z0,x1,y1,z1,...] per tet
-
-    gmsh.finalize()
-
-    return nodes_flat, centroids, volumes
-
-
-def tet_volume(p0, p1, p2, p3):
-    """Calculate volume of a tetrahedron given 4 vertex coordinates:
-    volume = |det(p1-p0, p2-p0, p3-p0)| / 6
-
-    Each coordinate is a 3-length numpy array
-    TODO: turn this into numpy operations for efficiency
-    """
-
-    v1 = p1 - p0
-    v2 = p2 - p0
-    v3 = p3 - p0
-    return abs(np.dot(v1, np.cross(v2, v3))) / 6.0
-
-
-def process_elements(infile: str, outfile: str, scale: float = 1e-3):
-    """Convert gmsh .msh file into format readable by `oersted`
-    and calculate the volume of each element
-    """
-
-    try:
-        import gmsh
-
-        gmsh.initialize()
-        gmsh.open(infile)
-        element_types, element_tags, node_tags = gmsh.model.mesh.getElements(3)
-
-        with open(outfile, "w") as f:
-            f.write("x,y,z,volume\n")
-
-            for elem_type, elem_tags, elem_nodes in zip(element_types, element_tags, node_tags, strict=True):
-                elem_name, dim, order, num_nodes, local_coords, num_primary_nodes = gmsh.model.mesh.getElementProperties(elem_type)
-
-                # Reshape node tags to have one row per element
-                elem_nodes = elem_nodes.reshape(-1, num_nodes)
-
-                print(f"Processing {len(elem_tags)} {elem_name} elements...")
-
-                # Process each element
-                for nodes in elem_nodes:
-                    # Get coordinates of all nodes in this element
-                    coords = []
-                    for node in nodes:
-                        coord = gmsh.model.mesh.getNode(node)[0]
-                        coords.append(coord)
-                    coords = np.array(coords) * scale
-
-                    # Calculate centroid (average of node coordinates)
-                    # TODO: is this the right way to calculate centroid?
-                    centroid = np.mean(coords, axis=0)
-
-                    # Calculate volume based on element type
-                    if "Tetrahedron" in elem_name:
-                        volume = tet_volume(coords[0], coords[1], coords[2], coords[3])
-
-                    else:
-                        print(f"Warning: Unknown element type {elem_name}, approximating volume")
-                        volume = 0.0
-
-                    f.write(f"{centroid[0]:.6f},{centroid[1]:.6f},{centroid[2]:.6f},{volume:.10e}\n")
-
-        print(f"Element data written to: {outfile}")
-        gmsh.finalize()
-
-    except ImportError:
-        print(f"Error - gmsh is not installed. Could not process elements in file `{infile}`")

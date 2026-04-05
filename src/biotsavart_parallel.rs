@@ -1,9 +1,13 @@
+//! Parallel magnetic field calculations
+
 use rayon::prelude::*;
 use std::num::NonZeroUsize;
 use std::thread::available_parallelism;
 
-use crate::biotsavart::{bfield_direct, hfield_direct_tet, hmag_direct_tet};
-use crate::vec3::Vec3;
+use crate::{
+    biotsavart::{bfield_direct, h_mag_tet4_direct, hfield_direct_tet},
+    types::Vec3,
+};
 
 pub fn get_nthreads(nthreads_requested: u32) -> usize {
     let nthreads_available: usize = available_parallelism().unwrap_or(NonZeroUsize::MIN).get();
@@ -21,32 +25,31 @@ pub fn get_nthreads(nthreads_requested: u32) -> usize {
 /// This version of the function uses a user-specified number of threads
 ///
 /// # Arguments
-/// - `centx`, `centy`, `centz`: (m) locations of source element centroids in 3D space
-/// - `vol`:                     (m^3) volume of each source element
-/// - `jx`, `jy`, `jz`:          (A/m^2) current density vector of each source element
-/// - `x`, `y`, `z`:             (m) location of each target point
-/// - `bx`, `by`, `bz`:          (T) magnetic flux density at each target point
+/// - `src_pts`: (m) locations of source element centroids in 3D space
+/// - `src_vol`:                     (m^3) volume of each source element
+/// - `src_jdensity`:          (A/m^2) current density vector of each source element
+/// - `tgt_pts`:             (m) location of each target point
+/// - `out`:          (T) magnetic flux density at each target point
 /// - `nthreads_requested`:      how many OS threads the calculation should run on
 pub fn bfield_direct_parallel(
-    centx: &[f64],
-    centy: &[f64],
-    centz: &[f64],
-    vol: &[f64],
-    jx: &[f64],
-    jy: &[f64],
-    jz: &[f64],
-    x: &[f64],
-    y: &[f64],
-    z: &[f64],
-    bx: &mut [f64],
-    by: &mut [f64],
-    bz: &mut [f64],
+    src_pts: (&[f64], &[f64], &[f64]),
+    src_vol: &[f64],
+    src_jdensity: (&[f64], &[f64], &[f64]),
+    tgt_pts: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
     nthreads_requested: u32,
 ) -> Result<(), ()> {
+    // Unpack
+    let (centx, centy, centz) = src_pts;
+    let (jx, jy, jz) = src_jdensity;
+    let (x, y, z) = tgt_pts;
+    let (bx, by, bz) = out;
+
     // TODO: length checks
-    let n: usize = x.len();
+    let n_tgt: usize = x.len();
+
     let nthreads: usize = get_nthreads(nthreads_requested);
-    let chunk_size: usize = (n / nthreads).max(1);
+    let chunk_size: usize = (n_tgt / nthreads).max(1);
 
     // chunk the inputs
     let _x = x.par_chunks(chunk_size);
@@ -60,7 +63,11 @@ pub fn bfield_direct_parallel(
         .into_par_iter()
         .try_for_each(|(_x, _y, _z, _bx, _by, _bz)| {
             bfield_direct(
-                centx, centy, centz, vol, jx, jy, jz, _x, _y, _z, _bx, _by, _bz,
+                (centx, centy, centz),
+                src_vol,
+                (jx, jy, jz),
+                (_x, _y, _z),
+                (_bx, _by, _bz),
             )
         })?;
 
@@ -71,15 +78,13 @@ pub fn hfield_direct_tet_parallel(
     nodes: &[f64],
     connectivity: &[u32],
     jdensity: &[f64],
-    x: &[f64],
-    y: &[f64],
-    z: &[f64],
-    hx: &mut [f64],
-    hy: &mut [f64],
-    hz: &mut [f64],
+    tgt_pts: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
     nthreads_requested: u32,
 ) -> Result<(), ()> {
     // TODO: length checks
+    let (x, y, z) = tgt_pts;
+    let (hx, hy, hz) = out;
     let n: usize = x.len();
     let nthreads: usize = get_nthreads(nthreads_requested);
     let chunk_size: usize = (n / nthreads).max(1);
@@ -101,41 +106,33 @@ pub fn hfield_direct_tet_parallel(
     Ok(())
 }
 
-pub fn hmag_direct_tet_parallel(
-    source_nodes: (&[f64], &[f64], &[f64]),
-    source_element_connectivity: &[[u32; 4]],
-    source_mvectors: &[Vec3],
-    target_nodes: (&[f64], &[f64], &[f64]),
-    target_element_connectivity: &[[u32; 4]],
-    hx: &mut [f64],
-    hy: &mut [f64],
-    hz: &mut [f64],
+pub fn h_mag_tet4_direct_parallel(
+    nodes: &[Vec3],
+    connectivity: &[[u32; 4]],
+    mvectors: &[Vec3],
+    targets: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
     nthreads_requested: u32,
 ) -> Result<(), ()> {
     // TODO: length checks
-    let n: usize = target_nodes.0.len();
+    let n: usize = targets.0.len();
     let nthreads: usize = get_nthreads(nthreads_requested);
     let chunk_size: usize = (n / nthreads).max(1);
+    let (hx, hy, hz) = out;
+    let (x, y, z) = targets;
 
     // chunk the inputs over target elements
-    let _tec = target_element_connectivity.par_chunks(chunk_size);
+    let _x = x.par_chunks(chunk_size);
+    let _y = y.par_chunks(chunk_size);
+    let _z = z.par_chunks(chunk_size);
     let _hx = hx.par_chunks_mut(chunk_size);
     let _hy = hy.par_chunks_mut(chunk_size);
     let _hz = hz.par_chunks_mut(chunk_size);
 
-    (_tec, _hx, _hy, _hz)
+    (_x, _y, _z, _hx, _hy, _hz)
         .into_par_iter()
-        .try_for_each(|(_tec, _hx, _hy, _hz)| {
-            hmag_direct_tet(
-                source_nodes,
-                source_element_connectivity,
-                source_mvectors,
-                target_nodes,
-                &_tec,
-                _hx,
-                _hy,
-                _hz,
-            )
+        .try_for_each(|(_x, _y, _z, _hx, _hy, _hz)| {
+            h_mag_tet4_direct(nodes, connectivity, mvectors, (_x, _y, _z), (_hx, _hy, _hz))
         })?;
     Ok(())
 }

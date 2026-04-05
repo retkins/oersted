@@ -1,9 +1,10 @@
-use crate::math::sort_by_indices;
-use crate::morton;
-use crate::octree::BoundingBox;
-use crate::octree::{CurrentSources, DipoleSources, HFieldSolver, Sources};
-use crate::sources::{h_point, h_point_dipole};
-use crate::vec3::Vec3;
+use crate::{
+    math::sort_by_indices,
+    morton,
+    octree::{BoundingBox, CurrentSources, DipoleSources, HFieldSolver, Sources},
+    sources::{h_point, h_point_dipole},
+    types::Vec3,
+};
 use std::f64::consts::PI;
 
 pub struct PointSources {
@@ -19,15 +20,14 @@ pub struct PointSources {
 
 impl PointSources {
     pub fn new(
-        x: &[f64],
-        y: &[f64],
-        z: &[f64],
+        centroids: (&[f64], &[f64], &[f64]),
         vol: &[f64],
-        jx: &[f64],
-        jy: &[f64],
-        jz: &[f64],
+        jdensity: (&[f64], &[f64], &[f64]),
     ) -> Self {
+        let (x, y, z) = centroids;
+        let (jx, jy, jz) = jdensity;
         let n = x.len();
+
         let xg: Vec<f64> = x.to_vec();
         let yg: Vec<f64> = y.to_vec();
         let zg: Vec<f64> = z.to_vec();

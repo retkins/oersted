@@ -45,7 +45,7 @@ def test_volume():
     mesh_size: float = 5  # mm, gmsh units
     radius = 0.050  # m, user units
     volume_expected: float = (4.0 / 3.0) * np.pi * radius**3
-    mesh = oersted.mesh_step("tests/data/sphere.stp", "", mesh_size, mesh_size)
+    mesh = oersted.mesh_step("tests/data/sphere.stp", mesh_size, mesh_size)
     volume_mesh: float = float(np.sum(mesh.volumes))
     assert np.abs(volume_mesh - volume_expected) < diff_allowable
 
@@ -54,7 +54,7 @@ def test_surface_faces():
     """Test the identification of surface elements/faces on a meshed sphere"""
 
     # Check that the number of surface faces is the same between gmsh and oersted
-    assert gmsh_surface_faces.shape == mesh.surface_faces.shape
+    assert gmsh_surface_faces.shape == mesh.surface.faces.shape
 
 
 def test_face_normals():
@@ -78,9 +78,9 @@ def test_face_normals():
         gmsh_lookup[key] = normals_gmsh[i]
 
     # Compare
-    for i, face in enumerate(mesh.surface_faces):
+    for i, face in enumerate(mesh.surface.faces):
         key = tuple(sorted(face))
-        oersted_normal = mesh.surface_face_normals[i]
+        oersted_normal = mesh.surface.normals[i]
         gmsh_normal = gmsh_lookup[key]
         dot = np.dot(oersted_normal, gmsh_normal)
         if dot < 0:
@@ -104,9 +104,9 @@ def test_surface_face_areas_and_centroids():
         gmsh_areas[i] = 0.5 * np.linalg.norm(np.cross(n1 - n0, n2 - n0))
 
     oersted_lookup = {}
-    for i, face in enumerate(mesh.surface_faces):
+    for i, face in enumerate(mesh.surface.faces):
         key = tuple(sorted(face))
-        oersted_lookup[key] = (mesh.surface_face_areas[i], mesh.surface_face_centroids[i])
+        oersted_lookup[key] = (mesh.surface.areas[i], mesh.surface.centroids[i])
 
     for i, face in enumerate(gmsh_surface_faces):
         key = tuple(sorted(face))

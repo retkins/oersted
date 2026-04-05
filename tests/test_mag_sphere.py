@@ -5,14 +5,13 @@ import time
 
 # Test parameters
 infile: str = "tests/data/sphere.stp"
-outfile: str = "tests/data/sphere.data"
 min_size: float = 15.0  # mm
 max_size: float = 15.0  # mm
 b_ext_mag: float = 1.0  # T
 mu_r: float = 1.5
 
 # Mesh the sphere
-mesh: Mesh = oersted.mesh.mesh_step(infile, outfile, min_size, max_size)
+mesh: Mesh = oersted.mesh.mesh_step(infile, min_size, max_size)
 
 # Create material properties and calculate uniform background fiel
 mat = oersted.materials.LinearMaterial(mu_r)

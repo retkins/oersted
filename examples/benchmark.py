@@ -1,6 +1,7 @@
 """Use the helmholtz coil problem as a benchmarking example"""
 
 import oersted
+from oersted import OctreeSolver
 import numpy as np
 import matplotlib.pyplot as plt
 from time import perf_counter
@@ -17,13 +18,13 @@ def main(nbenches: int = 1, theta: float = 0.5, mesh_size_max: float = 33.0, mes
     interactions = np.zeros(nbenches)
 
     for i, mesh_size in enumerate(mesh_sizes):
-        centroids, vol, jdensity = oersted.testing.make_helmholtz(mesh_size)
-        n = centroids.shape[0]
+        mesh, jdensity = oersted.testing.make_helmholtz("tests/data/ring.stp", mesh_size)
+        n = mesh.num_elems
         interactions[i] = n * n
 
         if n < 50000:
             start = perf_counter()
-            _ = oersted.bfield_direct(centroids, vol, jdensity, centroids)
+            _ = oersted.b_field(mesh.to_centroid_mesh(), jdensity, mesh.centroids)
             end = perf_counter()
             direct_times.append(end - start)
             est_direct_times = [end - start]
@@ -37,7 +38,7 @@ def main(nbenches: int = 1, theta: float = 0.5, mesh_size_max: float = 33.0, mes
             est_direct_times.append(m * n * n + b)
 
         start = perf_counter()
-        _ = oersted.bfield_octree(centroids, vol, jdensity, centroids, theta=theta)
+        _ = oersted.b_field(mesh.to_centroid_mesh(), jdensity, mesh.centroids, OctreeSolver(theta=theta))
         end = perf_counter()
         octree_times[i] = end - start
 

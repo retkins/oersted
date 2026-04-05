@@ -1,10 +1,9 @@
 """Utility functions for tests"""
 
-from pathlib import Path
 import numpy as np
-from numpy import float64
+from numpy import float64, uint32
 from numpy.typing import NDArray
-from .mesh import mesh_step
+from .mesh import mesh_step, Mesh, MU0
 
 
 def mean_squared_error(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
@@ -70,29 +69,58 @@ def smape(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
     return (2 / n) * np.sum(numerator / denominator)
 
 
-def make_helmholtz(size, jmag: None | float = None, scale=1.0) -> tuple[NDArray[float64], NDArray[float64], NDArray[float64]]:
+def make_helmholtz(filename: str, size: float, jmag: None | float = None, scale=1e-3) -> tuple[Mesh, NDArray[float64]]:
     """Make the helmholtz coil test problem"""
 
-    datafile: str = "ring"
-    package_root: Path = Path("__file__").parent.parent.absolute()  # tests is 2 levels up
-    mesh = mesh_step(str(package_root / f"tests/data/{datafile}.stp"), str(package_root / f"tests/data/{datafile}_mesh.csv"), size, size, scale)
-
-    nsources = mesh.num_elems  # Targets are now the source centroids for self fields
+    # datafile: str = "ring"
+    # package_root: Path = Path(__file__).parent.parent.parent.absolute()  # tests is 2 levels up
+    ring_mesh: Mesh = mesh_step(filename, size, size, scale)
 
     # The current mesh is centered on the xy plane and is only one circular ring
     # We need to split the single ring into two rings and assign current densities to the elements
     if jmag is None:
         jmag: float = 100.0e3 / (0.02 * 0.02)
-    centroids_upper = mesh.centroids
-    centroids_upper[:, 2] += 0.1  # shift upper coil up
-    centroids_lower = centroids_upper.copy()
-    centroids_lower[:, 2] -= 0.2  # flip to lower side
-    centroids = np.vstack((centroids_upper, centroids_lower))
-    vol = np.hstack((mesh.volumes, mesh.volumes))
-    nsources = vol.shape[0]
-    jdensity = np.zeros((nsources, 3))
-    phi = np.atan2(centroids[:, 1], centroids[:, 0])
+    nodes_upper: NDArray[float64] = ring_mesh.nodes.copy()
+    nodes_upper[:, 2] += 0.1  # shift upper coil up
+    nodes_lower: NDArray[float64] = nodes_upper.copy()
+    nodes_lower[:, 2] -= 0.2  # flip to lower side
+    nodes = np.vstack((nodes_upper, nodes_lower))
+    connectivity_upper: NDArray[uint32] = ring_mesh.connectivity.copy()
+    connectivity_lower: NDArray[uint32] = ring_mesh.connectivity.copy() + uint32(ring_mesh.num_nodes)
+
+    helmholtz_mesh = Mesh(nodes, np.vstack((connectivity_upper, connectivity_lower)))
+
+    jdensity = np.zeros((helmholtz_mesh.num_elems, 3))
+    phi = np.atan2(helmholtz_mesh.centroids[:, 1], helmholtz_mesh.centroids[:, 0])
     jdensity[:, 0] = -jmag * np.sin(phi)
     jdensity[:, 1] = jmag * np.cos(phi)
 
-    return (centroids, vol, jdensity)
+    return (helmholtz_mesh, jdensity)
+
+
+def bz_finite_length_solenoid(jmag: float, length: float, r: float, dr: float, z: float) -> float:
+    """Compute the magnetic field on the axis of a finite-length solenoid
+
+    This function assumes that the solenoid `dr` dimension is small relative to the
+    radius and thickness, and does not correct for finite radial thickness.
+
+    Args:
+        jmag: (A/m2) magnitude of current density in the solenoid
+        length: (m) length of the solenoid
+        r: (m) representative radius of the solenoid
+        dr: (m) thickness of the solenoid cross section
+        z: (m) position along the axis of the solenoid at which the field should be calculated
+
+    Returns:
+        (T) axial magnetic field
+
+    Reference:
+        <https://en.wikipedia.org/wiki/Solenoid#Finite_continuous_solenoid>
+        (with modifications for current density and finite thickness)
+    """
+
+    a: float = 0.5 * MU0 * jmag * dr
+    b: float = (z + 0.5 * length) / np.sqrt(r**2 + (z + 0.5 * length) ** 2)
+    c: float = (z - 0.5 * length) / np.sqrt(r**2 + (z - 0.5 * length) ** 2)
+
+    return a * (b - c)

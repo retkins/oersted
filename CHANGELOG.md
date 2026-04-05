@@ -50,3 +50,21 @@
 * Added test for lorentz force calculations using maxwell stress tensor (passes)
 * Added test for mesh-related functionality
 * Remove maxwell force calculation on magnetized meshes (not currently working)
+
+* Added helper functions in `python.rs` for transposing memory at the boundary
+* Updated the interfaces for calling the flux density (B field) calculation for point sources using direct summation
+* Fixed bug in parallel direct point solver and multiple bugs in solenoid test
+* Updated interface for B field calculation on point sources with octree
+* Removed bindings for dual-tree point and hexahedron source evaluations
+* Updates to cargo.toml: bump version to 0.2.0, make python feature depend on parallel feature
+* Updated bindings for direct tet4 solver
+* Updated internal interfaces for Rust functions: now using Vec3 in centroids/volumes/octree functions
+* Added `h_field()` function
+* Mesh is now stateless: does not store jdensity or field results
+* Updated and simplified helmholtz coil and solenoid tests; added analytical comparisons
+* Cleanup duplicated functions
+* Move `Vec3` and Mat3 into `types`
+* Updated magnetized tetrahedral calcs to use analytical gradient and significantly cleaned up related functions
+* Added `SurfaceMesh` class
+* Moved magnetization calculation completely to Rust
+* Updated magnetization calculation to use octree methods
