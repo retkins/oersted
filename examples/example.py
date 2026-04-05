@@ -5,7 +5,7 @@ from time import perf_counter
 size = 15.0
 theta = 0.5
 nthreads = 0
-mesh, jdensity = make_helmholtz(size)
+mesh, jdensity = make_helmholtz("tests/data/ring.stp", size)
 
 solver = OctreeSolver(theta=theta, n_threads=nthreads)
 

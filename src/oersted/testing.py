@@ -1,6 +1,5 @@
 """Utility functions for tests"""
 
-from pathlib import Path
 import numpy as np
 from numpy import float64, uint32
 from numpy.typing import NDArray
@@ -70,12 +69,12 @@ def smape(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
     return (2 / n) * np.sum(numerator / denominator)
 
 
-def make_helmholtz(size, jmag: None | float = None, scale=1e-3) -> tuple[Mesh, NDArray[float64]]:
+def make_helmholtz(filename: str, size: float, jmag: None | float = None, scale=1e-3) -> tuple[Mesh, NDArray[float64]]:
     """Make the helmholtz coil test problem"""
 
-    datafile: str = "ring"
-    package_root: Path = Path(__file__).parent.parent.parent.absolute()  # tests is 2 levels up
-    ring_mesh: Mesh = mesh_step(str(package_root / f"tests/data/{datafile}.stp"), size, size, scale)
+    # datafile: str = "ring"
+    # package_root: Path = Path(__file__).parent.parent.parent.absolute()  # tests is 2 levels up
+    ring_mesh: Mesh = mesh_step(filename, size, size, scale)
 
     # The current mesh is centered on the xy plane and is only one circular ring
     # We need to split the single ring into two rings and assign current densities to the elements

@@ -1,3 +1,4 @@
+#![cfg_attr(docsrs, feature(doc_cfg))]
 //! Lightning-fast magnetic field calculations using octrees and the Barnes-Hut algorithm  
 //!
 //! This is the Rust API documentation.

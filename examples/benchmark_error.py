@@ -10,7 +10,7 @@ from matplotlib.ticker import ScalarFormatter
 def main(nthetas: int = 1, size: float = 15.0, theta_min: float = 0.5, theta_max: float = 0.5):
     theta_vals = np.linspace(theta_min, theta_max, nthetas)
     errs = np.zeros(nthetas)
-    mesh, jdensity = make_helmholtz(size)
+    mesh, jdensity = make_helmholtz("tests/data/ring.stp", size)
     bdirect = oersted.b_field(mesh, jdensity, mesh.centroids)
     for i, theta in enumerate(theta_vals):
         boctree = oersted.b_field(mesh, jdensity, mesh.centroids, solver=OctreeSolver(theta=theta))

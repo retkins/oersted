@@ -40,7 +40,7 @@ def setup_test():
     # Generate a mesh from a STEP file
     #
     # mesh: Mesh = oersted.mesh_step(f"tests/data/{datafile}", min_size, max_size)
-    mesh, jdensity = make_helmholtz(mesh_size)
+    mesh, jdensity = make_helmholtz("tests/data/ring.stp", mesh_size)
 
     # Setup the targets for the axis accuracy test
     targets_axis = np.zeros((ntargets_axis, 3))

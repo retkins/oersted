@@ -21,3 +21,8 @@ To do this locally and one-off, build the docs like this instead:
 ```shell
 $ RUSTDOCFLAGS="--html-in-header src/docs-header.html" cargo doc --open
 ```
+
+Show docs with feature flags:
+```shell
+RUSTDOCFLAGS="--cfg docsrs --html-in-header src/docs-header.html" cargo +nightly doc --no-deps --all-features --open
+```

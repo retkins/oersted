@@ -18,7 +18,7 @@ def main(nbenches: int = 1, theta: float = 0.5, mesh_size_max: float = 33.0, mes
     interactions = np.zeros(nbenches)
 
     for i, mesh_size in enumerate(mesh_sizes):
-        mesh, jdensity = oersted.testing.make_helmholtz(mesh_size)
+        mesh, jdensity = oersted.testing.make_helmholtz("tests/data/ring.stp", mesh_size)
         n = mesh.num_elems
         interactions[i] = n * n
 
