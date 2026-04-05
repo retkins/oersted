@@ -11,9 +11,8 @@ from .biotsavart import (
 )
 
 from .mesh import Mesh, CentroidMesh, mesh_step
-from .magnetization import mag_force
-
 from . import testing
+from . import magnetization
 
 
 __all__ = [
@@ -32,8 +31,8 @@ __all__ = [
     "bfield_tetrahedrons_direct",
     "hfield_dipole",
     "hfield_dipole_tetrahedrons",
-    "mag_force",
     "Solver",
     "DirectSolver",
     "OctreeSolver",
+    "magnetization"
 ]
