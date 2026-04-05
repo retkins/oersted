@@ -66,3 +66,4 @@
 * Move `Vec3` and Mat3 into `types`
 * Updated magnetized tetrahedral calcs to use analytical gradient and significantly cleaned up related functions
 * Added `SurfaceMesh` class
+* Moved magnetization calculation completely to Rust

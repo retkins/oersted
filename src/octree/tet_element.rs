@@ -129,7 +129,7 @@ impl HFieldSolver for DipoleSources<TetSources> {
         let mut hx = [0.0];
         let mut hy = [0.0];
         let mut hz = [0.0];
-        let mut f = vec![Vec3([0.0; 3]); 1];
+        let mut f = [Vec3([0.0; 3])];
 
         let mut wx = [Vec3::default()];
         let mut wy = [Vec3::default()];

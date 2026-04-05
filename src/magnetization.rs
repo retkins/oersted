@@ -6,11 +6,7 @@
 //! by only considering meshes as the targets
 //! * Require iteration and therefore benefit from non-trivial solver techniques
 
-use crate::{
-    math::gradient,
-    sources::h_mag_tet4,
-    types::{Mat3, Vec3},
-};
+use crate::{biotsavart_parallel::h_mag_tet4_direct_parallel, types::Vec3};
 
 pub enum Solver {
     PointDirect(u32),           // num threads
@@ -33,51 +29,85 @@ pub enum Solver {
 pub fn magnetization(
     nodes: &[Vec3],
     connectivity: &[[u32; 4]],
-    centroids: &[Vec3],
+    centroids: (&[f64], &[f64], &[f64]),
     chi: f64,
     hext: (&[f64], &[f64], &[f64]),
     solver: Solver,
     tol: f64,
     max_iterations: u32,
-) -> (
-    (Vec<f64>, Vec<f64>, Vec<f64>),
-    (Vec<f64>, Vec<f64>, Vec<f64>),
-) {
+) -> ((Vec<f64>, Vec<f64>, Vec<f64>), Vec<Vec3>) {
     let n_elem: usize = connectivity.len();
+    let n_centroids: usize = centroids.0.len();
 
     // Initialize memory for results
-    let [mut hx, mut hy, mut hz, mut mx, mut my, mut mz] = [
-        vec![0.0; n_elem],
-        vec![0.0; n_elem],
-        vec![0.0; n_elem],
-        vec![0.0; n_elem],
-        vec![0.0; n_elem],
-        vec![0.0; n_elem],
-    ];
+    let [mut hx, mut hy, mut hz] = [vec![0.0; n_elem], vec![0.0; n_elem], vec![0.0; n_elem]];
 
-    // Intermediate result: unit vector for direction of the magnetization field
-    let [mut mhatx, mut mhaty, mut mhatz] =
-        [vec![0.0; n_elem], vec![0.0; n_elem], vec![0.0; n_elem]];
-    let j_invt: Vec<Mat3> = gradient::jmatrices(nodes, connectivity);
+    // // Intermediate result: unit vector for direction of the magnetization field
+    // let [mut mhatx, mut mhaty, mut mhatz] =
+    //     [vec![0.0; n_elem], vec![0.0; n_elem], vec![0.0; n_elem]];
+    // let [mut hhatx, mut hhaty, mut hhatz] =
+    //     [vec![0.0; n_elem], vec![0.0; n_elem], vec![0.0; n_elem]];
 
-    for _ in 0..max_iterations {
+    let mut mvectors = vec![Vec3::default(); n_centroids];
+    for it in 0..max_iterations {
         // Dispatch over solver method to compute the current iteration of the demag field
         match solver {
             Solver::Tet4Direct(n_threads) => {
-                for i in 0..n_elem {
-                    let elem = connectivity[i];
-                    let elem_nodes = [
-                        nodes[elem[0] as usize],
-                        nodes[elem[1] as usize],
-                        nodes[elem[2] as usize],
-                        nodes[elem[3] as usize],
-                    ];
-                    // hmag_tet4(&elem_nodes, &Vec3([mx[i], my[i], mz[i]]), &[j_invt[i]], &elem_nodes, &elem, f, h);
-                }
+                h_mag_tet4_direct_parallel(
+                    nodes,
+                    connectivity,
+                    &mvectors,
+                    centroids,
+                    (&mut hx, &mut hy, &mut hz),
+                    n_threads,
+                )
+                .unwrap();
             }
             _ => {}
         }
+
+        let mut max_change = 0.0;
+        for i in 0..n_centroids {
+            let mx_new: f64 = chi * (hx[i] + hext.0[i]);
+            let my_new: f64 = chi * (hy[i] + hext.1[i]);
+            let mz_new: f64 = chi * (hz[i] + hext.2[i]);
+
+            let mx_change = (mvectors[i][0] - mx_new).abs();
+            let my_change = (mvectors[i][1] - my_new).abs();
+            let mz_change = (mvectors[i][2] - mz_new).abs();
+
+            if mx_change > max_change {
+                max_change = mx_change;
+            }
+            if my_change > max_change {
+                max_change = my_change;
+            }
+            if mz_change > max_change {
+                max_change = mz_change;
+            }
+            mvectors[i][0] = mx_new;
+            mvectors[i][1] = my_new;
+            mvectors[i][2] = mz_new;
+        }
+
+        println!("Iteration: {}; max change: {}", it, max_change);
+
+        if max_change <= tol {
+            break;
+        } else {
+            // zero the results vector between calls
+            hx.fill(0.0);
+            hy.fill(0.0);
+            hz.fill(0.0);
+        }
     }
 
-    ((hx, hy, hz), (mx, my, mz))
+    // Return h = h_demag + h_ext
+    for i in 0..n_centroids {
+        hx[i] += hext.0[i];
+        hy[i] += hext.1[i];
+        hz[i] += hext.2[i];
+    }
+
+    ((hx, hy, hz), mvectors)
 }

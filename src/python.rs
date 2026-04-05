@@ -9,7 +9,7 @@ use numpy::{
 use pyo3::prelude::*;
 
 use crate::{
-    biotsavart_parallel, mesh,
+    biotsavart_parallel, magnetization, mesh,
     octree::{CurrentSources, DipoleSources, HFieldSolver, Octree, point, tet_element},
     types::{Vec3, to_u32x4s, to_vec3s, to_vec3s_mut},
 };
@@ -319,6 +319,68 @@ fn h_mag_tet4_direct<'py>(
     Ok(cols_to_pyarray(py, (hx, hy, hz)))
 }
 
+#[pyfunction]
+fn magnetization_tet4<'py>(
+    py: Python<'py>,
+    nodes: PyReadonlyArray2<f64>,
+    connectivity: PyReadonlyArray2<u32>,
+    chi: f64,
+    hext: PyReadonlyArray2<f64>,
+    tol: f64,
+    max_iterations: u32,
+    nthreads_requested: u32,
+) -> PyResult<(Bound<'py, PyArray2<f64>>, Bound<'py, PyArray2<f64>>)> {
+    let n_centroids = connectivity.shape()[0];
+
+    let _nodes: &[Vec3] = to_vec3s(nodes.as_slice()?);
+    let _connectivity: &[[u32; 4]] = to_u32x4s(connectivity.as_slice()?);
+    let (hextx, hexty, hextz) = pyarray_to_3cols(hext);
+    let mut centroids_flat: Vec<f64> = vec![0.0; n_centroids * 3];
+    mesh::centroids(_nodes, _connectivity, to_vec3s_mut(&mut centroids_flat));
+
+    // TODO: write simple function to do this
+    let (mut cx, mut cy, mut cz) = (
+        vec![0.0; n_centroids],
+        vec![0.0; n_centroids],
+        vec![0.0; n_centroids],
+    );
+    for i in 0..n_centroids {
+        cx[i] = centroids_flat[i * 3];
+        cy[i] = centroids_flat[i * 3 + 1];
+        cz[i] = centroids_flat[i * 3 + 2];
+    }
+
+    let solver = magnetization::Solver::Tet4Direct(nthreads_requested);
+
+    let (htotal, mfield) = magnetization::magnetization(
+        _nodes,
+        _connectivity,
+        (&cx, &cy, &cz),
+        chi,
+        (&hextx, &hexty, &hextz),
+        solver,
+        tol,
+        max_iterations,
+    );
+
+    let (mut mx, mut my, mut mz) = (
+        vec![0.0; n_centroids],
+        vec![0.0; n_centroids],
+        vec![0.0; n_centroids],
+    );
+
+    for i in 0..n_centroids {
+        mx[i] = mfield[i][0];
+        my[i] = mfield[i][1];
+        mz[i] = mfield[i][2];
+    }
+
+    Ok((
+        cols_to_pyarray(py, (mx, my, mz)),
+        cols_to_pyarray(py, htotal),
+    ))
+}
+
 // ---
 // Mesh Operations
 // ---
@@ -447,6 +509,7 @@ fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(_hfield_dipole, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_hfield_dipole_tetrahedrons, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_mag_tet4_direct, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(magnetization_tet4, m.clone())?)?;
 
     // Mesh functions
     m.add_function(wrap_pyfunction!(mesh_centroids, m.clone())?)?;

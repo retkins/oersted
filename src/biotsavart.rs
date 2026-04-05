@@ -181,7 +181,7 @@ pub fn h_mag_tet4_direct(
             nodes[elem[0] as usize],
             nodes[elem[1] as usize],
             nodes[elem[2] as usize],
-            nodes[elem[03] as usize],
+            nodes[elem[3] as usize],
         ];
 
         h_mag_tet4(

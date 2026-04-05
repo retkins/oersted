@@ -34,5 +34,5 @@ __all__ = [
     "Solver",
     "DirectSolver",
     "OctreeSolver",
-    "magnetization"
+    "magnetization",
 ]

@@ -191,7 +191,7 @@ pub fn hmag_tet4_grad(
 ///
 /// # Note
 /// Accumulates into `h`. Caller must zero `h` before the first call.
-/// 
+///
 /// # Reference
 /// <https://supermagnet.sourceforge.io/notes/CRYO-06-034.pdf>
 pub fn h_mag_tet4(
@@ -220,7 +220,6 @@ pub fn h_mag_tet4(
     // Accumulate the effect of all element edges into the workspace
     for face in 0..4 {
         for edge in 0..3 {
-
             // Node numbers from the map
             let n0: usize = NODE_MAP[face][edge][0];
             let n1: usize = NODE_MAP[face][edge][1];
@@ -280,12 +279,12 @@ pub fn h_mag_tet4(
 
 #[cfg(test)]
 mod tests {
-    use crate::math::gradient::jmatrices;
     use super::*;
+    use crate::math::gradient::jmatrices;
 
-    // Test that the h_mag calc is the same for the old nodal version and the 
+    // Test that the h_mag calc is the same for the old nodal version and the
     // new analytical gradient version
-    // 
+    //
     // TODO: remove in the future (rely on Python for integration tests)
     #[test]
     fn test_mag() {
