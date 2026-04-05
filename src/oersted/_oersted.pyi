@@ -74,19 +74,13 @@ def _hfield_dipole(
     leaf_threshold: int,
     nthreads_requested: int,
 ) -> None: ...
-def _h_demag_tet4(
-    src_nodes: Float64Array,
-    src_connectivity: U32Array,
-    tgt_nodes: Float64Array,
-    tgt_connectivity: U32Array,
-    mx: Float64Array,
-    my: Float64Array,
-    mz: Float64Array,
-    hx: Float64Array,
-    hy: Float64Array,
-    hz: Float64Array,
+def h_mag_tet4_direct(
+    nodes: Float64Array,
+    connectivity: U32Array,
+    mvectors: Float64Array,
+    targets: Float64Array,
     nthreads_requested: int,
-) -> None: ...
+) -> Float64Array: ...
 def mesh_volumes(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...
 def mesh_centroids(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...
 def _mesh_surface_faces(connectivity: U32Array) -> U32Array: ...

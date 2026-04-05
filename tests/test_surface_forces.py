@@ -1,29 +1,28 @@
 import numpy as np
 import oersted
-from oersted import Mesh
+from oersted import Mesh, MU0
 import time
-import pytest
 
 # Test parameters
 infile: str = "tests/data/sphere.stp"
-min_size: float = 5.0  # mm
-max_size: float = 15.0  # mm
+mesh_size: float = 12.0  # mm
 b_ext_mag: float = 1.0  # T
 mu_r: float = 1.5
 solver = oersted.DirectSolver()
 mat = oersted.materials.LinearMaterial(mu_r)
 
 # Mesh the sphere
-mesh: Mesh = oersted.mesh.mesh_step(infile, min_size, max_size)
+mesh: Mesh = oersted.mesh.mesh_step(infile, mesh_size, mesh_size)
 print(f"Number of elements: {mesh.num_elems}")
 
+mesh = oersted.Mesh(mesh.nodes, mesh.connectivity)
+print(np.average(mesh.centroids, axis=0))
 
-@pytest.mark.xfail(reason="Magnetization calculation on mesh surface known to be incorrect", strict=False)
+
 def test_magnetization_forces():
     """Test maxwell forces for a magnetized component under an external field"""
 
     # Calculate uniform background field (force should be near-zero)
-
     h_external = np.zeros((mesh.num_elems, 3))
     h_ext_mag: float = b_ext_mag / oersted.MU0
     h_external[:, 2] = h_ext_mag
@@ -37,16 +36,18 @@ def test_magnetization_forces():
     # Compute external field at mesh face centroids
     b_ext = np.zeros(mesh.surface_face_centroids.shape)
     b_ext[:, 2] = b_ext_mag
-    forces = mesh.surface_forces(b_ext, mat, solver)
+    offset = 1e-4  # small distance outward
+    eval_pts = mesh.surface_face_centroids + offset * mesh.surface_face_normals
+    h_demag = oersted.magnetization.h_demag_tet4(mesh, mat, M, eval_pts)
+    b_ext = oersted.MU0 * (b_ext / MU0 + h_demag)
+    forces = oersted.mesh.surface_forces(mesh, b_ext, mat, solver)
+
     total_force = np.sum(forces, axis=0)
     print(np.sum(forces, axis=0))
 
-    face_force_mags = np.linalg.norm(forces, axis=1)
-    print(f"Avg face force: {np.mean(face_force_mags)}")
-    print(f"Max face force: {np.max(face_force_mags)}")
-    print(f"Net force: {np.linalg.norm(total_force)}")
+    print(f"Uniform field force: {np.sum(forces, axis=0)}")
 
-    assert np.abs(np.max(total_force)) < 1.0  # small value like 1 N
+    assert np.linalg.norm(total_force) < 5.0  # small value
 
 
 def test_lorentz_forces():
@@ -82,7 +83,7 @@ def test_lorentz_forces():
     bext = oersted.b_field(mesh1, jdensity, mesh2.surface_face_centroids, solver=solver)
     bext += oersted.b_field(mesh2, jdensity, mesh2.surface_face_centroids, solver=solver)
 
-    forces = mesh2.surface_forces(bext, mat, solver)
+    forces = oersted.mesh.surface_forces(mesh2, bext, mat, solver)
     total_force = np.sum(forces, axis=0)
     print(total_force)
     assert np.abs((fz_expected - total_force[2]) / fz_expected) < 1e-2

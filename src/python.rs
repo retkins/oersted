@@ -292,105 +292,31 @@ fn _hfield_dipole(
 }
 
 #[pyfunction]
-fn _h_demag_tet4(
-    src_nodes_in: PyReadonlyArray1<f64>,
-    src_connectivity_in: PyReadonlyArray1<u32>,
-    tgt_nodes_in: PyReadonlyArray1<f64>,
-    tgt_connectivity_in: PyReadonlyArray1<u32>,
-    mx: PyReadonlyArray1<f64>,
-    my: PyReadonlyArray1<f64>,
-    mz: PyReadonlyArray1<f64>,
-    mut hx: PyReadwriteArray1<f64>,
-    mut hy: PyReadwriteArray1<f64>,
-    mut hz: PyReadwriteArray1<f64>,
+fn h_mag_tet4_direct<'py>(
+    py: Python<'py>,
+    nodes: PyReadonlyArray2<f64>,
+    connectivity: PyReadonlyArray2<u32>,
+    mvectors: PyReadonlyArray2<f64>,
+    targets: PyReadonlyArray2<f64>,
     nthreads_requested: u32,
-) -> PyResult<()> {
-    let src_nodes_raw = src_nodes_in.as_slice()?;
-    let src_conn_raw = src_connectivity_in.as_slice()?;
-    let tgt_nodes_raw = tgt_nodes_in.as_slice()?;
-    let tgt_conn_raw = tgt_connectivity_in.as_slice()?;
-    let mx_slice = mx.as_slice()?;
-    let my_slice = my.as_slice()?;
-    let mz_slice = mz.as_slice()?;
-    let hx_slice = hx.as_slice_mut()?;
-    let hy_slice = hy.as_slice_mut()?;
-    let hz_slice = hz.as_slice_mut()?;
+) -> PyResult<Bound<'py, PyArray2<f64>>> {
+    let _nodes = to_vec3s(nodes.as_slice()?);
+    let _connectivity = to_u32x4s(connectivity.as_slice()?);
+    let _mvectors = to_vec3s(mvectors.as_slice()?);
+    let (x, y, z) = pyarray_to_3cols(targets);
+    let n_tgts = x.len();
+    let (mut hx, mut hy, mut hz) = col_buffer(n_tgts);
 
-    // Reshape flat nodes into Vec<Vec3>: [x0,y0,z0,x1,y1,z1,...] -> [Vec3, Vec3, ...]
-    let n_src_nodes = src_nodes_raw.len() / 3;
-    let n_tgt_nodes = tgt_nodes_raw.len() / 3;
-    let mut src_nodes: Vec<Vec3> = Vec::with_capacity(n_src_nodes);
-    let mut tgt_nodes: Vec<Vec3> = Vec::with_capacity(n_tgt_nodes);
-    for i in 0..n_src_nodes {
-        src_nodes.push(Vec3([
-            src_nodes_raw[3 * i],
-            src_nodes_raw[3 * i + 1],
-            src_nodes_raw[3 * i + 2],
-        ]));
-    }
-
-    for i in 0..n_tgt_nodes {
-        tgt_nodes.push(Vec3([
-            tgt_nodes_raw[3 * i],
-            tgt_nodes_raw[3 * i + 1],
-            tgt_nodes_raw[3 * i + 2],
-        ]));
-    }
-
-    // Reshape flat connectivity into &[[u32; 4]]: [n0,n1,n2,n3,...] -> [[u32;4], ...]
-    let n_src_elements = src_conn_raw.len() / 4;
-    let mut src_elements: Vec<[u32; 4]> = vec![[0; 4]; n_src_elements];
-    let n_tgt_elements = tgt_conn_raw.len() / 4;
-    let mut tgt_elements: Vec<[u32; 4]> = vec![[0; 4]; n_tgt_elements];
-    for i in 0..n_src_elements {
-        for j in 0..4 {
-            src_elements[i][j] = src_conn_raw[i * 4 + j];
-        }
-    }
-    for i in 0..n_tgt_elements {
-        for j in 0..4 {
-            tgt_elements[i][j] = tgt_conn_raw[i * 4 + j];
-        }
-    }
-
-    // Build M vectors per element
-    let mut mvectors: Vec<Vec3> = Vec::with_capacity(n_src_elements);
-    for i in 0..n_src_elements {
-        mvectors.push(Vec3([mx_slice[i], my_slice[i], mz_slice[i]]));
-    }
-
-    // Build SoA node arrays for target nodes
-    let mut src_nx: Vec<f64> = Vec::with_capacity(n_src_nodes);
-    let mut src_ny: Vec<f64> = Vec::with_capacity(n_src_nodes);
-    let mut src_nz: Vec<f64> = Vec::with_capacity(n_src_nodes);
-    for i in 0..n_src_nodes {
-        src_nx.push(src_nodes_raw[3 * i]);
-        src_ny.push(src_nodes_raw[3 * i + 1]);
-        src_nz.push(src_nodes_raw[3 * i + 2]);
-    }
-    let mut tgt_nx: Vec<f64> = Vec::with_capacity(n_tgt_nodes);
-    let mut tgt_ny: Vec<f64> = Vec::with_capacity(n_tgt_nodes);
-    let mut tgt_nz: Vec<f64> = Vec::with_capacity(n_tgt_nodes);
-    for i in 0..n_tgt_nodes {
-        tgt_nx.push(tgt_nodes_raw[3 * i]);
-        tgt_ny.push(tgt_nodes_raw[3 * i + 1]);
-        tgt_nz.push(tgt_nodes_raw[3 * i + 2]);
-    }
-
-    // Source and target are the same mesh
-    biotsavart_parallel::hmag_direct_tet_parallel(
-        (&src_nx, &src_ny, &src_nz),
-        &src_elements,
-        &mvectors,
-        (&tgt_nx, &tgt_ny, &tgt_nz),
-        &tgt_elements,
-        hx_slice,
-        hy_slice,
-        hz_slice,
+    biotsavart_parallel::h_mag_tet4_direct_parallel(
+        &_nodes,
+        &_connectivity,
+        &_mvectors,
+        (&x, &y, &z),
+        (&mut hx, &mut hy, &mut hz),
         nthreads_requested,
     );
 
-    Ok(())
+    Ok(cols_to_pyarray(py, (hx, hy, hz)))
 }
 
 // ---
@@ -519,9 +445,8 @@ fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(h_current_tet4_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_tet4_octree, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_hfield_dipole, m.clone())?)?;
-    m.add_function(wrap_pyfunction!(h_current_tet4_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_hfield_dipole_tetrahedrons, m.clone())?)?;
-    m.add_function(wrap_pyfunction!(_h_demag_tet4, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(h_mag_tet4_direct, m.clone())?)?;
 
     // Mesh functions
     m.add_function(wrap_pyfunction!(mesh_centroids, m.clone())?)?;

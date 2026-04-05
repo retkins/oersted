@@ -5,7 +5,7 @@ use std::num::NonZeroUsize;
 use std::thread::available_parallelism;
 
 use crate::{
-    biotsavart::{bfield_direct, hfield_direct_tet, hmag_direct_tet},
+    biotsavart::{bfield_direct, h_mag_tet4_direct, hfield_direct_tet},
     types::Vec3,
 };
 
@@ -106,41 +106,33 @@ pub fn hfield_direct_tet_parallel(
     Ok(())
 }
 
-pub fn hmag_direct_tet_parallel(
-    source_nodes: (&[f64], &[f64], &[f64]),
-    source_element_connectivity: &[[u32; 4]],
-    source_mvectors: &[Vec3],
-    target_nodes: (&[f64], &[f64], &[f64]),
-    target_element_connectivity: &[[u32; 4]],
-    hx: &mut [f64],
-    hy: &mut [f64],
-    hz: &mut [f64],
+pub fn h_mag_tet4_direct_parallel(
+    nodes: &[Vec3],
+    connectivity: &[[u32; 4]],
+    mvectors: &[Vec3],
+    targets: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
     nthreads_requested: u32,
 ) -> Result<(), ()> {
     // TODO: length checks
-    let n: usize = target_nodes.0.len();
+    let n: usize = targets.0.len();
     let nthreads: usize = get_nthreads(nthreads_requested);
     let chunk_size: usize = (n / nthreads).max(1);
+    let (hx, hy, hz) = out;
+    let (x, y, z) = targets;
 
     // chunk the inputs over target elements
-    let _tec = target_element_connectivity.par_chunks(chunk_size);
+    let _x = x.par_chunks(chunk_size);
+    let _y = y.par_chunks(chunk_size);
+    let _z = z.par_chunks(chunk_size);
     let _hx = hx.par_chunks_mut(chunk_size);
     let _hy = hy.par_chunks_mut(chunk_size);
     let _hz = hz.par_chunks_mut(chunk_size);
 
-    (_tec, _hx, _hy, _hz)
+    (_x, _y, _z, _hx, _hy, _hz)
         .into_par_iter()
-        .try_for_each(|(_tec, _hx, _hy, _hz)| {
-            hmag_direct_tet(
-                source_nodes,
-                source_element_connectivity,
-                source_mvectors,
-                target_nodes,
-                &_tec,
-                _hx,
-                _hy,
-                _hz,
-            )
+        .try_for_each(|(_x, _y, _z, _hx, _hy, _hz)| {
+            h_mag_tet4_direct(nodes, connectivity, mvectors, (_x, _y, _z), (_hx, _hy, _hz))
         })?;
     Ok(())
 }

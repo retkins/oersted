@@ -60,44 +60,87 @@ pub fn edge_integral(x: f64, y: f64, z: f64) -> f64 {
 
 /// Compute the gradient of the edge integral
 ///
-/// This is useful for magnetization sources
-/// 
+/// This is useful for magnetization sources. See the documentation for derivation.
+///
 /// # Arguments
 /// * `x`, `y`, `z`: (m) coordinates of the target point in the local edge csys
-/// 
-/// # Returns 
+///
+/// # Returns
 /// Gradient of the edge integral: [de/dx, de/dy, de/dz]
+#[inline]
 pub fn edge_integral_gradient(x: f64, y: f64, z: f64) -> Vec3 {
-    let r2: f64 = x.mul_add(x, y.mul_add(y, z * z));
-    let r: f64 = r2.sqrt();
-    let atan_x_over_y: f64 = if y.abs() > 1e-8 { atan(x / y) } else { 0.0 };
-    let atan_xz_over_yr: f64 = if y.abs() > 1e-8 && r > 1e-8 {
-        atan(x * z / (y * r))
+    let za = z.abs();
+    let sign_z = z.signum();
+
+    let r2 = x.mul_add(x, y.mul_add(y, z * z));
+    let r = r2.sqrt();
+
+    let atan_x_over_y = if y.abs() > 1e-8 { atan(x / y) } else { 0.0 };
+    let atan_xza_over_yr = if y.abs() > 1e-8 && r > 1e-8 {
+        atan(x * za / (y * r))
     } else {
         0.0
     };
 
-    let de_dx: f64 = if y.abs() > 1e-8 && r.abs() > 1e-8 {
-        (r2 - z * r) / ((x * x + y * y) * r)
+    let de_dx = if y.abs() > 1e-8 && r > 1e-8 {
+        (r - za) / (x * x + y * y) // note: za, not z
     } else {
         0.0
     };
-    let de_dy: f64 = if y.abs() > 1e-8 {
+
+    // Compute de_dy and de_dz using za everywhere z appeared
+    // then multiply de_dz by sign_z at the end
+    let de_dy = if y.abs() > 1e-8 {
+        let x2 = x * x;
+        let y2 = y * y;
+        let za2 = za * za;
         y / ((x + r) * r)
-            + z * (x / (y * y * (x * x / (y * y) + 1.0))
-                - (x * z / (r2 * r) + x * z / (y * y * r)) / (x * x * z * z / (y * y * (r2)) + 1.0))
+            + za * (x / (y2 * (x2 / y2 + 1.0))
+                - (x * za / (r2 * r) + x * za / (y2 * r)) / (x2 * za2 / (y2 * r2) + 1.0))
                 / y
-            + z * (atan_x_over_y - atan_xz_over_yr) / (y * y)
+            + za * (atan_x_over_y - atan_xza_over_yr) / y2
     } else {
         0.0
     };
-    let de_dz: f64 = if y.abs() > 1e-8 {
-        (-y * y * atan_x_over_y + y * y * atan_xz_over_yr + y * z - z * z * atan_x_over_y
-            + z * z * atan_xz_over_yr)
-            / (y * (y * y + z * z))
+
+    let de_dz = if y.abs() > 1e-8 {
+        let y2 = y * y;
+        let za2 = za * za;
+        sign_z
+            * ((-y2 * atan_x_over_y + y2 * atan_xza_over_yr + y * za - za2 * atan_x_over_y
+                + za2 * atan_xza_over_yr)
+                / (y * (y2 + za2)))
     } else {
         0.0
     };
 
     Vec3([de_dx, de_dy, de_dz])
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    // Test that the edge gradient function compares well to the numerical gradient
+    // using the existing scalar function
+    #[test]
+    fn test_edge_gradient() {
+        let eps: f64 = 1e-6; // perturb the output location slightly to calculate gradient numerically
+        let x: f64 = 2.0;
+        let y: f64 = 2.05;
+        let z: f64 = -2.05;
+        let de_dx: f64 =
+            (edge_integral(x + eps, y, z) - edge_integral(x - eps, y, z)) / (2.0 * eps);
+        let de_dy: f64 =
+            (edge_integral(x, y + eps, z) - edge_integral(x, y - eps, z)) / (2.0 * eps);
+        let de_dz: f64 =
+            (edge_integral(x, y, z + eps) - edge_integral(x, y, z - eps)) / (2.0 * eps);
+
+        let de_analytical = edge_integral_gradient(x, y, z);
+
+        assert!((de_dx - de_analytical[0]).abs() < 1e-4);
+        assert!((de_dy - de_analytical[1]).abs() < 1e-4);
+        assert!((de_dz - de_analytical[2]).abs() < 1e-4);
+    }
 }

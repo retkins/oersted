@@ -3,7 +3,7 @@ use crate::{
     morton,
     octree::BoundingBox,
     octree::{CurrentSources, DipoleSources, HFieldSolver, Sources},
-    sources::{h_field_tet4, h_point, h_point_dipole, hmag_tet4},
+    sources::{h_field_tet4, h_mag_tet4, h_point, h_point_dipole},
     types::{Mat3, Vec3},
 };
 
@@ -130,7 +130,11 @@ impl HFieldSolver for DipoleSources<TetSources> {
         let mut hy = [0.0];
         let mut hz = [0.0];
         let mut f = vec![Vec3([0.0; 3]); 1];
-        let elements: [[u32; 4]; 1] = [[0u32, 1u32, 2u32, 3u32]];
+
+        let mut wx = [Vec3::default()];
+        let mut wy = [Vec3::default()];
+        let mut wz = [Vec3::default()];
+
         for i in start..end {
             let elem = self.0.connectivity[i];
             let nodes = [
@@ -139,14 +143,11 @@ impl HFieldSolver for DipoleSources<TetSources> {
                 self.0.nodes[elem[2] as usize],
                 self.0.nodes[elem[3] as usize],
             ];
-            let j_invt: Vec<Mat3> = jmatrices(&nodes, &elements);
-            hmag_tet4(
+            h_mag_tet4(
                 &nodes,
                 &self.0.jdensity[i], // TODO: make this its own value?
-                &j_invt,
                 (&[target[0]], &[target[1]], &[target[2]]),
-                &elements,
-                &mut f,
+                (&mut wx, &mut wy, &mut wz),
                 (&mut hx, &mut hy, &mut hz),
             );
             f.fill(Vec3([0.0; 3]));

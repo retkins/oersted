@@ -8,7 +8,7 @@
 
 use crate::{
     math::gradient,
-    sources::hmag_tet4,
+    sources::h_mag_tet4,
     types::{Mat3, Vec3},
 };
 
