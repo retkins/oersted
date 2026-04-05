@@ -3,7 +3,7 @@
 import numpy as np
 from numpy.typing import NDArray
 from numpy import float64, uint32
-from ._oersted import mesh_centroids, mesh_volumes, _mesh_surface_faces, _mesh_surface_face_properties, _mesh_surface_forces
+from ._oersted import mesh_centroids, mesh_volumes, mesh_surface_faces, mesh_surface_face_properties, _mesh_surface_forces
 from oersted import MU0, Solver
 
 from .materials import LinearMaterial
@@ -45,13 +45,76 @@ class SurfaceMesh:
 
     # Basic topology data
     _nodes: NDArray[float64]
-    _faces: NDArray[float64]
+    _faces: NDArray[uint32]
 
     # Information requested by the user
     _centroids: NDArray[float64] | None
     _normals: NDArray[float64] | None
     _areas: NDArray[float64] | None
 
+    def __init__(self, nodes: NDArray[float64], faces: NDArray[uint32]): 
+        assert nodes.shape[1] == 3 
+        assert faces.shape[1] == 3
+        self._nodes = nodes 
+        self._faces = faces 
+
+        self._centroids = None 
+        self._normals = None 
+        self._areas = None 
+
+    @property
+    def num_faces(self) -> int:
+        """Return the number of faces in the surface mesh"""
+        return self._faces.shape[0]
+
+    @property
+    def num_nodes(self) -> int:
+        """Return the number of nodes in the surface mesh
+        
+        Note: this is all of the nodes in the volumetric mesh!
+        """
+        return self._nodes.shape[0]
+
+    @property
+    def nodes(self) -> NDArray[float64]:
+        """Return an (N,3) array of the x,y,z nodal coordinates in the surface mesh
+        
+        Note: these are all of the nodes in the volumetric mesh!"""
+        return self._nodes
+
+    @property
+    def faces(self) -> NDArray[uint32]:
+        """Return an (N,3) array of the face connectivity"""
+        return self._faces 
+
+    def _properties(self):
+        # Compute the properties of the surface mesh
+        self._areas, self._centroids, self._normals = mesh_surface_face_properties(
+                self.nodes, self.faces
+            )
+
+    @property 
+    def areas(self):
+        """Return an (N,) array of the area of each surface face"""
+        if self._areas is None:
+            self._properties() 
+        return self._areas
+
+    @property
+    def centroids(self): 
+        """Return an (N,3) array of the x,y,z coordinates of each face centroid"""
+        if self._centroids is None: 
+            self._properties()
+        return self._centroids 
+
+    @property 
+    def normals(self): 
+        """Return an (N,3) array of the unit normal vectors on each face"""
+        if self._normals is None: 
+            self._properties() 
+        
+        return self._normals
+            
 
 class Mesh:
     """A continuous finite element mesh made of tet4 elements"""
@@ -59,15 +122,15 @@ class Mesh:
     # Basic mesh topology data
     _nodes: NDArray[float64]
     _connectivity: NDArray[uint32]
+
+    # Information that is compute on-demand for the user
     _edges: NDArray[uint32] | None
     _faces: NDArray[uint32] | None
     _centroids: NDArray[float64] | None
     _volumes: NDArray[float64] | None
-    _face_centroids: NDArray[float64] | None
-    _surface_faces: NDArray[uint32] | None
-    _surface_face_centroids: NDArray[float64] | None
-    _surface_face_normals: NDArray[float64] | None
-    _surface_face_areas: NDArray[float64] | None
+
+    # Surface mesh data 
+    _surface: SurfaceMesh | None 
 
     def __init__(self, nodes: NDArray[float64], connectivity: NDArray[uint32]):
         assert len(nodes.shape) == 2
@@ -81,11 +144,8 @@ class Mesh:
         self._faces = None
         self._centroids = None
         self._volumes = None
-        self._face_centroids = None
-        self._surface_faces = None
-        self._surface_face_centroids = None
-        self._surface_face_normals = None
-        self._surface_face_areas = None
+        self._surface = None
+
 
     @property
     def nodes(self) -> NDArray[float64]:
@@ -111,6 +171,7 @@ class Mesh:
         return self._connectivity.shape[0]
 
     def to_centroid_mesh(self) -> CentroidMesh:
+        """Create a centroid mesh from a tet4 mesh"""
         return CentroidMesh(self.centroids, self.volumes)
 
     @property
@@ -160,55 +221,21 @@ class Mesh:
         return self._volumes
 
     @property
-    def face_centroids(self):
-        if self._face_centroids is None:
-            # self._face_centroids = mesh_face_centroids(self.nodes, self.connectivity)
-            pass
-        return self._face_centroids
+    def surface(self):
+        if self._surface is None:
+            faces = mesh_surface_faces(self.connectivity)
+            self._surface = SurfaceMesh(self.nodes.copy(), faces)
 
-    @property
-    def surface_faces(self):
-        if self._surface_faces is None:
-            self._surface_faces = _mesh_surface_faces(self.connectivity.flatten())
-            pass
-        return self._surface_faces
-
-    @property
-    def surface_face_centroids(self):
-        if self._surface_face_centroids is None:
-            self._surface_face_properties()
-        return self._surface_face_centroids
-
-    def _surface_face_properties(self):
-        self._surface_face_areas, self._surface_face_centroids, self._surface_face_normals = _mesh_surface_face_properties(
-            np.ascontiguousarray(self._nodes.flatten()), np.ascontiguousarray(self.surface_faces.flatten())
-        )
-
-    @property
-    def surface_face_normals(self):
-        """Returns an (N,3) array of the normal vectors associated with each surface face in the model"""
-        if self._surface_face_normals is None:
-            self._surface_face_properties()
-
-        return self._surface_face_normals
-
-    @property
-    def surface_face_areas(self):
-        """Returns an (N,) array of the area of each surface face"""
-        if self._surface_face_areas is None:
-            self._surface_face_properties()
-
-        return self._surface_face_areas
+        return self._surface
 
 
-def surface_forces(mesh: Mesh, b_ext: NDArray[float64], mat: LinearMaterial, solver: Solver):  # -> NDArray[float64]:
+def surface_forces(mesh: SurfaceMesh, b_ext: NDArray[float64], mat: LinearMaterial, solver: Solver):  # -> NDArray[float64]:
     """Compute the maxwell stress tensor and determine the force vector acting on each
     surface face centroid. Returns an (N,3) array of the force vector
     """
 
     h_field = b_ext / MU0
-
-    return _mesh_surface_forces(mesh.surface_face_areas.flatten(), mesh.surface_face_normals.flatten(), h_field.flatten() * MU0)
+    return _mesh_surface_forces(mesh.areas.flatten(), mesh.normals.flatten(), h_field.flatten() * MU0)
 
 
 def plot_mesh(x, y, z):

@@ -34,13 +34,13 @@ def test_magnetization_forces():
     print(f"Calculation time elapsed: {elapsed:.3f} sec")
 
     # Compute external field at mesh face centroids
-    b_ext = np.zeros(mesh.surface_face_centroids.shape)
+    b_ext = np.zeros(mesh.surface.centroids.shape)
     b_ext[:, 2] = b_ext_mag
     offset = 1e-4  # small distance outward
-    eval_pts = mesh.surface_face_centroids + offset * mesh.surface_face_normals
+    eval_pts = mesh.surface.centroids + offset * mesh.surface.normals
     h_demag = oersted.magnetization.h_demag_tet4(mesh, mat, M, eval_pts)
     b_ext = oersted.MU0 * (b_ext / MU0 + h_demag)
-    forces = oersted.mesh.surface_forces(mesh, b_ext, mat, solver)
+    forces = oersted.mesh.surface_forces(mesh.surface, b_ext, mat, solver)
 
     total_force = np.sum(forces, axis=0)
     print(np.sum(forces, axis=0))
@@ -80,10 +80,10 @@ def test_lorentz_forces():
     print(f"fz expected: {fz_expected:.3f} N")
 
     # Compute the field at the lower coil's surface elements using both coils
-    bext = oersted.b_field(mesh1, jdensity, mesh2.surface_face_centroids, solver=solver)
-    bext += oersted.b_field(mesh2, jdensity, mesh2.surface_face_centroids, solver=solver)
+    bext = oersted.b_field(mesh1, jdensity, mesh2.surface.centroids, solver=solver)
+    bext += oersted.b_field(mesh2, jdensity, mesh2.surface.centroids, solver=solver)
 
-    forces = oersted.mesh.surface_forces(mesh2, bext, mat, solver)
+    forces = oersted.mesh.surface_forces(mesh2.surface, bext, mat, solver)
     total_force = np.sum(forces, axis=0)
     print(total_force)
     assert np.abs((fz_expected - total_force[2]) / fz_expected) < 1e-2
