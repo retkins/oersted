@@ -5,7 +5,7 @@ from .solver import Solver, DirectSolver, OctreeSolver
 
 from .biotsavart import b_field, h_field, h_mag
 
-from .mesh import Mesh, CentroidMesh, mesh_step
+from .mesh import Mesh, CentroidMesh, mesh_step, plot_mesh, surface_forces
 from . import testing
 from . import magnetization
 
@@ -20,6 +20,7 @@ __all__ = [
     "Mesh",
     "CentroidMesh",
     "mesh_step",
+    "plot_mesh",
     "b_field",
     "h_field",
     "h_mag",
@@ -31,4 +32,5 @@ __all__ = [
     "DirectSolver",
     "OctreeSolver",
     "magnetization",
+    "surface_forces",
 ]

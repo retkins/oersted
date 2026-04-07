@@ -34,6 +34,7 @@ pub enum Solver {
 /// * `solver`: select point/tet4 direct/octree integration
 /// * `tol`: (A/m) convergence criteria
 /// * `max_iterations`: number of iterations before exiting
+/// * `alpha`: under-relaxation factor (smaller for more stability, larger for faster convergence)
 ///
 /// # Returns
 /// (H_total, M): total H and M fields acting on each element
@@ -48,6 +49,7 @@ pub fn magnetization(
     solver: Solver,
     tol: f64,
     max_iterations: u32,
+    alpha: f64
 ) -> ((Vec<f64>, Vec<f64>, Vec<f64>), Vec<Vec3>) {
     let n_elem: usize = connectivity.len();
     let n_centroids: usize = centroids.0.len();
@@ -128,12 +130,14 @@ pub fn magnetization(
             if mz_change > max_change {
                 max_change = mz_change;
             }
-            mvectors[i][0] = mx_new;
-            mvectors[i][1] = my_new;
-            mvectors[i][2] = mz_new;
+
+            // Use under-relaxation to improve convergence for higher mu_r materials
+            mvectors[i][0] = alpha*mx_new + (1.0 - alpha) * mvectors[i][0];
+            mvectors[i][1] = alpha*my_new + (1.0 - alpha) * mvectors[i][1];
+            mvectors[i][2] = alpha*mz_new + (1.0 - alpha) * mvectors[i][2];
         }
 
-        println!("Iteration: {}; max change: {}", it, max_change);
+        println!("Iteration: {}; max change: {:.3e}", it, max_change);
 
         if max_change <= tol {
             break;

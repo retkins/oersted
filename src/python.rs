@@ -296,6 +296,7 @@ fn magnetization_tet4<'py>(
     max_iterations: u32,
     theta: f64,
     leaf_threshold: u32,
+    alpha: f64,
     nthreads_requested: u32,
 ) -> PyResult<(Bound<'py, PyArray2<f64>>, Bound<'py, PyArray2<f64>>)> {
     let n_centroids = connectivity.shape()[0];
@@ -333,6 +334,7 @@ fn magnetization_tet4<'py>(
         solver,
         tol,
         max_iterations,
+        alpha
     );
 
     let (mut mx, mut my, mut mz) = (

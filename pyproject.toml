@@ -20,6 +20,7 @@ dev = [
     # Docs
     "mkdocs==1.6.1",
     "mkdocs-terminal==4.8.0",
+    "mkdocs-material",
     "mkdocstrings==1.0.3",
     "mkdocstrings-python==2.0.3",
 ]
@@ -27,7 +28,8 @@ dev = [
 # optional, but accessible from pypi
 [project.optional-dependencies]
 mesh = [
-    "gmsh>=4.15"
+    "gmsh>=4.15", 
+    "pyvista>=0.43"
 ]
 
 [build-system]

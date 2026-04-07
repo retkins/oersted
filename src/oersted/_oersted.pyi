@@ -59,6 +59,7 @@ def magnetization_tet4(
     max_iterations: int,
     theta: float,
     leaf_threshold: int,
+    alpha: float,
     nthreads_requested: int,
 ) -> tuple[Float64Array, Float64Array]: ...
 def mesh_volumes(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...

@@ -68,3 +68,8 @@
 * Added `SurfaceMesh` class
 * Moved magnetization calculation completely to Rust
 * Updated magnetization calculation to use octree methods
+
+* Added a "getting started" tutorial and set docs theme to `material`
+* Added 3d plotting capabilities
+* Updated `Solver` classes to handle iterative solver parameters
+* Updated fixed point solver to use under-relaxation for better convergence

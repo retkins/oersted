@@ -6,8 +6,6 @@ from numpy import float64, uint32
 from ._oersted import mesh_centroids, mesh_volumes, mesh_surface_faces, mesh_surface_face_properties, _mesh_surface_forces
 from oersted import MU0, Solver
 
-from .materials import LinearMaterial
-
 
 class CentroidMesh:
     """A finite element mesh represented solely by the centroidal values of the elements
@@ -225,8 +223,22 @@ class Mesh:
 
         return self._surface
 
+    def plot(self, filename: str | None = None):
+        """Convenience function for plotting just the mesh itself"""
+        plot_mesh(self, filename)
 
-def surface_forces(mesh: SurfaceMesh, b_ext: NDArray[float64], mat: LinearMaterial, solver: Solver):  # -> NDArray[float64]:
+    @classmethod
+    def from_step(cls, filename: str, mesh_size: float, mesh_size_scale: float = 1e3, part_size_scale: float = 1e-3):
+        """Create a Mesh from a step file
+
+        Note: we need mesh dimensions in meters, but gmsh typically works in mm. This function scales the input mesh size *up*
+        to be in mm, and scales the gmsh resultant *down* to be in m. Adjust these parameters if the mesh isn't working
+        properly.
+        """
+        return mesh_step(filename, mesh_size * mesh_size_scale, mesh_size * mesh_size_scale, part_size_scale)
+
+
+def surface_forces(mesh: SurfaceMesh, b_ext: NDArray[float64], solver: Solver) -> NDArray[float64]:
     """Compute the maxwell stress tensor and determine the force vector acting on each
     surface face centroid. Returns an (N,3) array of the force vector
     """
@@ -235,21 +247,50 @@ def surface_forces(mesh: SurfaceMesh, b_ext: NDArray[float64], mat: LinearMateri
     return _mesh_surface_forces(mesh.areas.flatten(), mesh.normals.flatten(), h_field.flatten() * MU0)
 
 
-def plot_mesh(x, y, z):
-    """Make a scatter plot of element centroids"""
+def plot_mesh(
+    mesh: Mesh,
+    filename: str | None = None,
+    scalars: NDArray[float64] | None = None,
+    centroids: NDArray[float64] | None = None,
+    vectors: NDArray[float64] | None = None,
+    vector_scale: float | None = None,
+    transparency: bool = False,
+):
+    """Make a 3D plot of the mesh
+
+    Note: this function requires `pyvista`: `pip install pyvista`.
+    """
 
     try:
-        import matplotlib.pyplot as plt
+        import pyvista as pv
 
-        fig = plt.figure()
-        ax = fig.add_subplot(projection="3d")
-        ax.scatter(x, y, z)
-        plt.show()
+        cells = np.hstack([np.full((mesh.num_elems, 1), 4, dtype=np.int64), mesh.connectivity])
+        celltypes = np.full(mesh.num_elems, pv.CellType.TETRA)
+        pv_mesh = pv.UnstructuredGrid(cells.ravel(), celltypes, mesh.nodes)
+
+        pl = pv.Plotter(off_screen=filename is not None)
+        if transparency:
+            pl.add_mesh(pv_mesh, style="wireframe", color="black", line_width=0.5)
+        else:
+            pl.add_mesh(pv_mesh, scalars=scalars, show_edges=True, line_width=0.5, scalar_bar_args={"title": "magnitude", "vertical": "true"})
+
+        if centroids is not None and vectors is not None:
+            arrow_mesh = pv.PolyData(centroids)
+            arrow_mesh["vectors"] = vectors
+            arrow_mesh["magnitude"] = np.linalg.norm(vectors, axis=1)
+            arrows = arrow_mesh.glyph(orient="vectors", scale=False, factor=vector_scale)
+            pl.add_mesh(arrows, scalars="magnitude", cmap="viridis", show_scalar_bar=False)
+
+        if filename is not None:
+            pl.save_graphic(filename)
+        else:
+            pl.show()
+
     except ImportError:
-        print("Error - matplotlib is not installed. Could not plot mesh.")
+        print("`pyvista` is not installed. Please install before continuing: `pip install pyvista")
 
 
-def mesh_step(infile: str, min_size: float, max_size: float, scale=1e-3) -> Mesh:
+def mesh_step(infile: str, max_size: float, min_size: float = 0.0, scale=1e-3) -> Mesh:
     """Mesh a step file using gmsh"""
 
     mshfile = infile.split(".")[0] + ".msh"

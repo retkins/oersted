@@ -41,7 +41,7 @@ def test_magnetization_forces():
     # h_demag = oersted.magnetization.h_demag_tet4(mesh,M, eval_pts)
     h_demag = oersted.biotsavart.h_mag(mesh, M, eval_pts, solver=OctreeSolver(0.5, 16, 0))
     b_ext = oersted.MU0 * (b_ext / MU0 + h_demag)
-    forces = oersted.mesh.surface_forces(mesh.surface, b_ext, mat, solver)
+    forces = oersted.mesh.surface_forces(mesh.surface, b_ext, solver)
 
     total_force = np.sum(forces, axis=0)
     print(np.sum(forces, axis=0))
@@ -84,7 +84,7 @@ def test_lorentz_forces():
     bext = oersted.b_field(mesh1, jdensity, mesh2.surface.centroids, solver=solver)
     bext += oersted.b_field(mesh2, jdensity, mesh2.surface.centroids, solver=solver)
 
-    forces = oersted.mesh.surface_forces(mesh2.surface, bext, mat, solver)
+    forces = oersted.mesh.surface_forces(mesh2.surface, bext, solver)
     total_force = np.sum(forces, axis=0)
     print(total_force)
     assert np.abs((fz_expected - total_force[2]) / fz_expected) < 1e-2
