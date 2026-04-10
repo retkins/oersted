@@ -11,6 +11,7 @@ mu_r: float = 1.5
 solver = oersted.DirectSolver()
 solvers = [oersted.DirectSolver(), oersted.OctreeSolver()]
 
+
 def check_mag_sphere(mesh: Mesh, solver: DirectSolver | OctreeSolver):
 
     # Create material properties and calculate uniform background field

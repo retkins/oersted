@@ -3,7 +3,7 @@
 from oersted import DirectSolver, OctreeSolver
 
 from numpy.typing import NDArray
-from numpy import float64, uint32
+from numpy import float64, uint32, ascontiguousarray
 
 from .mesh import Mesh
 from .materials import Material
@@ -41,10 +41,10 @@ def demag_tet4(
         leaf_threshold = solver.leaf_threshold
 
     return magnetization_tet4(
-        mesh.nodes,
-        mesh.connectivity,
+        ascontiguousarray(mesh.nodes),
+        ascontiguousarray(mesh.connectivity),
         material.chi(1.0),
-        h_external,
+        ascontiguousarray(h_external),
         solver.tol,
         solver.max_iterations,
         theta,

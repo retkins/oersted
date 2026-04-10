@@ -3,7 +3,7 @@
 from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
-from numpy import float64, uint32
+from numpy import float64, uint32, ascontiguousarray
 from ._oersted import mesh_centroids, mesh_volumes, mesh_surface_faces, mesh_surface_face_properties
 
 
@@ -87,7 +87,7 @@ class SurfaceMesh:
 
     def _properties(self):
         # Compute the properties of the surface mesh
-        self._areas, self._centroids, self._normals = mesh_surface_face_properties(self.nodes, self.faces)
+        self._areas, self._centroids, self._normals = mesh_surface_face_properties(ascontiguousarray(self.nodes), ascontiguousarray(self.faces))
 
     @property
     def areas(self):
@@ -218,7 +218,7 @@ class Mesh:
     @property
     def surface(self):
         if self._surface is None:
-            faces = mesh_surface_faces(self.connectivity)
+            faces = mesh_surface_faces(ascontiguousarray(self.connectivity))
             self._surface = SurfaceMesh(self.nodes.copy(), faces)
 
         return self._surface

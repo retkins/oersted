@@ -9,6 +9,7 @@ mu_r: float = 1.5
 solver = oersted.DirectSolver()
 mat = oersted.materials.LinearMaterial(mu_r)
 
+
 def calculate_magnetization_forces_on_sphere(b_ext_mag: float, b_ext_grad: float):
     """Test maxwell forces for a magnetized component under an external field
 

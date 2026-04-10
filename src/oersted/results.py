@@ -2,7 +2,7 @@
 
 from .mesh import SurfaceMesh, Mesh
 from numpy.typing import NDArray
-from numpy import float64, newaxis
+from numpy import float64, newaxis, ascontiguousarray
 from ._oersted import mesh_surface_forces, mesh_kelvin_force_density
 
 
@@ -37,4 +37,6 @@ def kelvin_force_density(mesh: Mesh, m_field_centroids: NDArray[float64], b_fiel
     assert mesh.centroids.shape == m_field_centroids.shape
     assert mesh.nodes.shape == b_field_nodes.shape
 
-    return mesh_kelvin_force_density(mesh.nodes, mesh.connectivity, m_field_centroids, b_field_nodes)
+    return mesh_kelvin_force_density(
+        ascontiguousarray(mesh.nodes), ascontiguousarray(mesh.connectivity), ascontiguousarray(m_field_centroids), ascontiguousarray(b_field_nodes)
+    )
