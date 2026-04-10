@@ -76,3 +76,4 @@
 * Added cube and updated sphere geometries for testing
 * Added benchmarks
 * Added back point dipole sources (direct and octree)
+* Added Kelvin force calculation (more stable than Maxwell forces currently)

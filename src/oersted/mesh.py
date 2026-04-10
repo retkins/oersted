@@ -1,10 +1,10 @@
 """Mesh generation and processing routines"""
 
+from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 from numpy import float64, uint32
-from ._oersted import mesh_centroids, mesh_volumes, mesh_surface_faces, mesh_surface_face_properties, _mesh_surface_forces
-from oersted import MU0, Solver
+from ._oersted import mesh_centroids, mesh_volumes, mesh_surface_faces, mesh_surface_face_properties
 
 
 class CentroidMesh:
@@ -228,7 +228,7 @@ class Mesh:
         plot_mesh(self, filename)
 
     @classmethod
-    def from_step(cls, filename: str, mesh_size: float, mesh_size_scale: float = 1e3, part_size_scale: float = 1e-3):
+    def from_step(cls, filename: str, mesh_size: float, mesh_size_scale: float = 1e3, part_size_scale: float = 1e-3) -> Mesh:
         """Create a Mesh from a step file
 
         Note: we need mesh dimensions in meters, but gmsh typically works in mm. This function scales the input mesh size *up*
@@ -237,14 +237,12 @@ class Mesh:
         """
         return mesh_step(filename, mesh_size * mesh_size_scale, mesh_size * mesh_size_scale, part_size_scale)
 
+    def append(self, mesh: Mesh) -> Mesh:
+        """Convenience function for appending two meshes together."""
 
-def surface_forces(mesh: SurfaceMesh, b_ext: NDArray[float64], solver: Solver) -> NDArray[float64]:
-    """Compute the maxwell stress tensor and determine the force vector acting on each
-    surface face centroid. Returns an (N,3) array of the force vector
-    """
-
-    h_field = b_ext / MU0
-    return _mesh_surface_forces(mesh.areas.flatten(), mesh.normals.flatten(), h_field.flatten() * MU0)
+        nodes = np.vstack((self.nodes, mesh.nodes))
+        connectivity = np.vstack((self.connectivity, mesh.connectivity + uint32(self.num_nodes)))
+        return Mesh(nodes, connectivity)
 
 
 def plot_mesh(
@@ -272,13 +270,13 @@ def plot_mesh(
         if transparency:
             pl.add_mesh(pv_mesh, style="wireframe", color="black", line_width=0.5)
         else:
-            pl.add_mesh(pv_mesh, scalars=scalars, show_edges=True, line_width=0.5, scalar_bar_args={"title": "magnitude", "vertical": "true"})
+            pl.add_mesh(pv_mesh, scalars=scalars, show_edges=True, line_width=0.5, scalar_bar_args={"title": "magnitude", "vertical": True})
 
         if centroids is not None and vectors is not None:
             arrow_mesh = pv.PolyData(centroids)
             arrow_mesh["vectors"] = vectors
             arrow_mesh["magnitude"] = np.linalg.norm(vectors, axis=1)
-            arrows = arrow_mesh.glyph(orient="vectors", scale=False, factor=vector_scale)
+            arrows = arrow_mesh.glyph(orient="vectors", scale=False, factor=vector_scale is not None)
             pl.add_mesh(arrows, scalars="magnitude", cmap="viridis", show_scalar_bar=False)
 
         if filename is not None:
