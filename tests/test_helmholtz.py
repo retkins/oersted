@@ -27,7 +27,7 @@ def setup_test():
 
     # Runtime parameters
     theta: float = 0.5
-    mesh_size: float = 10.0  # ~10M interactions; set to 33 for 1e6 interactions
+    mesh_size: float = 0.010  # ~10M interactions; set to 33 for 1e6 interactions
     ntargets_axis: int = 100  # Along the axis
     nthreads = 0
     leaf_threshold = 16

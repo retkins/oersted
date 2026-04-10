@@ -3,7 +3,8 @@
 import numpy as np
 from numpy import float64, uint32
 from numpy.typing import NDArray
-from .mesh import mesh_step, Mesh, MU0
+from .mesh import Mesh
+from .constants import MU0
 
 
 def mean_squared_error(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
@@ -74,7 +75,7 @@ def make_helmholtz(filename: str, size: float, jmag: None | float = None, scale=
 
     # datafile: str = "ring"
     # package_root: Path = Path(__file__).parent.parent.parent.absolute()  # tests is 2 levels up
-    ring_mesh: Mesh = mesh_step(filename, size, size, scale)
+    ring_mesh: Mesh = Mesh.from_step(filename, size, 1e3, scale)
 
     # The current mesh is centered on the xy plane and is only one circular ring
     # We need to split the single ring into two rings and assign current densities to the elements

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from time import perf_counter
 
 
-def main(nbenches: int = 1, theta: float = 0.5, mesh_size_max: float = 33.0, mesh_size_min: float = 33.0):
+def main(nbenches: int = 1, theta: float = 0.5, mesh_size_max: float = 0.033, mesh_size_min: float = 0.033):
     mesh_sizes = np.linspace(mesh_size_max, mesh_size_min, nbenches)
     direct_times = []
     direct_interactions = []
