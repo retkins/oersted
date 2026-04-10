@@ -74,3 +74,4 @@
 * Updated `Solver` classes to handle iterative solver parameters
 * Updated fixed point solver to use under-relaxation for better convergence
 * Added cube and updated sphere geometries for testing
+* Added benchmarks
