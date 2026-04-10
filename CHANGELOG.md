@@ -75,3 +75,4 @@
 * Updated fixed point solver to use under-relaxation for better convergence
 * Added cube and updated sphere geometries for testing
 * Added benchmarks
+* Added back point dipole sources (direct and octree)

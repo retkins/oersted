@@ -49,7 +49,7 @@ pub fn magnetization(
     solver: Solver,
     tol: f64,
     max_iterations: u32,
-    alpha: f64
+    alpha: f64,
 ) -> ((Vec<f64>, Vec<f64>, Vec<f64>), Vec<Vec3>) {
     let n_elem: usize = connectivity.len();
     let n_centroids: usize = centroids.0.len();
@@ -132,9 +132,9 @@ pub fn magnetization(
             }
 
             // Use under-relaxation to improve convergence for higher mu_r materials
-            mvectors[i][0] = alpha*mx_new + (1.0 - alpha) * mvectors[i][0];
-            mvectors[i][1] = alpha*my_new + (1.0 - alpha) * mvectors[i][1];
-            mvectors[i][2] = alpha*mz_new + (1.0 - alpha) * mvectors[i][2];
+            mvectors[i][0] = alpha * mx_new + (1.0 - alpha) * mvectors[i][0];
+            mvectors[i][1] = alpha * my_new + (1.0 - alpha) * mvectors[i][1];
+            mvectors[i][2] = alpha * mz_new + (1.0 - alpha) * mvectors[i][2];
         }
 
         println!("Iteration: {}; max change: {:.3e}", it, max_change);

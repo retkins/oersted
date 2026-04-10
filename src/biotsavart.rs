@@ -2,7 +2,16 @@
 
 #![allow(non_snake_case)]
 
-use crate::{MU0_4PI, mesh::node_coords, sources::tet4::h_mag_tet4, types::Vec3};
+use crate::{
+    MU0_4PI,
+    mesh::node_coords,
+    sources::{
+        point::h_point_dipole,
+        tet4::{h_field_tet4, h_mag_tet4},
+    },
+    types::Vec3,
+};
+use std::f64::consts::PI;
 
 /// Compute the magnetic field at target points (x, y, z) using a direct (O(N^2)) Biot-Savart summation
 ///
@@ -122,7 +131,33 @@ fn bfield_direct_old(
     }
 }
 
-use crate::sources::tet4::h_field_tet4;
+/// Compute the magnetic field strength (H-field) at a set of target points, using a simplified dipole model
+/// of a magnetized finite element mesh as the source
+///
+pub fn h_mag_point_direct(
+    centroids: &[Vec3],
+    volumes: &[f64],
+    mvectors: &[Vec3],
+    targets: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
+) -> Result<(), ()> {
+    let (hx, hy, hz) = out;
+
+    for i in 0..centroids.len() {
+        let radius = (volumes[i] * 3.0 / (4.0 * PI)).cbrt();
+        let mvector: Vec3 = mvectors[i] * volumes[i];
+
+        for j in 0..targets.0.len() {
+            let target = Vec3([targets.0[j], targets.1[j], targets.2[j]]);
+            let h = h_point_dipole(&centroids[i], &mvector, radius, &target);
+            hx[j] += h[0];
+            hy[j] += h[1];
+            hz[j] += h[2];
+        }
+    }
+
+    Ok(())
+}
 
 /// Compute the magnetic field using the direct tetrahedral integration method
 ///

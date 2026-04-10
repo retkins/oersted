@@ -32,6 +32,7 @@ pub fn h_point(centroid: &Vec3, vj: &Vec3, radius: f64, target: &Vec3) -> Vec3 {
 /// <https://peppyhare.github.io/griffiths-em/ch6-2/>
 /// and in Fitzpatrick:
 /// <https://farside.ph.utexas.edu/teaching/jk1/Electromagnetism/node61.html>
+#[inline]
 pub fn h_point_dipole(centroid: &Vec3, moment: &Vec3, radius: f64, target: &Vec3) -> Vec3 {
     let r = *target - *centroid;
     let rmag = r.mag();

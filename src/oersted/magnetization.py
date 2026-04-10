@@ -3,7 +3,7 @@
 from oersted import DirectSolver, OctreeSolver
 
 from numpy.typing import NDArray
-from numpy import float64
+from numpy import float64, uint32
 
 from .mesh import Mesh
 from .materials import Material
@@ -31,11 +31,11 @@ def demag_tet4(
     """
 
     theta: float
-    leaf_threshold: int
+    leaf_threshold: uint32
 
     if isinstance(solver, DirectSolver):
         theta = 0.5
-        leaf_threshold = 0
+        leaf_threshold = uint32(0)
     else:
         theta = solver.theta
         leaf_threshold = solver.leaf_threshold

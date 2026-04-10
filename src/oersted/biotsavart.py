@@ -4,13 +4,7 @@ from numpy import float64, uint32, ascontiguousarray
 from numpy.typing import NDArray
 
 # Create bindings for calculation engine written in Rust
-from ._oersted import (
-    b_current_point_direct,
-    h_current_point_octree,
-    h_current_tet4_direct,
-    h_current_tet4_octree,
-    h_mag_tet4,
-)
+from ._oersted import b_current_point_direct, h_current_point_octree, h_current_tet4_direct, h_current_tet4_octree, h_mag_tet4, h_mag_point
 
 from .mesh import Mesh, CentroidMesh
 from .solver import DirectSolver, OctreeSolver
@@ -81,18 +75,36 @@ def h_mag(
     targets: NDArray[float64] = ascontiguousarray(targets, dtype=float64)
 
     if isinstance(source, CentroidMesh):
-        raise NotImplementedError("Centroid mesh not yet implemented")
+        src_centroids = ascontiguousarray(source.centroids, dtype=float64)
+        src_volumes = ascontiguousarray(source.volumes, dtype=float64)
+
+        assert source.centroids.shape[0] == m_field.shape[0]
+
+        if isinstance(solver, DirectSolver):
+            theta = 0.0
+            leaf_threshold: uint32 = uint32(0)
+            use_octree = False
+
+            return h_mag_point(src_centroids, src_volumes, m_field, targets, theta, leaf_threshold, solver.n_threads, use_octree)
+
+        elif isinstance(solver, OctreeSolver):
+            use_octree = True
+            return h_mag_point(src_centroids, src_volumes, m_field, targets, solver.theta, solver.leaf_threshold, solver.n_threads, use_octree)
 
     elif isinstance(source, Mesh):
         src_nodes = ascontiguousarray(source.nodes, dtype=float64)
         src_connectivity = ascontiguousarray(source.connectivity, dtype=uint32)
+
+        assert src_connectivity.shape[0] == m_field.shape[0]
         if isinstance(solver, DirectSolver):
             theta = 0.0
             leaf_threshold: uint32 = uint32(0)
-            return h_mag_tet4(src_nodes, src_connectivity, m_field, targets, theta, leaf_threshold, solver.n_threads)
+            use_octree = False
+            return h_mag_tet4(src_nodes, src_connectivity, m_field, targets, theta, leaf_threshold, solver.n_threads, use_octree)
 
         elif isinstance(solver, OctreeSolver):
-            return h_mag_tet4(src_nodes, src_connectivity, m_field, targets, solver.theta, solver.leaf_threshold, solver.n_threads)
+            use_octree = True
+            return h_mag_tet4(src_nodes, src_connectivity, m_field, targets, solver.theta, solver.leaf_threshold, solver.n_threads, use_octree)
 
         else:
             raise TypeError(f"Unsupported source/solver combination: {type(source)}, {type(solver)}")
