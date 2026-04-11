@@ -15,7 +15,9 @@ gmsh.option.setNumber("Mesh.CharacteristicLengthMax", 0.25)
 gmsh.model.mesh.generate(3)
 
 # Get surface triangles from gmsh; element type 2 = 3-node triangle
-surface_element_types, surface_element_tags, surface_node_tags = gmsh.model.mesh.getElements(dim=2)
+surface_element_types, surface_element_tags, surface_node_tags = (
+    gmsh.model.mesh.getElements(dim=2)
+)
 gmsh_surface_faces = np.array(surface_node_tags[0], dtype=np.uint32).reshape(-1, 3)
 
 # Volume mesh for oersted
@@ -58,7 +60,8 @@ def test_surface_faces():
 
 
 def test_face_normals():
-    """Compute face normals using gmsh and check that they match the oersted calculation"""
+    """Compute face normals using gmsh and check that they match the oersted
+    calculation"""
 
     # Compute normals from gmsh mesh
     normals_gmsh = np.zeros(gmsh_surface_faces.shape)
@@ -84,11 +87,14 @@ def test_face_normals():
         gmsh_normal = gmsh_lookup[key]
         dot = np.dot(oersted_normal, gmsh_normal)
         if dot < 0:
-            raise AssertionError("gmsh and oersted do not compute the same surface normals")
+            raise AssertionError(
+                "gmsh and oersted do not compute the same surface normals"
+            )
 
 
 def test_surface_face_areas_and_centroids():
-    """Test that gmsh and oersted compute the same area and centroid for all surface faces
+    """Test that gmsh and oersted compute the same area and centroid for all
+        surface faces
 
     These are tested together because the data is very similar
     """
@@ -115,7 +121,9 @@ def test_surface_face_areas_and_centroids():
         oersted_area, oersted_centroid = oersted_lookup[key]
 
         if not np.allclose(oersted_centroid, gmsh_centroid):
-            raise AssertionError(f"Centroid mismatch: {oersted_centroid} vs {gmsh_centroid}")
+            raise AssertionError(
+                f"Centroid mismatch: {oersted_centroid} vs {gmsh_centroid}"
+            )
         if not np.isclose(oersted_area, gmsh_area):
             raise AssertionError(f"Area mismatch: {oersted_area} vs {gmsh_area}")
 

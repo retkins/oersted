@@ -51,10 +51,18 @@ def test_solenoid():
     targets_axis = np.zeros((ntargets_axis, 3))
     targets_axis[:, 2] = np.linspace(-0.125, 0.125, ntargets_axis)
 
-    bdirect_pt_axis = oersted.b_field(mesh.to_centroid_mesh(), jdensity, targets_axis, solver=direct_solver)
-    boctree_pt_axis = oersted.b_field(mesh.to_centroid_mesh(), jdensity, targets_axis, solver=octree_solver)
-    bdirect_tet_axis = oersted.b_field(mesh, jdensity, targets_axis, solver=direct_solver)
-    boctree_tet_axis = oersted.b_field(mesh, jdensity, targets_axis, solver=octree_solver)
+    bdirect_pt_axis = oersted.b_field(
+        mesh.to_centroid_mesh(), jdensity, targets_axis, solver=direct_solver
+    )
+    boctree_pt_axis = oersted.b_field(
+        mesh.to_centroid_mesh(), jdensity, targets_axis, solver=octree_solver
+    )
+    bdirect_tet_axis = oersted.b_field(
+        mesh, jdensity, targets_axis, solver=direct_solver
+    )
+    boctree_tet_axis = oersted.b_field(
+        mesh, jdensity, targets_axis, solver=octree_solver
+    )
 
     # Errors along axis
     bmag_direct_pt_axis = np.linalg.norm(bdirect_pt_axis, axis=1)
@@ -62,9 +70,15 @@ def test_solenoid():
     bmag_octree_pt_axis = np.linalg.norm(boctree_pt_axis, axis=1)
     bmag_octree_tet_axis = np.linalg.norm(boctree_tet_axis, axis=1)
 
-    err_direct_pt_axis = oersted.testing.smape(bmag_direct_tet_axis, bmag_direct_pt_axis)
-    err_octree_pt_axis = oersted.testing.smape(bmag_direct_tet_axis, bmag_octree_pt_axis)
-    err_octree_tet_axis = oersted.testing.smape(bmag_direct_tet_axis, bmag_octree_tet_axis)
+    err_direct_pt_axis = oersted.testing.smape(
+        bmag_direct_tet_axis, bmag_direct_pt_axis
+    )
+    err_octree_pt_axis = oersted.testing.smape(
+        bmag_direct_tet_axis, bmag_octree_pt_axis
+    )
+    err_octree_tet_axis = oersted.testing.smape(
+        bmag_direct_tet_axis, bmag_octree_tet_axis
+    )
 
     assert err_direct_pt_axis < 1e-2
     assert err_octree_pt_axis < 1e-2
@@ -80,8 +94,12 @@ def test_solenoid():
     bz_analytical: float = bz_finite_length_solenoid(jmag, length, r_avg, dr, 0.0)
     bz_tet4_direct = oersted.b_field(mesh, jdensity, target, solver=direct_solver)[0, 2]
     bz_tet4_octree = oersted.b_field(mesh, jdensity, target, solver=octree_solver)[0, 2]
-    bz_point_direct = oersted.b_field(mesh, jdensity, target, solver=direct_solver)[0, 2]
-    bz_point_octree = oersted.b_field(mesh, jdensity, target, solver=octree_solver)[0, 2]
+    bz_point_direct = oersted.b_field(mesh, jdensity, target, solver=direct_solver)[
+        0, 2
+    ]
+    bz_point_octree = oersted.b_field(mesh, jdensity, target, solver=octree_solver)[
+        0, 2
+    ]
 
     assert np.abs(bz_analytical - bz_tet4_direct) / bz_analytical < 1e-2
     assert np.abs(bz_analytical - bz_tet4_octree) / bz_analytical < 1e-2
@@ -94,9 +112,13 @@ def test_solenoid():
 
     targets = mesh.centroids
 
-    bdirect_pt = oersted.b_field(mesh.to_centroid_mesh(), jdensity, targets, solver=direct_solver)
+    bdirect_pt = oersted.b_field(
+        mesh.to_centroid_mesh(), jdensity, targets, solver=direct_solver
+    )
     bdirect_tet = oersted.b_field(mesh, jdensity, targets, solver=direct_solver)
-    boctree_pt = oersted.b_field(mesh.to_centroid_mesh(), jdensity, targets, solver=octree_solver)
+    boctree_pt = oersted.b_field(
+        mesh.to_centroid_mesh(), jdensity, targets, solver=octree_solver
+    )
     boctree_tet = oersted.b_field(mesh, jdensity, targets, solver=octree_solver)
 
     # Errors on mesh

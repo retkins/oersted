@@ -17,5 +17,19 @@ nav:
   - "Getting Started": getting-started.md
   - "Examples": 
     - "Force on a Magnetized Sphere": magnetized-sphere.md
+  - "Theory Reference": theory-reference.md
   - "Python API": python-api.md
   - "Rust API": "https://docs.rs/oersted/latest/oersted/"
+  - "References": references.md
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - javascripts/katex.js
+  - https://unpkg.com/katex@0/dist/katex.min.js
+  - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js
+
+extra_css:
+  - https://unpkg.com/katex@0/dist/katex.min.css

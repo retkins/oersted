@@ -1,4 +1,5 @@
-"""Create a mesh of a solenoid, calculate the fields around it, and display the results."""
+"""Create a mesh of a solenoid, calculate the fields around it, and display the
+results."""
 
 import oersted
 from oersted import Mesh
@@ -34,7 +35,13 @@ print(f"\t({mesh.num_elems**2 / elapsed:.2e} interactions/sec)")
 
 # Plot the solenoid with contour+vector plots of the field
 bmag = np.linalg.norm(b, axis=1)
-oersted.plot_mesh(mesh, filename="docs/figs/solenoid-fields-3d.svg", scalars=bmag, centroids=mesh.centroids, vectors=b)
+oersted.plot_mesh(
+    mesh,
+    filename="docs/figs/solenoid-fields-3d.svg",
+    scalars=bmag,
+    centroids=mesh.centroids,
+    vectors=b,
+)
 
 # Solve for background fields on a cut-plane (XZ)
 start = perf_counter()
@@ -50,11 +57,23 @@ bz = b[:, 2].reshape(Z.shape)
 fig, ax = plt.subplots()
 ax.set_aspect("equal")
 ax.streamplot(X, Z, bx, bz, color="black", linewidth=0.5)
-im = ax.imshow(bmag.reshape(X.shape), origin="lower", interpolation="bicubic", norm="log", extent=(x.min(), x.max(), z.min(), z.max()))
+im = ax.imshow(
+    bmag.reshape(X.shape),
+    origin="lower",
+    interpolation="bicubic",
+    norm="log",
+    extent=(x.min(), x.max(), z.min(), z.max()),
+)
 fig.colorbar(im, label="$|\\vec{B}|$ [T]", ax=ax)
 # Plot the solenoid cross-section
-ax.plot([0.025, 0.050, 0.050, 0.0250, 0.025], [0.025, 0.025, -0.025, -0.025, 0.025], "k")
-ax.plot([-0.025, -0.050, -0.050, -0.0250, -0.025], [0.025, 0.025, -0.025, -0.025, 0.025], "k")
+ax.plot(
+    [0.025, 0.050, 0.050, 0.0250, 0.025], [0.025, 0.025, -0.025, -0.025, 0.025], "k"
+)
+ax.plot(
+    [-0.025, -0.050, -0.050, -0.0250, -0.025],
+    [0.025, 0.025, -0.025, -0.025, 0.025],
+    "k",
+)
 ax.set_xlim(-0.10, 0.10)
 ax.set_ylim(-0.10, 0.10)
 ax.set_xticks([-0.10, -0.05, 0.0, 0.05, 0.10])

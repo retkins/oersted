@@ -942,6 +942,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/04/41/1cf02e3df279d2dd846a1bf235a928254eba9006dd22b4a14caa71aed0f7/mkdocstrings-1.0.3-py3-none-any.whl", hash = "sha256:0d66d18430c2201dc7fe85134277382baaa15e6b30979f3f3bdbabd6dbdb6046", size = 35523, upload-time = "2026-02-07T14:31:39.27Z" },
 ]
 
+[package.optional-dependencies]
+python = [
+    { name = "mkdocstrings-python" },
+]
+
 [[package]]
 name = "mkdocstrings-python"
 version = "2.0.3"
@@ -1124,8 +1129,7 @@ dev = [
     { name = "mkdocs" },
     { name = "mkdocs-material" },
     { name = "mkdocs-terminal" },
-    { name = "mkdocstrings" },
-    { name = "mkdocstrings-python" },
+    { name = "mkdocstrings", extra = ["python"] },
     { name = "pytest" },
     { name = "ruff" },
     { name = "ty" },
@@ -1142,11 +1146,10 @@ provides-extras = ["mesh"]
 [package.metadata.requires-dev]
 dev = [
     { name = "matplotlib", specifier = ">=3.10" },
-    { name = "mkdocs", specifier = "==1.6.1" },
-    { name = "mkdocs-material" },
+    { name = "mkdocs", specifier = ">=1.6.0" },
+    { name = "mkdocs-material", specifier = ">=9.5.25" },
     { name = "mkdocs-terminal", specifier = "==4.8.0" },
-    { name = "mkdocstrings", specifier = "==1.0.3" },
-    { name = "mkdocstrings-python", specifier = "==2.0.3" },
+    { name = "mkdocstrings", extras = ["python"], specifier = "==1.0.3" },
     { name = "pytest", specifier = "==9.0.2" },
     { name = "ruff", specifier = "==0.15.5" },
     { name = "ty", specifier = "==0.0.22" },

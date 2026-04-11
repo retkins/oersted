@@ -21,14 +21,18 @@ def calculate_magnetization_forces_on_sphere(b_ext_mag: float, b_ext_grad: float
 
     # Calculate background field
     h_external = np.zeros((mesh.num_elems, 3))
-    h_external[:, 2] = (1.0 / oersted.MU0) * (b_ext_mag + b_ext_grad * mesh.centroids[:, 2])
+    h_external[:, 2] = (1.0 / oersted.MU0) * (
+        b_ext_mag + b_ext_grad * mesh.centroids[:, 2]
+    )
 
     # Compute demag parameters: magnetization and internal H field
-    M, Htotal = oersted.magnetization.demag_tet4(mesh, mat, h_external, solver)
+    M, Htotal = oersted.demag_solve(mesh, mat, h_external, solver)
 
     # Compute external field at mesh nodes
     h_ext_nodes = np.zeros((mesh.num_nodes, 3))
-    h_ext_nodes[:, 2] = (1.0 / oersted.MU0) * (b_ext_mag + b_ext_grad * mesh.nodes[:, 2])
+    h_ext_nodes[:, 2] = (1.0 / oersted.MU0) * (
+        b_ext_mag + b_ext_grad * mesh.nodes[:, 2]
+    )
     forces = oersted.kelvin_forces(mesh, M, h_ext_nodes)
 
     # Compute analytical result: f = (m*grad)H
@@ -50,7 +54,9 @@ def test_lorentz_forces():
 
     mesh2 = oersted.mesh_step("tests/data/ring.stp", mesh_size, mesh_size)
     mesh2._nodes[:, 2] -= 0.01
-    print(f"Number of elements: {mesh1.num_elems}")
+
+    mesh = mesh1.append(mesh2)
+    print(f"Number of elements: {mesh.num_elems}")
 
     # Assign current densities to each mesh
     jmag: float = total_current / (0.02 * 0.02)
@@ -58,11 +64,12 @@ def test_lorentz_forces():
     phi = np.atan2(mesh1.centroids[:, 1], mesh1.centroids[:, 0])
     jdensity[:, 0] = -jmag * np.sin(phi)
     jdensity[:, 1] = jmag * np.cos(phi)
+    jdensity_total = np.vstack((jdensity, jdensity))
 
     solver = oersted.DirectSolver()
 
-    # Compute the analytical solution by checking that the vertical force is approximately
-    # equal to Fz = -2pi * R * Itotal * Br
+    # Compute the analytical solution by checking that the vertical force is
+    #   approximately equal to Fz = -2pi * R * Itotal * Br
     bavg = oersted.b_field(mesh1, jdensity, np.array([[radius, 0.0, -0.01]]))
     fz_expected = -float(2 * np.pi * radius * total_current * bavg[0, 0])
     print(f"fz expected: {fz_expected:.3f} N")
@@ -87,6 +94,7 @@ def test_lorentz_forces():
     bext = oersted.b_field(mesh1, jdensity, mesh1.surface.centroids, solver=solver)
     bext += oersted.b_field(mesh2, jdensity, mesh1.surface.centroids, solver=solver)
 
+    # Use maxwell stress tensor
     forces = oersted.maxwell_forces(mesh1.surface, bext)
     total_force = np.sum(forces, axis=0)
     error = np.abs((-fz_expected - total_force[2]) / fz_expected)
@@ -99,6 +107,19 @@ def test_lorentz_forces():
     assert np.abs(total_force[0]) < 1.0
     assert np.abs(total_force[1]) < 1.0
 
+    # Compute the bfield at element centroids
+    b_field_lower = oersted.b_field(
+        mesh, jdensity_total, mesh1.centroids, solver=solver
+    )
+    lorentz_force_lower = oersted.lorentz_forces(
+        mesh1, jdensity, b_field_lower, total=True
+    )
+
+    assert (
+        np.linalg.norm(lorentz_force_lower - total_force) / np.linalg.norm(total_force)
+        < 1e-2
+    )
+
 
 def main():
     test_lorentz_forces()
@@ -106,7 +127,9 @@ def main():
     # Magnetized sphere in uniform background field
     b_ext_mag = 5.0
     b_ext_grad = 0.0
-    total_force, analytical_force = calculate_magnetization_forces_on_sphere(b_ext_mag, b_ext_grad)
+    total_force, analytical_force = calculate_magnetization_forces_on_sphere(
+        b_ext_mag, b_ext_grad
+    )
     print(f"total:      {total_force}")
     print(f"analytical: {analytical_force}")
     assert np.abs(total_force[0]) < 1e-8
@@ -116,7 +139,9 @@ def main():
     # Magnetized sphere in linear background field gradient
     b_ext_mag = 5.0
     b_ext_grad = 1.0
-    total_force, analytical_force = calculate_magnetization_forces_on_sphere(b_ext_mag, b_ext_grad)
+    total_force, analytical_force = calculate_magnetization_forces_on_sphere(
+        b_ext_mag, b_ext_grad
+    )
     print(f"total:      {total_force}")
     print(f"analytical: {analytical_force}")
     assert np.abs(total_force[0]) < 1e-8

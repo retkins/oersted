@@ -22,7 +22,7 @@ def check_mag_sphere(mesh: Mesh, solver: DirectSolver | OctreeSolver):
 
     # Compute demag parameters: magnetization and internal H field
     start = time.perf_counter()
-    M, Htotal = oersted.magnetization.demag_tet4(mesh, mat, h_external, solver)
+    M, Htotal = oersted.demag_solve(mesh, mat, h_external, solver)
     elapsed = time.perf_counter() - start
 
     # Postprocessing
@@ -53,8 +53,14 @@ def check_mag_sphere(mesh: Mesh, solver: DirectSolver | OctreeSolver):
     print(f"\tM = {M_analytical:.3e} A/m")
     print(f"\tB = {B_analytical:.3f} T")
     print(f"Total solver time: {elapsed:.3f} sec")
-    print(f"Avg/min/max M: {np.average(Mnorm)} / {np.min(Mnorm):.3e} / {np.max(Mnorm):.3e}")
-    print(f"Avg/min/max H: {np.average(Hnorm)} / {np.min(Hnorm):.3e} / {np.max(Hnorm):.3e}")
+    print(
+        f"Avg/min/max M: \
+            {np.average(Mnorm)} / {np.min(Mnorm):.3e} / {np.max(Mnorm):.3e}"
+    )
+    print(
+        f"Avg/min/max H: \
+            {np.average(Hnorm)} / {np.min(Hnorm):.3e} / {np.max(Hnorm):.3e}"
+    )
     print(f"Bavg = {Bavg:.3f} T")
     print(f"M error: {100 * M_error:.2f}%")
     print(f"B error: {100 * B_error:.2f}%")

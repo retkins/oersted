@@ -7,7 +7,9 @@ from .mesh import Mesh
 from .constants import MU0
 
 
-def mean_squared_error(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
+def mean_squared_error(
+    baseline: NDArray[float64], measurement: NDArray[float64]
+) -> float:
     """Compute the mean squared error of `measurement` measured against `baseline`
 
     Error is computed according to this reference:
@@ -18,7 +20,8 @@ def mean_squared_error(baseline: NDArray[float64], measurement: NDArray[float64]
     Args:
     ---
         baseline: N-length array of 'ground-truth' values
-        measurement: N-length array of values to which determine error (deviation) from baseline
+        measurement: N-length array of values to which determine error (deviation)
+            from baseline
 
     """
 
@@ -30,7 +33,9 @@ def mean_squared_error(baseline: NDArray[float64], measurement: NDArray[float64]
     return (1 / n) * np.sum((baseline - measurement) ** 2)
 
 
-def mean_relative_error(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
+def mean_relative_error(
+    baseline: NDArray[float64], measurement: NDArray[float64]
+) -> float:
     """Compute the mean *relative* error of `measurement` against `baseline`"""
 
     assert baseline.shape == measurement.shape
@@ -42,7 +47,9 @@ def mean_relative_error(baseline: NDArray[float64], measurement: NDArray[float64
     return (1 / n) * np.sum(np.abs(relative_diff))
 
 
-def mean_absolute_error(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
+def mean_absolute_error(
+    baseline: NDArray[float64], measurement: NDArray[float64]
+) -> float:
     """Compute the mean absolute error of `measurement` against `baseline`"""
 
     assert baseline.shape == measurement.shape
@@ -54,7 +61,8 @@ def mean_absolute_error(baseline: NDArray[float64], measurement: NDArray[float64
 
 
 def smape(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
-    """Compute the symmetric mean absolute percentage error of `measurement` against `baseline`
+    """Compute the symmetric mean absolute percentage error of `measurement`
+        against `baseline`
 
     SMAPE is defined here:
     https://en.wikipedia.org/wiki/Symmetric_mean_absolute_percentage_error
@@ -70,15 +78,15 @@ def smape(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
     return (2 / n) * np.sum(numerator / denominator)
 
 
-def make_helmholtz(filename: str, size: float, jmag: None | float = None, scale=1e-3) -> tuple[Mesh, NDArray[float64]]:
+def make_helmholtz(
+    filename: str, size: float, jmag: None | float = None, scale=1e-3
+) -> tuple[Mesh, NDArray[float64]]:
     """Make the helmholtz coil test problem"""
 
-    # datafile: str = "ring"
-    # package_root: Path = Path(__file__).parent.parent.parent.absolute()  # tests is 2 levels up
     ring_mesh: Mesh = Mesh.from_step(filename, size, 1e3, scale)
 
     # The current mesh is centered on the xy plane and is only one circular ring
-    # We need to split the single ring into two rings and assign current densities to the elements
+    # Split the single ring into two rings and assign current densities to the elements
     if jmag is None:
         jmag: float = 100.0e3 / (0.02 * 0.02)
     nodes_upper: NDArray[float64] = ring_mesh.nodes.copy()
@@ -87,7 +95,9 @@ def make_helmholtz(filename: str, size: float, jmag: None | float = None, scale=
     nodes_lower[:, 2] -= 0.2  # flip to lower side
     nodes = np.vstack((nodes_upper, nodes_lower))
     connectivity_upper: NDArray[uint32] = ring_mesh.connectivity.copy()
-    connectivity_lower: NDArray[uint32] = ring_mesh.connectivity.copy() + uint32(ring_mesh.num_nodes)
+    connectivity_lower: NDArray[uint32] = ring_mesh.connectivity.copy() + uint32(
+        ring_mesh.num_nodes
+    )
 
     helmholtz_mesh = Mesh(nodes, np.vstack((connectivity_upper, connectivity_lower)))
 
@@ -99,7 +109,9 @@ def make_helmholtz(filename: str, size: float, jmag: None | float = None, scale=
     return (helmholtz_mesh, jdensity)
 
 
-def bz_finite_length_solenoid(jmag: float, length: float, r: float, dr: float, z: float) -> float:
+def bz_finite_length_solenoid(
+    jmag: float, length: float, r: float, dr: float, z: float
+) -> float:
     """Compute the magnetic field on the axis of a finite-length solenoid
 
     This function assumes that the solenoid `dr` dimension is small relative to the
@@ -110,7 +122,8 @@ def bz_finite_length_solenoid(jmag: float, length: float, r: float, dr: float, z
         length: (m) length of the solenoid
         r: (m) representative radius of the solenoid
         dr: (m) thickness of the solenoid cross section
-        z: (m) position along the axis of the solenoid at which the field should be calculated
+        z: (m) position along the axis of the solenoid at which the field should
+            be calculated
 
     Returns:
         (T) axial magnetic field

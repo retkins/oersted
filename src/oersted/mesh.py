@@ -4,14 +4,19 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 from numpy import float64, uint32, ascontiguousarray
-from ._oersted import mesh_centroids, mesh_volumes, mesh_surface_faces, mesh_surface_face_properties
+from ._oersted import (
+    mesh_centroids,
+    mesh_volumes,
+    mesh_surface_faces,
+    mesh_surface_face_properties,
+)
 
 
 class CentroidMesh:
     """A finite element mesh represented solely by the centroidal values of the elements
 
-    This is used in the `point source` calculations. It is an approximation, but extremely
-    fast and accurate for far field or force calculations.
+    This is used in the `point source` calculations. It is an approximation, but
+    extremely fast and accurate for far field or force calculations.
     """
 
     # Topology data
@@ -87,7 +92,9 @@ class SurfaceMesh:
 
     def _properties(self):
         # Compute the properties of the surface mesh
-        self._areas, self._centroids, self._normals = mesh_surface_face_properties(ascontiguousarray(self.nodes), ascontiguousarray(self.faces))
+        self._areas, self._centroids, self._normals = mesh_surface_face_properties(
+            ascontiguousarray(self.nodes), ascontiguousarray(self.faces)
+        )
 
     @property
     def areas(self):
@@ -228,20 +235,34 @@ class Mesh:
         plot_mesh(self, filename)
 
     @classmethod
-    def from_step(cls, filename: str, mesh_size: float, mesh_size_scale: float = 1e3, part_size_scale: float = 1e-3) -> Mesh:
+    def from_step(
+        cls,
+        filename: str,
+        mesh_size: float,
+        mesh_size_scale: float = 1e3,
+        part_size_scale: float = 1e-3,
+    ) -> Mesh:
         """Create a Mesh from a step file
 
-        Note: we need mesh dimensions in meters, but gmsh typically works in mm. This function scales the input mesh size *up*
-        to be in mm, and scales the gmsh resultant *down* to be in m. Adjust these parameters if the mesh isn't working
-        properly.
+        Note: we need mesh dimensions in meters, but gmsh typically works in mm. This
+            function scales the input mesh size *up* to be in mm, and scales the gmsh
+            resultant *down* to be in m. Adjust these parameters if the mesh isn't
+            working properly.
         """
-        return mesh_step(filename, mesh_size * mesh_size_scale, mesh_size * mesh_size_scale, part_size_scale)
+        return mesh_step(
+            filename,
+            mesh_size * mesh_size_scale,
+            mesh_size * mesh_size_scale,
+            part_size_scale,
+        )
 
     def append(self, mesh: Mesh) -> Mesh:
         """Convenience function for appending two meshes together."""
 
         nodes = np.vstack((self.nodes, mesh.nodes))
-        connectivity = np.vstack((self.connectivity, mesh.connectivity + uint32(self.num_nodes)))
+        connectivity = np.vstack(
+            (self.connectivity, mesh.connectivity + uint32(self.num_nodes))
+        )
         return Mesh(nodes, connectivity)
 
 
@@ -262,7 +283,9 @@ def plot_mesh(
     try:
         import pyvista as pv
 
-        cells = np.hstack([np.full((mesh.num_elems, 1), 4, dtype=np.int64), mesh.connectivity])
+        cells = np.hstack(
+            [np.full((mesh.num_elems, 1), 4, dtype=np.int64), mesh.connectivity]
+        )
         celltypes = np.full(mesh.num_elems, pv.CellType.TETRA)
         pv_mesh = pv.UnstructuredGrid(cells.ravel(), celltypes, mesh.nodes)
 
@@ -270,14 +293,24 @@ def plot_mesh(
         if transparency:
             pl.add_mesh(pv_mesh, style="wireframe", color="black", line_width=0.5)
         else:
-            pl.add_mesh(pv_mesh, scalars=scalars, show_edges=True, line_width=0.5, scalar_bar_args={"title": "magnitude", "vertical": True})
+            pl.add_mesh(
+                pv_mesh,
+                scalars=scalars,
+                show_edges=True,
+                line_width=0.5,
+                scalar_bar_args={"title": "magnitude", "vertical": True},
+            )
 
         if centroids is not None and vectors is not None:
             arrow_mesh = pv.PolyData(centroids)
             arrow_mesh["vectors"] = vectors
             arrow_mesh["magnitude"] = np.linalg.norm(vectors, axis=1)
-            arrows = arrow_mesh.glyph(orient="vectors", scale=False, factor=vector_scale is not None)
-            pl.add_mesh(arrows, scalars="magnitude", cmap="viridis", show_scalar_bar=False)
+            arrows = arrow_mesh.glyph(
+                orient="vectors", scale=False, factor=vector_scale is not None
+            )
+            pl.add_mesh(
+                arrows, scalars="magnitude", cmap="viridis", show_scalar_bar=False
+            )
 
         if filename is not None:
             pl.save_graphic(filename)
@@ -285,7 +318,8 @@ def plot_mesh(
             pl.show()
 
     except ImportError:
-        print("`pyvista` is not installed. Please install before continuing: `pip install pyvista")
+        print("`pyvista` is not installed.")
+        print("Please install before continuing: `pip install pyvista")
 
 
 def mesh_step(infile: str, max_size: float, min_size: float = 0.0, scale=1e-3) -> Mesh:
@@ -325,7 +359,10 @@ def mesh_step(infile: str, max_size: float, min_size: float = 0.0, scale=1e-3) -
         raw_connectivity = np.array(elem_node_tags).reshape(-1, 4)
 
         # Renumber to compact 0-based indices
-        connectivity = np.array([[tag_to_compact[tag] for tag in elem] for elem in raw_connectivity], dtype=np.uint32)
+        connectivity = np.array(
+            [[tag_to_compact[tag] for tag in elem] for elem in raw_connectivity],
+            dtype=np.uint32,
+        )
         gmsh.finalize()
 
         mesh_out: Mesh = Mesh(nodes, connectivity)
@@ -334,4 +371,6 @@ def mesh_step(infile: str, max_size: float, min_size: float = 0.0, scale=1e-3) -
         return mesh_out
 
     except ImportError:
-        raise RuntimeError(f"Error - gmsh is not installed. Could not mesh file `{infile}`") from None
+        raise RuntimeError(
+            f"Error - gmsh is not installed. Could not mesh file `{infile}`"
+        ) from None

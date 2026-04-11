@@ -78,3 +78,5 @@
 * Added back point dipole sources (direct and octree)
 * Added Kelvin force calculation (more stable than Maxwell forces currently)
 * Added two magnetized spheres example
+* Added Lorentz force calculations
+* Added docs: theory manual, references, math/latex support

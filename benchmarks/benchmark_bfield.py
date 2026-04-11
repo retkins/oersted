@@ -26,7 +26,11 @@ for solver in solvers:
             if method == "point":
                 mesh = mesh.to_centroid_mesh()
 
-            use_solver = oersted.DirectSolver() if solver == "direct" else oersted.OctreeSolver(theta=theta, leaf_threshold=leaf_threshold)
+            use_solver = (
+                oersted.DirectSolver()
+                if solver == "direct"
+                else oersted.OctreeSolver(theta=theta, leaf_threshold=leaf_threshold)
+            )
             jdensity = np.random.random(mesh.centroids.shape)
             start = perf_counter()
             print(f"running with {solver} + {method} + {mesh_size}")
@@ -37,7 +41,11 @@ for solver in solvers:
             timings.append(elapsed)
             interactions.append(problem_size)
             throughputs.append(throughput)
-        results[solver + "-" + method] = {"timings": timings, "interactions": interactions, "throughputs": throughputs}
+        results[solver + "-" + method] = {
+            "timings": timings,
+            "interactions": interactions,
+            "throughputs": throughputs,
+        }
 
 fig, ax = plt.subplots()
 for key in results:

@@ -8,7 +8,11 @@ import pytest
 
 
 EXAMPLES_DIR = pathlib.Path(__file__).parent / "../examples"
-EXAMPLES = [EXAMPLES_DIR / x for x in os.listdir(EXAMPLES_DIR) if (os.path.isfile(EXAMPLES_DIR / x) and x.endswith(".py"))]
+EXAMPLES = [
+    EXAMPLES_DIR / x
+    for x in os.listdir(EXAMPLES_DIR)
+    if (os.path.isfile(EXAMPLES_DIR / x) and x.endswith(".py"))
+]
 
 
 @pytest.mark.parametrize("fp", EXAMPLES)

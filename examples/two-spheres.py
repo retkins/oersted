@@ -1,4 +1,5 @@
-"""Compute the interaction force between two magnetized spheres in a uniform background field."""
+"""Compute the interaction force between two magnetized spheres in a uniform
+background field."""
 
 import oersted
 from oersted import Mesh, MU0
@@ -35,7 +36,7 @@ material = oersted.LinearMaterial(mu_r)
 solver = oersted.DirectSolver(alpha=0.9)
 
 # Demagnetization solve on both spheres
-M, _ = oersted.magnetization.demag_tet4(mesh, material, h_external, solver)
+M, _ = oersted.demag_solve(mesh, material, h_external, solver)
 
 # Select only the magnetization field in the appropriate sphere
 M_lower = M[: lower_sphere.num_elems]
@@ -43,8 +44,12 @@ M_upper = M[lower_sphere.num_elems :]
 
 # Compute the total field acting on the nodes of both spheres,
 # using only the other sphere as a source
-h_field_nodes_upper = oersted.h_mag(lower_sphere, M_lower, upper_sphere.nodes, solver=solver)
-h_field_nodes_lower = oersted.h_mag(upper_sphere, M_upper, lower_sphere.nodes, solver=solver)
+h_field_nodes_upper = oersted.h_mag(
+    lower_sphere, M_lower, upper_sphere.nodes, solver=solver
+)
+h_field_nodes_lower = oersted.h_mag(
+    upper_sphere, M_upper, lower_sphere.nodes, solver=solver
+)
 h_field_nodes_upper[:, 2] += b_external_magnitude / MU0
 h_field_nodes_lower[:, 2] += b_external_magnitude / MU0
 

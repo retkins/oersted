@@ -18,11 +18,10 @@ dev = [
     "ruff==0.15.5",
     "matplotlib>=3.10",
     # Docs
-    "mkdocs==1.6.1",
+    "mkdocs>=1.6.0",
     "mkdocs-terminal==4.8.0",
-    "mkdocs-material",
-    "mkdocstrings==1.0.3",
-    "mkdocstrings-python==2.0.3",
+    "mkdocs-material>=9.5.25",
+    "mkdocstrings[python]==1.0.3",
 ]
 
 # optional, but accessible from pypi
@@ -48,7 +47,7 @@ include = [
 ]
 
 [tool.ruff]
-line-length = 150
+#line-length = 150
 
 [tool.ruff.lint]
 select = [
