@@ -140,5 +140,6 @@ def lorentz_force_density(
 
     assert j_density.shape == b_field.shape
     assert j_density.shape[1] == 3
+    jxb: NDArray[float64] = cross(j_density, b_field)
 
-    return cross(j_density, b_field)
+    return jxb
