@@ -50,6 +50,7 @@ elapsed = perf_counter() - start
 print(f"Elapsed time: {elapsed:.3f} sec")
 print(f"\t({mesh.num_elems**2 / elapsed:.2e} interactions/sec)")
 
+
 # Plot the fields on a cut plane
 def plot():
     bmag = np.linalg.norm(b, axis=1)
