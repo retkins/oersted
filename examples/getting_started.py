@@ -51,43 +51,45 @@ print(f"Elapsed time: {elapsed:.3f} sec")
 print(f"\t({mesh.num_elems**2 / elapsed:.2e} interactions/sec)")
 
 # Plot the fields on a cut plane
-bmag = np.linalg.norm(b, axis=1)
-bx = b[:, 0].reshape(X.shape)
-bz = b[:, 2].reshape(Z.shape)
-fig, ax = plt.subplots()
-ax.set_aspect("equal")
-ax.streamplot(X, Z, bx, bz, color="black", linewidth=0.5)
-im = ax.imshow(
-    bmag.reshape(X.shape),
-    origin="lower",
-    interpolation="bicubic",
-    norm="log",
-    extent=(x.min(), x.max(), z.min(), z.max()),
-)
-fig.colorbar(im, label="$|\\vec{B}|$ [T]", ax=ax)
-# Plot the solenoid cross-section
-ax.plot(
-    [0.025, 0.050, 0.050, 0.0250, 0.025], [0.025, 0.025, -0.025, -0.025, 0.025], "k"
-)
-ax.plot(
-    [-0.025, -0.050, -0.050, -0.0250, -0.025],
-    [0.025, 0.025, -0.025, -0.025, 0.025],
-    "k",
-)
-ax.set_xlim(-0.10, 0.10)
-ax.set_ylim(-0.10, 0.10)
-ax.set_xticks([-0.10, -0.05, 0.0, 0.05, 0.10])
-ax.set_yticks([-0.10, -0.05, 0.0, 0.05, 0.10])
-ax.set_xlabel("X Coordinate (m)")
-ax.set_ylabel("Z Coordinate (m)")
-ax.set_title("Finite Length Solenoid\nMagnetic Flux Density (T)")
-fig.tight_layout()
-fig.savefig("docs/figs/solenoid-fields.svg")
+def plot():
+    bmag = np.linalg.norm(b, axis=1)
+    bx = b[:, 0].reshape(X.shape)
+    bz = b[:, 2].reshape(Z.shape)
+    fig, ax = plt.subplots()
+    ax.set_aspect("equal")
+    ax.streamplot(X, Z, bx, bz, color="black", linewidth=0.5)
+    im = ax.imshow(
+        bmag.reshape(X.shape),
+        origin="lower",
+        interpolation="bicubic",
+        norm="log",
+        extent=(x.min(), x.max(), z.min(), z.max()),
+    )
+    fig.colorbar(im, label="$|\\vec{B}|$ [T]", ax=ax)
+    # Plot the solenoid cross-section
+    ax.plot(
+        [0.025, 0.050, 0.050, 0.0250, 0.025], [0.025, 0.025, -0.025, -0.025, 0.025], "k"
+    )
+    ax.plot(
+        [-0.025, -0.050, -0.050, -0.0250, -0.025],
+        [0.025, 0.025, -0.025, -0.025, 0.025],
+        "k",
+    )
+    ax.set_xlim(-0.10, 0.10)
+    ax.set_ylim(-0.10, 0.10)
+    ax.set_xticks([-0.10, -0.05, 0.0, 0.05, 0.10])
+    ax.set_yticks([-0.10, -0.05, 0.0, 0.05, 0.10])
+    ax.set_xlabel("X Coordinate (m)")
+    ax.set_ylabel("Z Coordinate (m)")
+    ax.set_title("Finite Length Solenoid\nMagnetic Flux Density (T)")
+    fig.tight_layout()
+    fig.savefig("docs/figs/solenoid-fields.svg")
 
 
 # For testing
 def main():
     # Placeholder for now
+    plot()
     assert True
 
 

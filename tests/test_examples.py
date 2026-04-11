@@ -7,12 +7,13 @@ import runpy
 import pytest
 
 
-EXAMPLES_DIR = pathlib.Path(__file__).parent / "../examples"
-EXAMPLES = [
+# EXAMPLES_DIR = pathlib.Path(__file__).parent / "../examples"
+EXAMPLES_DIR = pathlib.Path("examples")
+EXAMPLES = sorted([
     EXAMPLES_DIR / x
     for x in os.listdir(EXAMPLES_DIR)
     if (os.path.isfile(EXAMPLES_DIR / x) and x.endswith(".py"))
-]
+])
 
 
 @pytest.mark.parametrize("fp", EXAMPLES)
