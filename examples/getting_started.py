@@ -9,7 +9,7 @@ from time import perf_counter
 
 mesh_size = 0.010
 mesh: Mesh = oersted.Mesh.from_step("tests/data/solenoid-short.step", mesh_size)
-mesh.plot("docs/figs/solenoid-short-mesh.svg")
+# mesh.plot("docs/figs/solenoid-short-mesh.svg")
 
 # Make current density vectors
 j_density_magnitude = 1e8  # (A/m2)
@@ -35,13 +35,13 @@ print(f"\t({mesh.num_elems**2 / elapsed:.2e} interactions/sec)")
 
 # Plot the solenoid with contour+vector plots of the field
 bmag = np.linalg.norm(b, axis=1)
-oersted.plot_mesh(
-    mesh,
-    filename="docs/figs/solenoid-fields-3d.svg",
-    scalars=bmag,
-    centroids=mesh.centroids,
-    vectors=b,
-)
+# oersted.plot_mesh(
+#     mesh,
+#     filename="docs/figs/solenoid-fields-3d.svg",
+#     scalars=bmag,
+#     centroids=mesh.centroids,
+#     vectors=b,
+# )
 
 # Solve for background fields on a cut-plane (XZ)
 start = perf_counter()
@@ -87,12 +87,12 @@ def plot():
     fig.savefig("docs/figs/solenoid-fields.svg")
 
 
-# For testing
-def main():
-    # Placeholder for now
-    plot()
-    assert True
+# # For testing
+# def main():
+#     # Placeholder for now
+#     plot()
+#     assert True
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
