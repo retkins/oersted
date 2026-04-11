@@ -1,19 +1,23 @@
 """Use the helmholtz coil problem as a benchmarking example"""
 
+
 import oersted
 from oersted import OctreeSolver
 import numpy as np
 import matplotlib.pyplot as plt
 from time import perf_counter
 
+import pathlib
+
+step_file: pathlib.Path = pathlib.Path(__file__).parent  / "../tests/data/ring.stp"
 
 def main(
-    nbenches: int = 1,
+    nbenches: int = 2,
     theta: float = 0.5,
     mesh_size_max: float = 0.033,
-    mesh_size_min: float = 0.033,
+    mesh_size_min: float = 0.015,
 ):
-    mesh_sizes = np.linspace(mesh_size_max, mesh_size_min, nbenches)
+    mesh_sizes = np.linspace(mesh_size_min, mesh_size_max, nbenches)
     direct_times = []
     direct_interactions = []
     est_direct_times = []
@@ -24,7 +28,7 @@ def main(
 
     for i, mesh_size in enumerate(mesh_sizes):
         mesh, jdensity = oersted.testing.make_helmholtz(
-            "tests/data/ring.stp", mesh_size
+            str(step_file), mesh_size
         )
         n = mesh.num_elems
         interactions[i] = n * n
@@ -105,4 +109,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main(nbenches=10, theta=0.5, mesh_size_max=33.0, mesh_size_min=1.5)
+    main(nbenches=10, theta=0.5, mesh_size_max=33.0e-3, mesh_size_min=10e-3)

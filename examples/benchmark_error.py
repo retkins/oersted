@@ -5,17 +5,20 @@ from oersted import OctreeSolver
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
+import pathlib
+
+step_file: pathlib.Path = pathlib.Path(__file__).parent  / "../tests/data/ring.stp"
 
 
 def main(
     nthetas: int = 1,
-    size: float = 0.015,
+    size: float = 0.010,
     theta_min: float = 0.5,
     theta_max: float = 0.5,
 ):
     theta_vals = np.linspace(theta_min, theta_max, nthetas)
     errs = np.zeros(nthetas)
-    mesh, jdensity = make_helmholtz("tests/data/ring.stp", size)
+    mesh, jdensity = make_helmholtz(str(step_file), size)
     bdirect = oersted.b_field(mesh, jdensity, mesh.centroids)
     for i, theta in enumerate(theta_vals):
         boctree = oersted.b_field(
@@ -44,7 +47,7 @@ def main(
 
 if __name__ == "__main__":
     nthetas = 10
-    size = 5.0
+    size = 15.0e-3
     theta_min: float = 0.01
     theta_max: float = 0.5
-    main(nthetas=10, size=5.0, theta_min=0.01, theta_max=0.5)
+    main(nthetas=10, size=size, theta_min=0.01, theta_max=0.5)

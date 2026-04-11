@@ -21,13 +21,16 @@ from oersted.testing import make_helmholtz, smape
 
 import numpy as np
 import oersted
+import pathlib
+
+step_file: pathlib.Path = pathlib.Path(__file__).parent  / "../tests/data/ring.stp"
 
 
 def setup_test():
 
     # Runtime parameters
     theta: float = 0.5
-    mesh_size: float = 0.012  # ~10M interactions; set to 33 for 1e6 interactions
+    mesh_size: float = 0.010  # ~10M interactions; set to 33 for 1e6 interactions
     ntargets_axis: int = 100  # Along the axis
     nthreads = 0
     leaf_threshold = 16
@@ -42,7 +45,7 @@ def setup_test():
     # Generate a mesh from a STEP file
     #
     # mesh: Mesh = oersted.mesh_step(f"tests/data/{datafile}", min_size, max_size)
-    mesh, jdensity = make_helmholtz("tests/data/ring.stp", mesh_size)
+    mesh, jdensity = make_helmholtz(str(step_file), mesh_size)
 
     # Setup the targets for the axis accuracy test
     targets_axis = np.zeros((ntargets_axis, 3))
