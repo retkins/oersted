@@ -18,6 +18,7 @@ EXAMPLES = [
 @pytest.mark.parametrize("fp", EXAMPLES)
 def test_example(fp: pathlib.Path):
     try:
+        print(f"Running example: {fp}", flush=True)
         mod = runpy.run_path(str(fp), run_name="__test__")
         if "main" in mod:
             mod["main"]()
