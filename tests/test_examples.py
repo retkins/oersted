@@ -2,7 +2,7 @@
 
 import os
 import pathlib
-# import runpy
+import runpy
 
 import pytest
 
@@ -18,10 +18,14 @@ EXAMPLES = [
 @pytest.mark.parametrize("fp", EXAMPLES)
 def test_example(fp: pathlib.Path):
     try:
-        # mod = runpy.run_path(str(fp), run_name="__test__")
-        # if "main" in mod:
-        #     mod["main"]()
-        pass
+        mod = runpy.run_path(str(fp), run_name="__test__")
+        if "main" in mod:
+            mod["main"]()
     except:
         print(f"Failed to run example {fp}")
         raise
+
+
+if __name__ == "__main__":
+    for ex in EXAMPLES:
+        test_example(ex)

@@ -83,3 +83,13 @@ ax.set_ylabel("Z Coordinate (m)")
 ax.set_title("Finite Length Solenoid\nMagnetic Flux Density (T)")
 fig.tight_layout()
 fig.savefig("docs/figs/solenoid-fields.svg")
+
+
+# For testing
+def main():
+    # Placeholder for now
+    assert True
+
+
+if __name__ == "__main__":
+    main()
