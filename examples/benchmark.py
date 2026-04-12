@@ -1,6 +1,5 @@
 """Use the helmholtz coil problem as a benchmarking example"""
 
-
 import oersted
 from oersted import OctreeSolver
 import numpy as np
@@ -9,7 +8,8 @@ from time import perf_counter
 
 import pathlib
 
-step_file: pathlib.Path = pathlib.Path(__file__).parent  / "../tests/data/ring.stp"
+step_file: pathlib.Path = pathlib.Path(__file__).parent / "../tests/data/ring.stp"
+
 
 def main(
     nbenches: int = 2,
@@ -27,9 +27,7 @@ def main(
     interactions = np.zeros(nbenches)
 
     for i, mesh_size in enumerate(mesh_sizes):
-        mesh, jdensity = oersted.testing.make_helmholtz(
-            str(step_file), mesh_size
-        )
+        mesh, jdensity = oersted.testing.make_helmholtz(str(step_file), mesh_size)
         n = mesh.num_elems
         interactions[i] = n * n
 

@@ -138,3 +138,15 @@ def bz_finite_length_solenoid(
     c: float = (z - 0.5 * length) / np.sqrt(r**2 + (z - 0.5 * length) ** 2)
 
     return a * (b - c)
+
+
+def bz_loop_axis(current: float, radius: float, z: float) -> float:
+    """Compute the vertical field Bz at the center of a current-carrying loop"""
+    return MU0 * current * (radius**2) / (2.0 * (z**2 + radius**2) ** 1.5)
+
+
+def dbzdz_loop_axis(current: float, radius: float, z: float) -> float:
+    """Compute the vertical field gradient dBz/dz at the center of a
+    current-carrying loop
+    """
+    return -1.5 * MU0 * current * (radius**2) * z / (z**2 + radius**2) ** 2.5

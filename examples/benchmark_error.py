@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
 import pathlib
 
-step_file: pathlib.Path = pathlib.Path(__file__).parent  / "../tests/data/ring.stp"
+step_file: pathlib.Path = pathlib.Path(__file__).parent / "../tests/data/ring.stp"
 
 
 def main(

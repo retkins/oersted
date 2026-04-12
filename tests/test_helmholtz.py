@@ -23,7 +23,7 @@ import numpy as np
 import oersted
 import pathlib
 
-step_file: pathlib.Path = pathlib.Path(__file__).parent  / "../tests/data/ring.stp"
+step_file: pathlib.Path = pathlib.Path(__file__).parent / "../tests/data/ring.stp"
 
 
 def setup_test():

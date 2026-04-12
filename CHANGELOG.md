@@ -80,3 +80,4 @@
 * Added two magnetized spheres example
 * Added Lorentz force calculations
 * Added docs: theory manual, references, math/latex support
+* Added example: magnetized sphere on axis of current-carrying ring
