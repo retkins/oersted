@@ -30,6 +30,7 @@
 * Update docs homepage and readme
 
 ## v0.2.0
+### [#19](https://github.com/retkins/oersted/pull/19)
 * Added ellipsoid test (flat disc)
 * Updated mesh handling interface to have its own class
 * Updated octree methods to operate on magnetized tet4's
@@ -51,6 +52,7 @@
 * Added test for mesh-related functionality
 * Remove maxwell force calculation on magnetized meshes (not currently working)
 
+### [#20](https://github.com/retkins/oersted/pull/20)
 * Added helper functions in `python.rs` for transposing memory at the boundary
 * Updated the interfaces for calling the flux density (B field) calculation for point sources using direct summation
 * Fixed bug in parallel direct point solver and multiple bugs in solenoid test
@@ -69,6 +71,7 @@
 * Moved magnetization calculation completely to Rust
 * Updated magnetization calculation to use octree methods
 
+### [#21](https://github.com/retkins/oersted/pull/21)
 * Added a "getting started" tutorial and set docs theme to `material`
 * Added 3d plotting capabilities
 * Updated `Solver` classes to handle iterative solver parameters
@@ -82,3 +85,5 @@
 * Added docs: theory manual, references, math/latex support
 * Added example: magnetized sphere on axis of current-carrying ring
 * Added writeup of the example
+
+## v0.2.1
