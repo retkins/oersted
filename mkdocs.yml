@@ -1,6 +1,6 @@
 site_name: oersted 
 site_url: https://retkins.github.io/oersted
-theme: terminal
+theme: material
 plugins:
   - search
   - mkdocstrings:
@@ -14,6 +14,22 @@ plugins:
 
 nav: 
   - "About oersted": index.md
-  - "Tests and Validation": tests-and-validation.md
+  - "Getting Started": getting-started.md
+  - "Examples": 
+    - "Force on a Magnetized Sphere": magnetized-sphere.md
+  - "Theory Reference": theory-reference.md
   - "Python API": python-api.md
-  - "Rust API": "https://retkins.github.io/oersted/rust-api/oersted/index.html"
+  - "Rust API": "https://docs.rs/oersted/latest/oersted/"
+  - "References": references.md
+
+markdown_extensions:
+  - pymdownx.arithmatex:
+      generic: true
+
+extra_javascript:
+  - javascripts/katex.js
+  - https://unpkg.com/katex@0/dist/katex.min.js
+  - https://unpkg.com/katex@0/dist/contrib/auto-render.min.js
+
+extra_css:
+  - https://unpkg.com/katex@0/dist/katex.min.css

@@ -1,11 +1,11 @@
-//! Parallel magnetic field calculations
+//! Parallel magnetic field calculations using direct integration
 
 use rayon::prelude::*;
 use std::num::NonZeroUsize;
 use std::thread::available_parallelism;
 
 use crate::{
-    biotsavart::{bfield_direct, h_mag_tet4_direct, hfield_direct_tet},
+    biotsavart::{bfield_direct, h_mag_point_direct, h_mag_tet4_direct, hfield_direct_tet},
     types::Vec3,
 };
 
@@ -74,7 +74,49 @@ pub fn bfield_direct_parallel(
     Ok(())
 }
 
-pub fn hfield_direct_tet_parallel(
+/// Compute the magnetic field strength (H-field) at a set of target points, using a simplified dipole model
+/// of a magnetized finite element mesh as the source
+///
+/// This version is parallelized over target points
+pub fn h_mag_point_direct_parallel(
+    centroids: &[Vec3],
+    volumes: &[f64],
+    mvectors: &[Vec3],
+    targets: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
+    nthreads_requested: u32,
+) -> Result<(), ()> {
+    // Unpack
+    let (x, y, z) = targets;
+    let (hx, hy, hz) = out;
+
+    // TODO: length checks
+    let n_tgt: usize = x.len();
+    let nthreads: usize = get_nthreads(nthreads_requested);
+    let chunk_size: usize = (n_tgt / nthreads).max(1);
+
+    // chunk the inputs
+    let _x = x.par_chunks(chunk_size);
+    let _y = y.par_chunks(chunk_size);
+    let _z = z.par_chunks(chunk_size);
+    let _hx = hx.par_chunks_mut(chunk_size);
+    let _hy = hy.par_chunks_mut(chunk_size);
+    let _hz = hz.par_chunks_mut(chunk_size);
+
+    (_x, _y, _z, _hx, _hy, _hz)
+        .into_par_iter()
+        .try_for_each(|(_x, _y, _z, _hx, _hy, _hz)| {
+            h_mag_point_direct(centroids, volumes, mvectors, (_x, _y, _z), (_hx, _hy, _hz))
+        })?;
+
+    Ok(())
+}
+
+// ---
+// Tet4 Sources
+// ---
+
+pub fn h_field_tet4_direct_parallel(
     nodes: &[f64],
     connectivity: &[u32],
     jdensity: &[f64],

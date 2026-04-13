@@ -68,3 +68,17 @@
 * Added `SurfaceMesh` class
 * Moved magnetization calculation completely to Rust
 * Updated magnetization calculation to use octree methods
+
+* Added a "getting started" tutorial and set docs theme to `material`
+* Added 3d plotting capabilities
+* Updated `Solver` classes to handle iterative solver parameters
+* Updated fixed point solver to use under-relaxation for better convergence
+* Added cube and updated sphere geometries for testing
+* Added benchmarks
+* Added back point dipole sources (direct and octree)
+* Added Kelvin force calculation (more stable than Maxwell forces currently)
+* Added two magnetized spheres example
+* Added Lorentz force calculations
+* Added docs: theory manual, references, math/latex support
+* Added example: magnetized sphere on axis of current-carrying ring
+* Added writeup of the example

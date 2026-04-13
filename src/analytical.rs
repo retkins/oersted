@@ -17,3 +17,16 @@ pub fn bfield_loop_axis(z: f64, I: f64, R: f64) -> f64 {
     let R2: f64 = R * R;
     MU0 * I * R2 / (2.0 * (z * z + R2).powf(1.5))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test() {
+        let z = 0.2;
+        let i = 10e6;
+        let r = 1.0;
+        println!("Bfield on axis: {:.3} T", bfield_loop_axis(z, i, r));
+    }
+}

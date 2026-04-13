@@ -9,7 +9,9 @@ use numpy::{
 use pyo3::prelude::*;
 
 use crate::{
-    biotsavart_parallel, magnetization, mesh,
+    biotsavart_parallel, magnetization,
+    math::gradient,
+    mesh,
     octree::{CurrentSources, DipoleSources, HFieldSolver, Octree, point, tet_element},
     types::{Vec3, to_u32x4s, to_vec3s, to_vec3s_mut},
 };
@@ -151,7 +153,7 @@ pub fn h_current_tet4_direct<'py>(
     let (x, y, z) = pyarray_to_3cols(tgts);
     let (mut hx, mut hy, mut hz) = col_buffer(n_tgts);
 
-    biotsavart_parallel::hfield_direct_tet_parallel(
+    biotsavart_parallel::h_field_tet4_direct_parallel(
         nodes.as_slice()?,
         connectivity.as_slice()?,
         jdensity.as_slice()?,
@@ -210,31 +212,55 @@ fn h_current_tet4_octree<'py>(
 }
 
 #[pyfunction]
-fn h_mag_tet4_direct<'py>(
+fn h_mag_point<'py>(
     py: Python<'py>,
-    nodes: PyReadonlyArray2<f64>,
-    connectivity: PyReadonlyArray2<u32>,
+    centroids: PyReadonlyArray2<f64>,
+    volumes: PyReadonlyArray1<f64>,
     mvectors: PyReadonlyArray2<f64>,
     targets: PyReadonlyArray2<f64>,
+    theta: f64,
+    leaf_threshold: u32,
     nthreads_requested: u32,
+    use_octree: bool,
 ) -> PyResult<BoundPyArray2f64<'py>> {
-    let _nodes = to_vec3s(nodes.as_slice()?);
-    let _connectivity = to_u32x4s(connectivity.as_slice()?);
-    let _mvectors = to_vec3s(mvectors.as_slice()?);
-    let (x, y, z) = pyarray_to_3cols(targets);
-    let n_tgts = x.len();
-    let (mut hx, mut hy, mut hz) = col_buffer(n_tgts);
+    let n_targets = targets.shape()[0];
+    let mut out = col_buffer(n_targets);
 
-    biotsavart_parallel::h_mag_tet4_direct_parallel(
-        _nodes,
-        _connectivity,
-        _mvectors,
-        (&x, &y, &z),
-        (&mut hx, &mut hy, &mut hz),
-        nthreads_requested,
-    );
+    if use_octree {
+        let (centx, centy, centz): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_3cols(centroids);
+        let vol: &[f64] = volumes.as_slice()?;
+        let (mx, my, mz): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_3cols(mvectors);
+        let (x, y, z): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_3cols(targets);
 
-    Ok(cols_to_pyarray(py, (hx, hy, hz)))
+        let mut sources: DipoleSources<point::PointSources> = DipoleSources(
+            point::PointSources::new((&centx, &centy, &centz), vol, (&mx, &my, &mz)),
+        );
+        let max_depth: u8 = 21;
+        let tree: Octree<DipoleSources<point::PointSources>> =
+            Octree::build_from_sources(sources, max_depth, leaf_threshold);
+
+        tree.h_field_parallel(
+            (&x, &y, &z),
+            (&mut out.0, &mut out.1, &mut out.2),
+            theta,
+            nthreads_requested,
+        );
+    } else {
+        let _centroids = pyarray_to_vec3(centroids);
+        let _volumes = volumes.as_slice()?;
+        let _mvectors = pyarray_to_vec3(mvectors);
+        let _targets = pyarray_to_3cols(targets);
+        biotsavart_parallel::h_mag_point_direct_parallel(
+            &_centroids,
+            &_volumes,
+            &_mvectors,
+            (&_targets.0, &_targets.1, &_targets.2),
+            (&mut out.0, &mut out.1, &mut out.2),
+            nthreads_requested,
+        );
+    }
+
+    Ok(cols_to_pyarray(py, out))
 }
 
 #[pyfunction]
@@ -247,6 +273,7 @@ fn h_mag_tet4<'py>(
     theta: f64,
     leaf_threshold: u32,
     nthreads_requested: u32,
+    use_octree: bool,
 ) -> PyResult<BoundPyArray2f64<'py>> {
     let _nodes = to_vec3s(nodes.as_slice()?);
     let _connectivity = to_u32x4s(connectivity.as_slice()?);
@@ -255,17 +282,7 @@ fn h_mag_tet4<'py>(
     let n_tgts = x.len();
     let (mut hx, mut hy, mut hz) = col_buffer(n_tgts);
 
-    if leaf_threshold < 1 {
-        // User asked for a direct integration solve
-        biotsavart_parallel::h_mag_tet4_direct_parallel(
-            _nodes,
-            _connectivity,
-            _mvectors,
-            (&x, &y, &z),
-            (&mut hx, &mut hy, &mut hz),
-            nthreads_requested,
-        );
-    } else {
+    if use_octree {
         let n_sources: usize = connectivity.shape()[0];
         let mut centroids: Vec<Vec3> = vec![Vec3::default(); n_sources];
         let mut volumes: Vec<f64> = vec![0.0; n_sources];
@@ -280,6 +297,16 @@ fn h_mag_tet4<'py>(
 
         // Evaluate
         tree.h_field((&x, &y, &z), (&mut hx, &mut hy, &mut hz), theta);
+    } else {
+        // User requested a direct integration solve
+        biotsavart_parallel::h_mag_tet4_direct_parallel(
+            _nodes,
+            _connectivity,
+            _mvectors,
+            (&x, &y, &z),
+            (&mut hx, &mut hy, &mut hz),
+            nthreads_requested,
+        );
     }
 
     Ok(cols_to_pyarray(py, (hx, hy, hz)))
@@ -296,6 +323,7 @@ fn magnetization_tet4<'py>(
     max_iterations: u32,
     theta: f64,
     leaf_threshold: u32,
+    alpha: f64,
     nthreads_requested: u32,
 ) -> PyResult<(Bound<'py, PyArray2<f64>>, Bound<'py, PyArray2<f64>>)> {
     let n_centroids = connectivity.shape()[0];
@@ -333,6 +361,7 @@ fn magnetization_tet4<'py>(
         solver,
         tol,
         max_iterations,
+        alpha,
     );
 
     let (mut mx, mut my, mut mz) = (
@@ -428,11 +457,11 @@ fn mesh_surface_face_properties<'py>(
 }
 
 #[pyfunction]
-fn _mesh_surface_forces<'py>(
+fn mesh_surface_forces<'py>(
     py: Python<'py>,
     face_areas: PyReadonlyArray1<f64>,
-    face_normals: PyReadonlyArray1<f64>,
-    b_field: PyReadonlyArray1<f64>,
+    face_normals: PyReadonlyArray2<f64>,
+    b_field: PyReadonlyArray2<f64>,
 ) -> PyResult<Bound<'py, PyArray2<f64>>> {
     let stress_tensor = mesh::maxwell_stress_tensor(b_field.as_slice()?);
     let forces = mesh::surface_forces(
@@ -449,6 +478,48 @@ fn _mesh_surface_forces<'py>(
     }
 
     PyArray1::from_vec(py, forces_out).reshape([forces.len(), 3])
+}
+
+#[pyfunction]
+fn mesh_kelvin_force_density<'py>(
+    py: Python<'py>,
+    nodes: PyReadonlyArray2<f64>,
+    connectivity: PyReadonlyArray2<u32>,
+    m_field_centroids: PyReadonlyArray2<f64>,
+    h_field_nodes: PyReadonlyArray2<f64>,
+) -> PyResult<Bound<'py, PyArray2<f64>>> {
+    let n_elements = connectivity.shape()[0];
+    let _nodes = pyarray_to_vec3(nodes);
+    let _elements = to_u32x4s(connectivity.as_slice()?);
+    let m_field = pyarray_to_vec3(m_field_centroids);
+    let jinvt = gradient::jmatrices(&_nodes, &_elements);
+
+    let (hx, hy, hz) = pyarray_to_3cols(h_field_nodes);
+    let (mut grad_hx, mut grad_hy, mut grad_hz) = (
+        vec![Vec3::default(); n_elements],
+        vec![Vec3::default(); n_elements],
+        vec![Vec3::default(); n_elements],
+    );
+
+    let gvectors_x = gradient::gvectors(&_elements, &hx);
+    let gvectors_y = gradient::gvectors(&_elements, &hy);
+    let gvectors_z = gradient::gvectors(&_elements, &hz);
+
+    for i in 0..n_elements {
+        grad_hx[i] = gradient(&jinvt[i], &gvectors_x[i]);
+        grad_hy[i] = gradient(&jinvt[i], &gvectors_y[i]);
+        grad_hz[i] = gradient(&jinvt[i], &gvectors_z[i]);
+    }
+
+    let (mut fx, mut fy, mut fz) = col_buffer(n_elements);
+
+    for i in 0..n_elements {
+        fx[i] = m_field[i].dot(&grad_hx[i]);
+        fy[i] = m_field[i].dot(&grad_hy[i]);
+        fz[i] = m_field[i].dot(&grad_hz[i]);
+    }
+
+    Ok(cols_to_pyarray(py, (fx, fy, fz)))
 }
 
 #[pyfunction]
@@ -478,7 +549,7 @@ fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(h_current_point_octree, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_tet4_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_tet4_octree, m.clone())?)?;
-    m.add_function(wrap_pyfunction!(h_mag_tet4_direct, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(h_mag_point, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_mag_tet4, m.clone())?)?;
     m.add_function(wrap_pyfunction!(magnetization_tet4, m.clone())?)?;
 
@@ -487,8 +558,9 @@ fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mesh_volumes, m.clone())?)?;
     m.add_function(wrap_pyfunction!(mesh_surface_faces, m.clone())?)?;
     m.add_function(wrap_pyfunction!(mesh_surface_face_properties, m.clone())?)?;
-    m.add_function(wrap_pyfunction!(_mesh_surface_forces, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(mesh_surface_forces, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_mesh_surface_tets, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(mesh_kelvin_force_density, m.clone())?)?;
 
     Ok(())
 }

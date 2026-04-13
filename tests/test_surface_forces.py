@@ -1,54 +1,45 @@
 import numpy as np
 import oersted
-from oersted import Mesh, MU0, OctreeSolver
-import time
+from oersted import Mesh
 
 # Test parameters
-infile: str = "tests/data/sphere.stp"
-mesh_size: float = 15  # mm
-b_ext_mag: float = 1.0  # T
+mesh_size: float = 15.0  # mm
+b_ext_mag: float = 5.0  # T
 mu_r: float = 1.5
 solver = oersted.DirectSolver()
 mat = oersted.materials.LinearMaterial(mu_r)
 
-# Mesh the sphere
-mesh: Mesh = oersted.mesh.mesh_step(infile, mesh_size, mesh_size)
-print(f"Number of elements: {mesh.num_elems}")
 
-mesh = oersted.Mesh(mesh.nodes, mesh.connectivity)
-print(np.average(mesh.centroids, axis=0))
+def calculate_magnetization_forces_on_sphere(b_ext_mag: float, b_ext_grad: float):
+    """Test maxwell forces for a magnetized component under an external field
 
+    Assume that the gradient in the field is in the z-direction"""
 
-def test_magnetization_forces():
-    """Test maxwell forces for a magnetized component under an external field"""
+    # Mesh the sphere
+    mesh: Mesh = oersted.mesh.mesh_step("tests/data/sphere.stp", mesh_size, mesh_size)
+    mesh.nodes[:, 2] -= 1.0
 
-    # Calculate uniform background field (force should be near-zero)
+    # Calculate background field
     h_external = np.zeros((mesh.num_elems, 3))
-    h_ext_mag: float = b_ext_mag / oersted.MU0
-    h_external[:, 2] = h_ext_mag
+    h_external[:, 2] = (1.0 / oersted.MU0) * (
+        b_ext_mag + b_ext_grad * mesh.centroids[:, 2]
+    )
 
     # Compute demag parameters: magnetization and internal H field
-    start = time.perf_counter()
-    M, Htotal = oersted.magnetization.demag_tet4(mesh, mat, h_external, nthreads_requested=solver.n_threads, theta=0.5, leaf_threshold=16)
-    elapsed = time.perf_counter() - start
-    print(f"Calculation time elapsed: {elapsed:.3f} sec")
+    M, Htotal = oersted.demag_solve(mesh, mat, h_external, solver)
 
-    # Compute external field at mesh face centroids
-    b_ext = np.zeros(mesh.surface.centroids.shape)
-    b_ext[:, 2] = b_ext_mag
-    offset = 1e-4  # small distance outward
-    eval_pts = mesh.surface.centroids + offset * mesh.surface.normals
-    # h_demag = oersted.magnetization.h_demag_tet4(mesh,M, eval_pts)
-    h_demag = oersted.biotsavart.h_mag(mesh, M, eval_pts, solver=OctreeSolver(0.5, 16, 0))
-    b_ext = oersted.MU0 * (b_ext / MU0 + h_demag)
-    forces = oersted.mesh.surface_forces(mesh.surface, b_ext, mat, solver)
+    # Compute external field at mesh nodes
+    h_ext_nodes = np.zeros((mesh.num_nodes, 3))
+    h_ext_nodes[:, 2] = (1.0 / oersted.MU0) * (
+        b_ext_mag + b_ext_grad * mesh.nodes[:, 2]
+    )
+    forces = oersted.kelvin_forces(mesh, M, h_ext_nodes)
 
-    total_force = np.sum(forces, axis=0)
-    print(np.sum(forces, axis=0))
+    # Compute analytical result: f = (m*grad)H
+    m = np.average(M, axis=0)[2] * np.sum(mesh.volumes)
+    analytical_force = m * b_ext_grad / oersted.MU0
 
-    print(f"Uniform field force: {np.sum(forces, axis=0)}")
-
-    assert np.linalg.norm(total_force) < 5.0  # small value
+    return np.sum(forces, axis=0), analytical_force
 
 
 def test_lorentz_forces():
@@ -57,13 +48,15 @@ def test_lorentz_forces():
     # Make the helmholz coil problem
     radius = 0.2
     total_current = 1e4
-    mesh_size: float = 10.0
+    mesh_size: float = 15.0
     mesh1 = oersted.mesh_step("tests/data/ring.stp", mesh_size, mesh_size)
     mesh1._nodes[:, 2] += 0.01
 
     mesh2 = oersted.mesh_step("tests/data/ring.stp", mesh_size, mesh_size)
     mesh2._nodes[:, 2] -= 0.01
-    print(f"Number of elements: {mesh1.num_elems}")
+
+    mesh = mesh1.append(mesh2)
+    print(f"Number of elements: {mesh.num_elems}")
 
     # Assign current densities to each mesh
     jmag: float = total_current / (0.02 * 0.02)
@@ -71,11 +64,12 @@ def test_lorentz_forces():
     phi = np.atan2(mesh1.centroids[:, 1], mesh1.centroids[:, 0])
     jdensity[:, 0] = -jmag * np.sin(phi)
     jdensity[:, 1] = jmag * np.cos(phi)
+    jdensity_total = np.vstack((jdensity, jdensity))
 
     solver = oersted.DirectSolver()
 
-    # Compute the analytical solution by checking that the vertical force is approximately
-    # equal to Fz = -2pi * R * Itotal * Br
+    # Compute the analytical solution by checking that the vertical force is
+    #   approximately equal to Fz = -2pi * R * Itotal * Br
     bavg = oersted.b_field(mesh1, jdensity, np.array([[radius, 0.0, -0.01]]))
     fz_expected = -float(2 * np.pi * radius * total_current * bavg[0, 0])
     print(f"fz expected: {fz_expected:.3f} N")
@@ -84,19 +78,75 @@ def test_lorentz_forces():
     bext = oersted.b_field(mesh1, jdensity, mesh2.surface.centroids, solver=solver)
     bext += oersted.b_field(mesh2, jdensity, mesh2.surface.centroids, solver=solver)
 
-    forces = oersted.mesh.surface_forces(mesh2.surface, bext, mat, solver)
+    forces = oersted.maxwell_forces(mesh2.surface, bext)
     total_force = np.sum(forces, axis=0)
-    print(total_force)
-    assert np.abs((fz_expected - total_force[2]) / fz_expected) < 1e-2
+    error = np.abs((fz_expected - total_force[2]) / fz_expected)
+    print(f"total force, lower: {total_force}")
+
+    print(f"error: {100 * error:.2f} %")
+    assert error < 1e-2
 
     # Check that the other components are small, like less than 1.0 N
     assert np.abs(total_force[0]) < 1.0
     assert np.abs(total_force[1]) < 1.0
 
+    # Compute the field at the lower coil's surface elements using both coils
+    bext = oersted.b_field(mesh1, jdensity, mesh1.surface.centroids, solver=solver)
+    bext += oersted.b_field(mesh2, jdensity, mesh1.surface.centroids, solver=solver)
+
+    # Use maxwell stress tensor
+    forces = oersted.maxwell_forces(mesh1.surface, bext)
+    total_force = np.sum(forces, axis=0)
+    error = np.abs((-fz_expected - total_force[2]) / fz_expected)
+    print(f"total force, upper: {total_force}")
+
+    print(f"error: {100 * error:.2f} %")
+    assert error < 1e-2
+
+    # Check that the other components are small, like less than 1.0 N
+    assert np.abs(total_force[0]) < 1.0
+    assert np.abs(total_force[1]) < 1.0
+
+    # Compute the bfield at element centroids
+    b_field_lower = oersted.b_field(
+        mesh, jdensity_total, mesh1.centroids, solver=solver
+    )
+    lorentz_force_lower = oersted.lorentz_forces(
+        mesh1, jdensity, b_field_lower, total=True
+    )
+
+    assert (
+        np.linalg.norm(lorentz_force_lower - total_force) / np.linalg.norm(total_force)
+        < 1e-2
+    )
+
 
 def main():
-    test_magnetization_forces()
     test_lorentz_forces()
+
+    # Magnetized sphere in uniform background field
+    b_ext_mag = 5.0
+    b_ext_grad = 0.0
+    total_force, analytical_force = calculate_magnetization_forces_on_sphere(
+        b_ext_mag, b_ext_grad
+    )
+    print(f"total:      {total_force}")
+    print(f"analytical: {analytical_force}")
+    assert np.abs(total_force[0]) < 1e-8
+    assert np.abs(total_force[1]) < 1e-8
+    assert np.abs(total_force[2] - analytical_force) < 1e-8  # expected value is zero
+
+    # Magnetized sphere in linear background field gradient
+    b_ext_mag = 5.0
+    b_ext_grad = 1.0
+    total_force, analytical_force = calculate_magnetization_forces_on_sphere(
+        b_ext_mag, b_ext_grad
+    )
+    print(f"total:      {total_force}")
+    print(f"analytical: {analytical_force}")
+    assert np.abs(total_force[0]) < 1e-8
+    assert np.abs(total_force[1]) < 1e-8
+    assert np.abs((total_force[2] - analytical_force) / analytical_force) < 1e-4
 
 
 if __name__ == "__main__":

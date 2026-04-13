@@ -2,7 +2,7 @@ from oersted.testing import make_helmholtz
 from oersted import b_field, OctreeSolver
 from time import perf_counter
 
-size = 15.0
+size = 0.015
 theta = 0.5
 nthreads = 0
 mesh, jdensity = make_helmholtz("tests/data/ring.stp", size)
