@@ -301,13 +301,15 @@ def plot_mesh(
                 scalar_bar_args={"title": "magnitude", "vertical": True},
             )
 
+        factor = 1.0
+        if vector_scale is not None:
+            factor = vector_scale
+
         if centroids is not None and vectors is not None:
             arrow_mesh = pv.PolyData(centroids)
             arrow_mesh["vectors"] = vectors
             arrow_mesh["magnitude"] = np.linalg.norm(vectors, axis=1)
-            arrows = arrow_mesh.glyph(
-                orient="vectors", scale=False, factor=vector_scale is not None
-            )
+            arrows = arrow_mesh.glyph(orient="vectors", scale=False, factor=factor)
             pl.add_mesh(
                 arrows, scalars="magnitude", cmap="viridis", show_scalar_bar=False
             )

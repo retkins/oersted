@@ -46,6 +46,7 @@ $$ H(r) = \frac{1}{4\pi} (\frac{3r(m\cdot r)}{|r|^5} - \frac{m}{|r|^3}) $$
 Finite element sources are treated by computing the exact Biot-Savart integral over the
 element. This means that the solution is *exact and analytic*, save for the following 
 sources of error:
+
 - When the edges of the element fail to adequately capture the surface of a geometry 
 (e.g. a coarse mesh of a curved surface)  
 - When the mesh discretization fails to properly resolve the current density distribution
@@ -54,6 +55,7 @@ with a conductor
 Otherwise, the calculation is numerically accurate to floating point precision.
 
 Notes:
+
 - Finite element integration is extremely computationally costly; use of the octree (hybrid)
 solver is recommended for meshes > 25K elements
 
@@ -71,8 +73,6 @@ $$ B(r) = - \frac{\mu_0}{4\pi} J \times \lbrace{ \sum_{i=1}^{N_f=4} \hat{n}_i (\
 $$ B(r) = - \frac{\mu_0}{4\pi} M \cdot \nabla \lbrace{ \sum_{i=1}^{N_f=4} \hat{n}_i (\sum_{j=1}^{N_e=3} y_P''[E(x''_{Q2} - x''_P, y''_P, z''_P) - E(x''_{Q1}, y''_P, z''_P)]) \rbrace}$$
 
 
-
-
 ## Force Calculation
 
 Forces on magnetic materials and current-carrying conductors are calculated according 
@@ -83,6 +83,7 @@ to the following equations:
 $$ \vec{F} = \vec{J} \times \vec{B} $$
 
 Notes:  
+
 - Lorentz forces are volumetric and therefore calculated on a per-element basis within 
 the mesh  
 
@@ -99,6 +100,7 @@ and can be integrated over a surface to find the total force acting on a body:
 $$ F = \int\int{S\cdot \hat{n} \space dA }$$
 
 Notes:  
+
 - `oersted`'s implementation of the Maxwell stress tensor is mesh-sensitive and 
 requires a refinement study. Be careful with the results.  
 - The Maxwell stress tensor is the most general-purpose of the force outputs and 
@@ -111,11 +113,13 @@ The Kelvin force is defined as:
 $$ F = (m \cdot \nabla)B $$
 
 Where:  
+
 - $m = M \cdot V$ is the magnetic moment  
 - $B$ is the magnetic flux density from all background sources, *excluding the body itself*   
 - $\nabla$ is the gradient operator  
 
 Notes:  
+
 - The Kelvin force is much less mesh-sensitive than the Maxwell stress tensor  
 - Fields should be computed on the body as if the body itself was not magnetized  
 - The Kelvin force cannot compute forces on current-carrying conductors with unity magnetic permeability. 

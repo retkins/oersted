@@ -81,3 +81,4 @@
 * Added Lorentz force calculations
 * Added docs: theory manual, references, math/latex support
 * Added example: magnetized sphere on axis of current-carrying ring
+* Added writeup of the example
