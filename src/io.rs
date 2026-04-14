@@ -31,6 +31,11 @@ impl CsvData {
         self._ncols
     }
 
+    /// Provide an immutable reference to the data
+    pub fn data(&self) -> &Vec<f64> {
+        &self._data
+    }
+
     /// Print the file data to stdout
     pub fn print(&self) {
         println!(

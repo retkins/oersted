@@ -23,12 +23,13 @@ python = ["dep:numpy", "dep:pyo3", "parallel"]
 
 [lib]
 name = "oersted" 
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [profile.release]
 opt-level = 3
 lto = "fat" 
 codegen-units = 1
+debug=true
 
 [profile.test]
 opt-level = 3

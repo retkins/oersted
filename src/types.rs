@@ -129,7 +129,7 @@ impl Mat3 {
 
     /// Compute the determinant of the matrix:
     ///
-    /// ```
+    /// ```text
     /// | a b c |
     /// | d e f | = aei + bfg + cdh - ceg - bdi - afh
     /// | g h i |

@@ -87,3 +87,4 @@
 * Added writeup of the example
 
 ## v0.2.1
+* Add a benchmark to call directly from Rust for profiling
