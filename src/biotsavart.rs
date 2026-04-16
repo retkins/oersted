@@ -13,7 +13,9 @@ use crate::{
 };
 use std::f64::consts::PI;
 
-/// Compute the magnetic field at target points (x, y, z) using a direct (O(N^2)) Biot-Savart summation
+const ONE_OVER_4PI: f64 = 1.0 / (4.0 * PI);
+
+/// Compute the magnetic field strength at target points (x, y, z) using a direct (O(N^2)) Biot-Savart summation
 ///
 /// This is the 'scalar' version of this function; i.e. it uses only one thread.
 ///
@@ -22,8 +24,8 @@ use std::f64::consts::PI;
 /// - `vol`:                     (m^3) volume of each source element
 /// - `jx`, `jy`, `jz`:          (A/m^2) current density vector of each source element
 /// - `x`, `y`, `z`:             (m) location of each target point
-/// - `bx`, `by`, `bz`:          (T) magnetic flux density at each target point
-pub fn bfield_direct(
+/// - `out`:          (T) magnetic field strength at each target point
+pub fn h_current_point_direct(
     src_pts: (&[f64], &[f64], &[f64]),
     src_vol: &[f64],
     src_jdensity: (&[f64], &[f64], &[f64]),
@@ -34,7 +36,7 @@ pub fn bfield_direct(
     let (centx, centy, centz) = src_pts;
     let (jx, jy, jz) = src_jdensity;
     let (x, y, z) = tgt_pts;
-    let (bx, by, bz) = out;
+    let (hx, hy, hz) = out;
     // TODO: length checks on input arrays
 
     // Outer loop over source elements
@@ -43,17 +45,17 @@ pub fn bfield_direct(
         let centxi: f64 = centx[i];
         let centyi: f64 = centy[i];
         let centzi: f64 = centz[i];
-        let vol_mu0_4pi: f64 = src_vol[i] * MU0_4PI;
+        let vol_over_4pi: f64 = src_vol[i] * ONE_OVER_4PI;
         let jxi = jx[i];
         let jyi = jy[i];
         let jzi = jz[i];
 
         // Inner loop over target points
-        for (((xj, yj), zj), ((bxj, byj), bzj)) in x
+        for (((xj, yj), zj), ((hxj, hyj), hzj)) in x
             .iter()
             .zip(y.iter())
             .zip(z.iter())
-            .zip(bx.iter_mut().zip(by.iter_mut()).zip(bz.iter_mut()))
+            .zip(hx.iter_mut().zip(hy.iter_mut()).zip(hz.iter_mut()))
         {
             // Vector from the element centroid to the target point: r'
             let rx: f64 = xj - centxi;
@@ -71,12 +73,12 @@ pub fn bfield_direct(
             // Hard-coded a tolerance of 0.1mm (TODO: update)
             let mask = if r > 1e-4 { 1.0 } else { 0.0 };
             let r3 = r * r * r + (1.0 - mask);
-            let constant = vol_mu0_4pi * mask / r3;
+            let constant = vol_over_4pi * mask / r3;
 
             // Accumulation
-            *bxj += constant * jxrpx;
-            *byj += constant * jxrpy;
-            *bzj += constant * jxrpz;
+            *hxj += constant * jxrpx;
+            *hyj += constant * jxrpy;
+            *hzj += constant * jxrpz;
         }
     }
     Ok(())

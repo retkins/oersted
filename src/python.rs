@@ -75,7 +75,7 @@ fn col_buffer(n: usize) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
 // ---
 
 #[pyfunction]
-fn b_current_point_direct<'py>(
+fn h_current_point_direct<'py>(
     py: Python<'py>,
     src_pts: PyReadonlyArray2<f64>,
     src_vol: PyReadonlyArray1<f64>,
@@ -91,7 +91,7 @@ fn b_current_point_direct<'py>(
     let (x, y, z): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_3cols(tgt_pts);
     let (mut bx, mut by, mut bz): (Vec<f64>, Vec<f64>, Vec<f64>) = col_buffer(n);
 
-    biotsavart_parallel::bfield_direct_parallel(
+    biotsavart_parallel::h_current_point_direct_parallel(
         (&centx, &centy, &centz),
         _src_vol,
         (&jx, &jy, &jz),
@@ -545,7 +545,7 @@ fn _mesh_surface_tets<'py>(
 
 #[pymodule]
 fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(b_current_point_direct, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(h_current_point_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_point_octree, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_tet4_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_tet4_octree, m.clone())?)?;

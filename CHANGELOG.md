@@ -88,3 +88,7 @@
 
 ## v0.2.1
 * Add a benchmark to call directly from Rust for profiling
+* Cleaned up docstrings
+* Fixed Rust code to provide `h_current_point_direct_parallel` instead of `bfield_direct`, 
+bringing it in-line with the tetrahedron functions
+* Organized docs and updated
