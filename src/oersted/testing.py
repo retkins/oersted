@@ -64,8 +64,15 @@ def smape(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
     """Compute the symmetric mean absolute percentage error of `measurement`
         against `baseline`
 
-    SMAPE is defined here:
-    https://en.wikipedia.org/wiki/Symmetric_mean_absolute_percentage_error
+    Args:
+        baseline: an (N,) array of data values to compute error against
+        measurement: an (N,) array of data values of which to compute error
+
+    Returns:
+        error associated with this comparison
+
+    !!! reference
+        <https://en.wikipedia.org/wiki/Symmetric_mean_absolute_percentage_error>
     """
 
     assert baseline.shape == measurement.shape
@@ -79,9 +86,28 @@ def smape(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
 
 
 def make_helmholtz(
-    filename: str, size: float, jmag: None | float = None, scale=1e-3
+    filename: str, size: float, jmag: None | float = None, scale: float = 1e-3
 ) -> tuple[Mesh, NDArray[float64]]:
-    """Make the helmholtz coil test problem"""
+    """Make the helmholtz coil test problem
+
+    The geometry of the problem is defined as:
+    * Two circular coils of radius R=0.2m
+    * Distance between the coils is d=0.2m
+    * Coils are aligned with the z-axis and symmetric about the xy plane
+    * Currents in the currents are flowing in the same direction
+
+    Args:
+        filename: STEP file containing the geometry of a single loop in the Helmholtz
+            pair
+        size: (m) mesh size
+        jmag: (A/m^2) magnitude of current density in each loop
+        scale: (mm/m) scale factor for meshing
+
+    Returns:
+        (mesh, current density) the volumetric mesh and current density vectors of the
+            Helmholtz coil pair
+
+    """
 
     ring_mesh: Mesh = Mesh.from_step(filename, size, 1e3, scale)
 
@@ -141,12 +167,29 @@ def bz_finite_length_solenoid(
 
 
 def bz_loop_axis(current: float, radius: float, z: float) -> float:
-    """Compute the vertical field Bz at the center of a current-carrying loop"""
+    """Compute the vertical field Bz at the center of a current-carrying loop
+
+    Args:
+        current: (A) total electrical current in the loop
+        radius: (m) centerline radius of the loop
+        z: (m) height of the target point along the loop axis
+
+    Returns:
+        (T) magnetic flux density, oriented along the loop axis
+    """
     return MU0 * current * (radius**2) / (2.0 * (z**2 + radius**2) ** 1.5)
 
 
 def dbzdz_loop_axis(current: float, radius: float, z: float) -> float:
     """Compute the vertical field gradient dBz/dz at the center of a
     current-carrying loop
+
+    Args:
+        current: (A) total electrical current in the loop
+        radius: (m) centerline radius of the loop
+        z: (m) height of the target point along the loop axis
+
+    Returns:
+        (T/m) magnetic flux density gradient, oriented along the loop axis
     """
     return -1.5 * MU0 * current * (radius**2) * z / (z**2 + radius**2) ** 2.5

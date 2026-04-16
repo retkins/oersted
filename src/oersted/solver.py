@@ -24,7 +24,8 @@ class Solver:
     def tol(self):
         """Convergence tolerance for iterative solves.
 
-        Note: this is typically a value of the H-field for magnetization calculations;
+        !!! note
+            This is typically a value of the H-field for magnetization calculations;
             the default value is roughly 1.3e-6 T, which may be more than necessary
             for most applications.
         """

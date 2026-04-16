@@ -9,7 +9,7 @@ Float64Array: TypeAlias = NDArray[float64]
 U32Array: TypeAlias = NDArray[uint32]
 Vector3: TypeAlias = tuple[float, float, float]
 
-def b_current_point_direct(
+def h_current_point_direct(
     src_pts: Float64Array,
     src_vol: Float64Array,
     src_jdensity: Float64Array,

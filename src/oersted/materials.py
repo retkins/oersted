@@ -38,6 +38,7 @@ class Material:
 @dataclass
 class FreeSpace(Material):
     def mu_r(self, h: float) -> float:
+        """Free space (vacuum) has a relative permeability of exactly 1.0"""
         return 1.0
 
 
@@ -53,9 +54,12 @@ class LinearMaterial(Material):
         self._mu_r = _mu_r
 
     def mu_r(self, h: float):
+        """Return the relative magnetic permeability"""
         return self._mu_r
 
     def to_mh_curve(self) -> tuple[NDArray[float64], NDArray[float64]]:
+        """Convert the B-H curve to an M-H curve, which is more convenient for
+        magnetization calculations"""
         h_values = array([0.0, 1e10])
         m_values = array([(self._mu_r - 1.0) * h for h in h_values])
         return (h_values, m_values)
@@ -71,6 +75,7 @@ class NonlinearMaterial(Material):
         self.curve = curve
 
     def mu_r(self, h: float) -> float:
+        """Return the relative magnetic permeability at a given H-field strength"""
         b: float = self.curve.lookup(h)
 
         if h != 0.0:
@@ -79,4 +84,6 @@ class NonlinearMaterial(Material):
             return 1.0
 
     def to_mh_curve(self) -> tuple[NDArray[float64], NDArray[float64]]:
+        """Convert the B-H curve to an M-H curve, which is more convenient for
+        magnetization calculations"""
         return (self.curve.h_values, self.curve.b_values / MU0 - self.curve.h_values)
