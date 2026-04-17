@@ -5,7 +5,9 @@ use std::num::NonZeroUsize;
 use std::thread::available_parallelism;
 
 use crate::{
-    biotsavart::{h_current_point_direct, h_mag_point_direct, h_mag_tet4_direct, hfield_direct_tet},
+    biotsavart::{
+        h_current_point_direct, h_mag_point_direct, h_mag_tet4_direct, hfield_direct_tet,
+    },
     types::Vec3,
 };
 

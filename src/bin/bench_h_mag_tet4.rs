@@ -6,9 +6,9 @@ use oersted::types::Vec3;
 // This is a test for only speed, not accuracy
 // The benchmark is the loop magnet STEP file meshed with 40mm elements
 //
-// Build with: 
+// Build with:
 //  cargo build --release --features=parallel --bin bench_h_mag_tet4
-// Run with: 
+// Run with:
 //  ./target/release/bench_h_mag_tet4
 // or using your favorite profiler
 fn main() {
@@ -58,7 +58,10 @@ fn main() {
     let interactions = n_elem * targets.0.len();
     let elapsed = start.elapsed();
     let throughput = (n_iter as f64) * (interactions as f64) / elapsed.as_secs_f64();
-    println!("\nRunning h_mag_tet4() benchmark for {} iterations...\n", n_iter);
+    println!(
+        "\nRunning h_mag_tet4() benchmark for {} iterations...\n",
+        n_iter
+    );
     println!("Sources: {}\nTargets: {}", n_elem, targets.0.len());
     println!("Interactions: {:.3e}", interactions);
     println!("Elapsed: {:?}", elapsed);
