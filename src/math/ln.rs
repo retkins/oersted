@@ -47,8 +47,9 @@ pub fn ln(x: f64) -> f64 {
     let v: f64 = (m - 1.0) / (m + 1.0);
     let v2: f64 = v * v;
 
-    // Series expansion of atanh()
-    let poly = v2.mul_add(
+    // Series expansion of atanh(v)/v using Horner's method:
+    // atanh(v)/v = 1 + 1/3 v^2 + 1/5 v^4 + 1/7 v^6 + 1/9 v^8 + 1/11 v^10 + 1/13 v^12 + 1/15 v^15
+    let poly: f64 = v2.mul_add(
         v2.mul_add(
             v2.mul_add(
                 v2.mul_add(
@@ -64,7 +65,28 @@ pub fn ln(x: f64) -> f64 {
         ),
         1.0,
     );
-    // ln(x) = ln(m) + e*ln(2)
+
+    // Use Estrin's method to improve pipelining of the fma instructions
+    // <https://en.wikipedia.org/wiki/Estrin's_scheme>
+    // This is functional but not implemented because it resulted in minimal
+    // if any performance gains
+    // let v4: f64 = v2 * v2; 
+    // let v8: f64 = v4 * v4; 
+
+    // // First level 
+    // let p0: f64 = ONE_THIRD.mul_add(v2, 1.0);
+    // let p1: f64 = ONE_SEVENTH.mul_add(v2, ONE_FIFTH);
+    // let p2: f64 = ONE_ELEVENTH.mul_add(v2, ONE_NINTH);
+    // let p3: f64 = ONE_FIFTEENTH.mul_add(v2, ONE_THIRTEENTH);
+
+    // // Second level 
+    // let p01 = p1.mul_add(v4, p0);
+    // let p23 = p3.mul_add(v4, p2);
+
+    // // Third level 
+    // let poly = p23.mul_add(v8, p01);
+
+    // ln(x) = ln(m) + e*ln(2) = 2 atanh(m) + e*ln(2)
     (2.0 * v * poly) + (e * LN_2)
 }
 
