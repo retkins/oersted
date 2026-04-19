@@ -95,3 +95,7 @@ bringing it in-line with the tetrahedron functions
 * Added two spheres example writeup
 * Fixed the point source singularity handling; now uses the volume & equivalent
 radius of a sphere
+* Point source current kernel now uses explicit `fma` instructions for minor perf
+and correctness wins
+* Applied a trig identity for `atan(x) - atan(y)` in edge integral to improve
+current source speed by 10-15% (on M1/MacOS)

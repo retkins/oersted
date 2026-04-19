@@ -10,3 +10,4 @@ __pycache__
 site/
 tests/fig/*
 working
+*.s

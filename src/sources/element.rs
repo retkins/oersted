@@ -43,19 +43,16 @@ pub fn edge_integral(x: f64, y: f64, z: f64) -> f64 {
     };
     let y_inv = 1.0 / y;
     let za = z.abs();
-    let za_over_y = if y.abs() > 1e-12 * r { za * y_inv } else { 0.0 };
-    let atan_1 = if y.abs() > 1e-12 * r && r > 1e-8 {
-        atan(x * za_over_y / r)
-    } else {
-        0.0
-    };
-    let atan_2 = if y.abs() > 1e-12 * r {
-        atan(x * y_inv)
-    } else {
-        0.0
-    };
 
-    ln_x_plus_r + za_over_y * (atan_1 - atan_2)
+    let atan_term = if y.abs() > 1e-12 * r && r > 1e-8 {
+        let za_over_y = if y.abs() > 1e-12 * r { za * y_inv } else { 0.0 };
+        let num = x * y * (za - r);
+        let den = x*x*za + y*y*r;
+        za_over_y * atan(num/den)
+    } 
+    else {0.0};
+
+    ln_x_plus_r + atan_term
 }
 
 /// Compute the gradient of the edge integral

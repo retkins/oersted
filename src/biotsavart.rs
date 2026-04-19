@@ -9,6 +9,7 @@ use crate::{
         tet4::{h_field_tet4, h_mag_tet4},
     },
     types::Vec3,
+    math::{mag3}
 };
 use std::f64::consts::PI;
 
@@ -62,12 +63,12 @@ pub fn h_current_point_direct(
             let rx: f64 = xj - centxi;
             let ry: f64 = yj - centyi;
             let rz: f64 = zj - centzi;
-            let r: f64 = (rx * rx + ry * ry + rz * rz).sqrt();
+            let r: f64 = mag3(rx, ry, rz);
 
             // J x r'
-            let jxrpx: f64 = jyi * rz - jzi * ry;
-            let jxrpy: f64 = jzi * rx - jxi * rz;
-            let jxrpz: f64 = jxi * ry - jyi * rx;
+            let jxrpx: f64 = jyi.mul_add(rz, -jzi*ry);
+            let jxrpy: f64 = jzi.mul_add(rx, -jxi*rz);
+            let jxrpz: f64 = jxi.mul_add(ry, -jyi*rx);
 
             // Null out the singularity around the element centroid
             // This avoids `jmp` instructions and enables auto-vectorization of the inner loop
@@ -75,9 +76,9 @@ pub fn h_current_point_direct(
             let constant = vol_over_4pi / r3.max(R3);
 
             // Accumulation
-            *hxj += constant * jxrpx;
-            *hyj += constant * jxrpy;
-            *hzj += constant * jxrpz;
+            *hxj = constant.mul_add(jxrpx, *hxj);
+            *hyj = constant.mul_add(jxrpy, *hyj);
+            *hzj = constant.mul_add(jxrpz, *hzj);
         }
     }
     Ok(())
