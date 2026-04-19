@@ -2,7 +2,7 @@
 
 Lightning-fast magnetic fields calculations
 
-[Documentation](https://retkins.github.io/oersted) | [Rust API](https://docs.rs/oersted/0.1.0/oersted/)
+[Documentation](https://retkins.github.io/oersted) | [Rust API](https://docs.rs/oersted/latest/oersted/)
 
 ![Timing Results](docs/figs/benchmarks.svg)
 
@@ -68,9 +68,9 @@ to a stable 1.0.0 release:
     - [ ] Convert octree methods from recursive to interaction lists (2-5x speed improvement)
 - v0.4.0 
     - [ ] BH curves for nonlinear magnetic materials
-    - [ ] GMRES for iterative solutions (reduce number of iterations required for convergence by >10x)
+    - [ ] GMRES iterative solver for high-permeability materials
 - v0.5.0 
-    - [ ] Multi-mesh/body/component models; multiple materials supported per model
+    - [ ] Multi-mesh/body/component/material models
 - v0.6.0
     - [ ] Steady-state conduction solver 
 - v0.7.0
@@ -82,8 +82,6 @@ to a stable 1.0.0 release:
 
 
 ## Background
-
-*This is a prototype code and not meant for production applications.*  
 
 The Biot-Savart Law is widely used to calculate the magnetic fields of electromagnets by summing the contributions of many small magnetic field sources at a large number of target points. This calculation, in its simplest form, has time complexity of `O(M x N)`, where `M` is the number of source points and `N` is the number of target points. 
 

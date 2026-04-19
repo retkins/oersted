@@ -93,3 +93,5 @@
 bringing it in-line with the tetrahedron functions
 * Organized and updated docs
 * Added two spheres example writeup
+* Fixed the point source singularity handling; now uses the volume & equivalent
+radius of a sphere
