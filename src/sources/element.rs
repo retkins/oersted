@@ -47,10 +47,11 @@ pub fn edge_integral(x: f64, y: f64, z: f64) -> f64 {
     let atan_term = if y.abs() > 1e-12 * r && r > 1e-8 {
         let za_over_y = if y.abs() > 1e-12 * r { za * y_inv } else { 0.0 };
         let num = x * y * (za - r);
-        let den = x*x*za + y*y*r;
-        za_over_y * atan(num/den)
-    } 
-    else {0.0};
+        let den = x * x * za + y * y * r;
+        za_over_y * atan(num / den)
+    } else {
+        0.0
+    };
 
     ln_x_plus_r + atan_term
 }

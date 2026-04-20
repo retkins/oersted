@@ -87,12 +87,12 @@ pub fn h_field_tet4(
 // Contains data necessary for coordinate transforms and computations on a tet4 edge
 #[derive(Copy, Clone)]
 struct Edge {
-    xhat: Vec3, 
-    yhat: Vec3, 
-    zhat: Vec3, 
-    ni: Vec3,       // normal
+    xhat: Vec3,
+    yhat: Vec3,
+    zhat: Vec3,
+    ni: Vec3, // normal
     origin: Vec3,
-    xpq2: f64,      // length of edge
+    xpq2: f64,                 // length of edge
     j_cross_ni_over_4pi: Vec3, // for the accumulator, precomputed
 }
 
@@ -105,17 +105,17 @@ impl Default for Edge {
             ni: Vec3::default(),
             origin: Vec3::default(),
             xpq2: 0.0,
-            j_cross_ni_over_4pi: Vec3::default()
+            j_cross_ni_over_4pi: Vec3::default(),
         }
     }
 }
 
 // Compute edge data for 12x edges on the element (3x per 4x faces)
-fn compute_edges(nodes: &[Vec3; 4], jdensity: &Vec3) -> [Edge;12] {
-    let mut edges: [Edge; 12] = [Edge::default();12];
+fn compute_edges(nodes: &[Vec3; 4], jdensity: &Vec3) -> [Edge; 12] {
+    let mut edges: [Edge; 12] = [Edge::default(); 12];
     for f in 0..4 {
         for e in 0..3 {
-            let idx: usize = f*3+e;
+            let idx: usize = f * 3 + e;
             // Node numbers from the map
             let n0: usize = NODE_MAP[f][e][0];
             let n1: usize = NODE_MAP[f][e][1];
@@ -127,9 +127,9 @@ fn compute_edges(nodes: &[Vec3; 4], jdensity: &Vec3) -> [Edge;12] {
             let xpq2 = (nodes[n1] - nodes[n0]).mag(); // length of the edge
 
             // Assignment
-            edges[idx].xhat = xhat; 
+            edges[idx].xhat = xhat;
             edges[idx].yhat = yhat;
-            edges[idx].zhat = zhat; 
+            edges[idx].zhat = zhat;
             edges[idx].ni = ni;
             edges[idx].origin = nodes[n1];
             edges[idx].xpq2 = xpq2;
@@ -142,7 +142,7 @@ fn compute_edges(nodes: &[Vec3; 4], jdensity: &Vec3) -> [Edge;12] {
 // Formulation of the above that has a simpler structure and reuses edge data
 // Does not auto-vectorize and is generally 30-40% slower
 //
-// TODO: vectorize inner loop to make this cleaner and faster than the existing 
+// TODO: vectorize inner loop to make this cleaner and faster than the existing
 // implementation
 pub fn _h_field_tet4(
     nodes: &[Vec3; 4],
@@ -150,11 +150,10 @@ pub fn _h_field_tet4(
     targets: (&[f64], &[f64], &[f64]),
     out: (&mut [f64], &mut [f64], &mut [f64]),
 ) {
-
     // Length checks
     let (x, y, z) = targets;
     let (hx, hy, hz) = out;
-    let n_targets = x.len(); 
+    let n_targets = x.len();
     assert_eq!(n_targets, y.len());
     assert_eq!(n_targets, z.len());
     assert_eq!(n_targets, hx.len());
@@ -162,7 +161,7 @@ pub fn _h_field_tet4(
     assert_eq!(n_targets, hz.len());
 
     // Precompute the edge data for all edges of this element
-    let edges: [Edge; 12] = compute_edges(&nodes, &jdensity);
+    let edges: [Edge; 12] = compute_edges(nodes, jdensity);
 
     // For each target point, compute all contributions from all edges
     for i in 0..n_targets {
@@ -170,10 +169,10 @@ pub fn _h_field_tet4(
         // let mut f: Vec3 = Vec3::default();    // Accumulator for this target
 
         for edge in edges {
-            let target_local: Vec3 = target - edge.origin; 
+            let target_local: Vec3 = target - edge.origin;
             let p: Vec3 = transform(&target_local, &edge.xhat, &edge.yhat, &edge.zhat);
             let s_face: f64 = p[1]
-                    * (edge_integral(edge.xpq2 - p[0], p[1], p[2]) - edge_integral(-p[0], p[1], p[2]));
+                * (edge_integral(edge.xpq2 - p[0], p[1], p[2]) - edge_integral(-p[0], p[1], p[2]));
             // f += edge.ni * s_face;
             hx[i] += edge.j_cross_ni_over_4pi[0] * s_face;
             hy[i] += edge.j_cross_ni_over_4pi[1] * s_face;
@@ -184,7 +183,6 @@ pub fn _h_field_tet4(
         // hx[i] += h[0];
         // hy[i] += h[1];
         // hz[i] += h[2];
-
     }
 }
 

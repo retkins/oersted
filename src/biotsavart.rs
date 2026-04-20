@@ -3,13 +3,13 @@
 #![allow(non_snake_case)]
 
 use crate::{
+    math::mag3,
     mesh::node_coords,
     sources::{
         point::h_point_dipole,
         tet4::{h_field_tet4, h_mag_tet4},
     },
     types::Vec3,
-    math::{mag3}
 };
 use std::f64::consts::PI;
 
@@ -66,9 +66,9 @@ pub fn h_current_point_direct(
             let r: f64 = mag3(rx, ry, rz);
 
             // J x r'
-            let jxrpx: f64 = jyi.mul_add(rz, -jzi*ry);
-            let jxrpy: f64 = jzi.mul_add(rx, -jxi*rz);
-            let jxrpz: f64 = jxi.mul_add(ry, -jyi*rx);
+            let jxrpx: f64 = jyi.mul_add(rz, -jzi * ry);
+            let jxrpy: f64 = jzi.mul_add(rx, -jxi * rz);
+            let jxrpz: f64 = jxi.mul_add(ry, -jyi * rx);
 
             // Null out the singularity around the element centroid
             // This avoids `jmp` instructions and enables auto-vectorization of the inner loop
@@ -83,7 +83,6 @@ pub fn h_current_point_direct(
     }
     Ok(())
 }
-
 
 /// Compute the magnetic field strength (H-field) at a set of target points, using a simplified dipole model
 /// of a magnetized finite element mesh as the source
