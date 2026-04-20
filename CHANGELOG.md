@@ -99,3 +99,5 @@ radius of a sphere
 and correctness wins
 * Applied a trig identity for `atan(x) - atan(y)` in edge integral to improve
 current source speed by 10-15% (on M1/MacOS)
+* Added a version of `h_field_tet4` that reuses edge data for all targets; however,
+does not auto-vectorize and is therefore 30-40% slower
