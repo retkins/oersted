@@ -17,6 +17,7 @@ import pathlib
 # ---
 
 solver = oersted.OctreeSolver(theta=0.25, leaf_threshold=1, alpha=0.9)
+solver = oersted.DirectSolver(alpha=0.9)
 current: float = 10e6  # (A)
 loop_radius: float = 1.0  # (m)
 sphere_radius: float = 0.05  # (m)
@@ -91,6 +92,7 @@ def mesh_convergence_study(
         fx.append(force[0])
         fy.append(force[1])
         fz.append(force[2])
+        print(f"Fz on sphere: {force[2]}")
 
     return fx, fy, fz
 
