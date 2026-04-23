@@ -91,7 +91,7 @@ def make_helmholtz(
     """Make the helmholtz coil test problem
 
     The geometry of the problem is defined as:
-    
+
     * Two circular coils of radius R=0.2m
     * Distance between the coils is d=0.2m
     * Coils are aligned with the z-axis and symmetric about the xy plane

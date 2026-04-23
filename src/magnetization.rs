@@ -50,6 +50,7 @@ pub fn magnetization(
     tol: f64,
     max_iterations: u32,
     alpha: f64,
+    edge: bool,
 ) -> ((Vec<f64>, Vec<f64>, Vec<f64>), Vec<Vec3>) {
     let n_elem: usize = connectivity.len();
     let n_centroids: usize = centroids.0.len();
@@ -74,6 +75,7 @@ pub fn magnetization(
                     centroids,
                     (&mut hx, &mut hy, &mut hz),
                     n_threads,
+                    edge,
                 )
                 .unwrap();
             }

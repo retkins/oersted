@@ -147,6 +147,7 @@ pub fn h_current_tet4_direct<'py>(
     jdensity: PyReadonlyArray2<f64>,
     tgts: PyReadonlyArray2<f64>,
     nthreads_requested: u32,
+    edge: bool,
 ) -> PyResult<BoundPyArray2f64<'py>> {
     // Transpose input data and allocate output arrays
     let n_tgts: usize = tgts.shape()[0];
@@ -160,6 +161,7 @@ pub fn h_current_tet4_direct<'py>(
         (&x, &y, &z),
         (&mut hx, &mut hy, &mut hz),
         nthreads_requested,
+        edge,
     );
 
     Ok(cols_to_pyarray(py, (hx, hy, hz)))
@@ -274,6 +276,7 @@ fn h_mag_tet4<'py>(
     leaf_threshold: u32,
     nthreads_requested: u32,
     use_octree: bool,
+    edge: bool,
 ) -> PyResult<BoundPyArray2f64<'py>> {
     let _nodes = to_vec3s(nodes.as_slice()?);
     let _connectivity = to_u32x4s(connectivity.as_slice()?);
@@ -306,6 +309,7 @@ fn h_mag_tet4<'py>(
             (&x, &y, &z),
             (&mut hx, &mut hy, &mut hz),
             nthreads_requested,
+            edge,
         );
     }
 
@@ -325,6 +329,7 @@ fn magnetization_tet4<'py>(
     leaf_threshold: u32,
     alpha: f64,
     nthreads_requested: u32,
+    edge: bool,
 ) -> PyResult<(Bound<'py, PyArray2<f64>>, Bound<'py, PyArray2<f64>>)> {
     let n_centroids = connectivity.shape()[0];
 
@@ -362,6 +367,7 @@ fn magnetization_tet4<'py>(
         tol,
         max_iterations,
         alpha,
+        edge,
     );
 
     let (mut mx, mut my, mut mz) = (

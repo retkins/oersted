@@ -7,7 +7,7 @@ use crate::{
     mesh::node_coords,
     sources::{
         point::h_point_dipole,
-        tet4::{h_field_tet4, h_mag_tet4},
+        tet4::{h_current_tet4, h_current_tet4_edge, h_mag_tet4, h_mag_tet4_edge},
     },
     types::Vec3,
 };
@@ -115,7 +115,7 @@ pub fn h_mag_point_direct(
 /// Compute the magnetic field using the direct tetrahedral integration method
 ///
 ///
-pub fn hfield_direct_tet(
+pub fn h_current_tet4_direct(
     nodes: &[f64],
     connectivity: &[u32],
     jdensity_flat: &[f64],
@@ -125,9 +125,11 @@ pub fn hfield_direct_tet(
     hx: &mut [f64],
     hy: &mut [f64],
     hz: &mut [f64],
+    edge: bool,
 ) -> Result<(), ()> {
     let n_targets = x.len();
-    let mut f = vec![Vec3([0.0; 3]); n_targets];
+
+    let mut f: Vec<Vec3> = vec![Vec3([0.0; 3]); n_targets];
 
     // TODO: length checks
     for (i, elem) in connectivity.chunks_exact(4).enumerate() {
@@ -143,8 +145,15 @@ pub fn hfield_direct_tet(
             jdensity_flat[3 * i + 1],
             jdensity_flat[3 * i + 2],
         ]);
-        h_field_tet4(&nodes, &jdensity, (x, y, z), &mut f, (hx, hy, hz));
-        f.fill(Vec3([0.0; 3]));
+        if edge {
+            h_current_tet4_edge(&nodes, &jdensity, (x, y, z), &mut f, (hx, hy, hz));
+        } else {
+            h_current_tet4(&nodes, &jdensity, (x, y, z), (hx, hy, hz));
+        }
+
+        if edge {
+            f.fill(Vec3([0.0; 3]));
+        }
     }
 
     Ok(())
@@ -157,6 +166,7 @@ pub fn h_mag_tet4_direct(
     mvectors: &[Vec3],
     targets: (&[f64], &[f64], &[f64]),
     out: (&mut [f64], &mut [f64], &mut [f64]),
+    edge: bool,
 ) -> Result<(), ()> {
     let n_targets = targets.0.len();
 
@@ -172,13 +182,17 @@ pub fn h_mag_tet4_direct(
             nodes[elem[3] as usize],
         ];
 
-        h_mag_tet4(
-            &elem_nodes,
-            &mvectors[i],
-            targets,
-            (&mut wx, &mut wy, &mut wz),
-            (out.0, out.1, out.2),
-        );
+        if edge {
+            h_mag_tet4_edge(
+                &elem_nodes,
+                &mvectors[i],
+                targets,
+                (&mut wx, &mut wy, &mut wz),
+                (out.0, out.1, out.2),
+            );
+        } else {
+            h_mag_tet4(&elem_nodes, &mvectors[i], targets, (out.0, out.1, out.2));
+        }
     }
 
     Ok(())

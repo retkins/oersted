@@ -49,6 +49,7 @@ def h_field(
     j_density: NDArray[float64],
     targets: NDArray[float64],
     solver: DirectSolver | OctreeSolver | None = None,
+    edge: bool = False,
 ) -> NDArray[float64]:
     """Compute the magnetic field strength at a collection of target points using
     a current-carrying source mesh.
@@ -100,7 +101,7 @@ def h_field(
         src_connectivity = ascontiguousarray(source.connectivity, dtype=uint32)
         if isinstance(solver, DirectSolver):
             return h_current_tet4_direct(
-                src_nodes, src_connectivity, j_density, tgt_pts, solver.n_threads
+                src_nodes, src_connectivity, j_density, tgt_pts, solver.n_threads, edge
             )
 
         elif isinstance(solver, OctreeSolver):
@@ -203,6 +204,7 @@ def h_mag(
                 leaf_threshold,
                 solver.n_threads,
                 use_octree,
+                solver.edge,
             )
 
         elif isinstance(solver, OctreeSolver):
@@ -216,6 +218,7 @@ def h_mag(
                 solver.leaf_threshold,
                 solver.n_threads,
                 use_octree,
+                solver.edge,
             )
 
         else:

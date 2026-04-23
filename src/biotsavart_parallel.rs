@@ -6,7 +6,7 @@ use std::thread::available_parallelism;
 
 use crate::{
     biotsavart::{
-        h_current_point_direct, h_mag_point_direct, h_mag_tet4_direct, hfield_direct_tet,
+        h_current_point_direct, h_current_tet4_direct, h_mag_point_direct, h_mag_tet4_direct,
     },
     types::Vec3,
 };
@@ -125,6 +125,7 @@ pub fn h_field_tet4_direct_parallel(
     tgt_pts: (&[f64], &[f64], &[f64]),
     out: (&mut [f64], &mut [f64], &mut [f64]),
     nthreads_requested: u32,
+    edge: bool,
 ) -> Result<(), ()> {
     // TODO: length checks
     let (x, y, z) = tgt_pts;
@@ -144,7 +145,18 @@ pub fn h_field_tet4_direct_parallel(
     (_x, _y, _z, _hx, _hy, _hz)
         .into_par_iter()
         .try_for_each(|(_x, _y, _z, _hx, _hy, _hz)| {
-            hfield_direct_tet(nodes, connectivity, jdensity, _x, _y, _z, _hx, _hy, _hz)
+            h_current_tet4_direct(
+                nodes,
+                connectivity,
+                jdensity,
+                _x,
+                _y,
+                _z,
+                _hx,
+                _hy,
+                _hz,
+                edge,
+            )
         })?;
 
     Ok(())
@@ -157,6 +169,7 @@ pub fn h_mag_tet4_direct_parallel(
     targets: (&[f64], &[f64], &[f64]),
     out: (&mut [f64], &mut [f64], &mut [f64]),
     nthreads_requested: u32,
+    edge: bool,
 ) -> Result<(), ()> {
     // TODO: length checks
     let n: usize = targets.0.len();
@@ -176,7 +189,14 @@ pub fn h_mag_tet4_direct_parallel(
     (_x, _y, _z, _hx, _hy, _hz)
         .into_par_iter()
         .try_for_each(|(_x, _y, _z, _hx, _hy, _hz)| {
-            h_mag_tet4_direct(nodes, connectivity, mvectors, (_x, _y, _z), (_hx, _hy, _hz))
+            h_mag_tet4_direct(
+                nodes,
+                connectivity,
+                mvectors,
+                (_x, _y, _z),
+                (_hx, _hy, _hz),
+                edge,
+            )
         })?;
     Ok(())
 }

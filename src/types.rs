@@ -111,6 +111,13 @@ impl std::ops::DivAssign<f64> for Vec3 {
     }
 }
 
+impl std::ops::Neg for Vec3 {
+    type Output = Vec3;
+    fn neg(self) -> Self::Output {
+        Self([-self[0], -self[1], -self[2]])
+    }
+}
+
 /// A row-major 3x3 matrix
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(transparent)]

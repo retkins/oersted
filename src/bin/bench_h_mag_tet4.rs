@@ -45,6 +45,7 @@ fn main() {
 
     let start = std::time::Instant::now();
     let n_iter = 5;
+    let edge: bool = false;
     for _ in 0..n_iter {
         h_mag_tet4_direct(
             &nodes,
@@ -52,6 +53,7 @@ fn main() {
             &mvectors,
             (&targets.0, &targets.1, &targets.2),
             (&mut out.0, &mut out.1, &mut out.2),
+            edge,
         )
         .unwrap();
     }

@@ -101,3 +101,8 @@ and correctness wins
 current source speed by 10-15% (on M1/MacOS)
 * Added a version of `h_field_tet4` that reuses edge data for all targets; however,
 does not auto-vectorize and is therefore 30-40% slower
+* Added solid angle formulations for `h_mag_tet4()` and `h_current_tet4()`. The version
+for magnetization is about 2-2.5x faster than the edge based formulation, which puts it
+near parity in throughput to the current source function. The new formulation for 
+current source is not measurably faster than the edge-integral version, but it is 
+more consise and shares a lot of the same machinery with the magnetization source.
