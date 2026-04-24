@@ -61,3 +61,13 @@ ax.set_xscale("log")
 ax.set_yscale("log")
 
 fig.savefig("benchmarks/figs/h_mag_benchmarks.svg")
+
+# Print benchmarking results to command line as well
+print("Benchmarking Results - Magnetization Sources")
+for key in results:
+    print(f"\nMethod: {key}\n---")
+    print("Interactions | Throughput (int./s)")
+    interactions = results[key]["interactions"]
+    throughput = results[key]["throughputs"]
+    for i in range(0, len(result["interactions"])):
+        print(f"{interactions[i]} | {throughput[i]:.3e}")

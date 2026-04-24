@@ -5,10 +5,7 @@
 use crate::{
     math::mag3,
     mesh::node_coords,
-    sources::{
-        point::h_point_dipole,
-        tet4::{h_current_tet4, h_current_tet4_edge, h_mag_tet4, h_mag_tet4_edge},
-    },
+    sources::{h_current_tet4, h_current_tet4_edge, h_mag_tet4, h_mag_tet4_edge, h_point_dipole},
     types::Vec3,
 };
 use std::f64::consts::PI;

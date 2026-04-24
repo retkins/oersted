@@ -106,3 +106,5 @@ for magnetization is about 2-2.5x faster than the edge based formulation, which 
 near parity in throughput to the current source function. The new formulation for 
 current source is not measurably faster than the edge-integral version, but it is 
 more consise and shares a lot of the same machinery with the magnetization source.
+* Updated solid angle formulations to Fabbri (2008) terminology; moved edge-based (Bottura) 
+integrals to their own module

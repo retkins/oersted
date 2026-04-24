@@ -43,8 +43,8 @@ $$ H(r) = \frac{1}{4\pi} (\frac{3r(m\cdot r)}{|r|^5} - \frac{m}{|r|^3}) $$
 
 ### Finite Element Sources
 
-Finite element sources are treated by computing the exact Biot-Savart integral over the
-element. This means that the solution is *exact and analytic*, save for the following 
+Finite element sources are treated by computing the analytic Biot-Savart integral over the
+element. This means that the solution is *exact*, save for the following 
 sources of error:
 
 - When the edges of the element fail to adequately capture the surface of a geometry 
@@ -57,20 +57,12 @@ Otherwise, the calculation is numerically accurate to floating point precision.
 Notes:
 
 - Finite element integration is extremely computationally costly; use of the octree (hybrid)
-solver is recommended for meshes > 25K elements
+solver is recommended for meshes > 100K elements
 
-#### Current Density Source
-
-This library follows the procedures described in Ref [3](references.md), equations 54 and 52. First, the 
+This library follows the procedures described in Ref [5 & 6](references.md). First, the 
 volume integral is decomposed into a summation of surface integrals. Each of these surface
 integrals is then decomposed into a summation of line integrals. 
 
-$$ B(r) = - \frac{\mu_0}{4\pi} J \times \lbrace{ \sum_{i=1}^{N_f=4} \hat{n}_i (\sum_{j=1}^{N_e=3} y_P''[E(x''_{Q2} - x''_P, y''_P, z''_P) - E(x''_{Q1}, y''_P, z''_P)]) \rbrace}$$
-
-
-#### Magnetization Source
-
-$$ B(r) = - \frac{\mu_0}{4\pi} M \cdot \nabla \lbrace{ \sum_{i=1}^{N_f=4} \hat{n}_i (\sum_{j=1}^{N_e=3} y_P''[E(x''_{Q2} - x''_P, y''_P, z''_P) - E(x''_{Q1}, y''_P, z''_P)]) \rbrace}$$
 
 
 ## Force Calculation
