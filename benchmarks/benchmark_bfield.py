@@ -11,6 +11,7 @@ leaf_threshold = 1
 methods = ["point", "tet4"]
 solvers = ["direct", "octree"]
 mesh_sizes = [20e-3, 15e-3, 10e-3, 8e-3, 5e-3]
+mesh_sizes = np.linspace(4e-3, 20e-3, 10)
 
 results = {}
 
@@ -27,7 +28,7 @@ for solver in solvers:
                 mesh = mesh.to_centroid_mesh()
 
             use_solver = (
-                oersted.DirectSolver()
+                oersted.DirectSolver(edge=True)
                 if solver == "direct"
                 else oersted.OctreeSolver(theta=theta, leaf_threshold=leaf_threshold)
             )
@@ -60,3 +61,13 @@ ax.set_xscale("log")
 ax.set_yscale("log")
 
 fig.savefig("benchmarks/figs/b_field_benchmarks.svg")
+
+# Print benchmarking results to command line as well
+print("Benchmarking Results - Current Sources")
+for key in results:
+    print(f"\nMethod: {key}\n---")
+    print("Interactions | Throughput (int./s)")
+    interactions = results[key]["interactions"]
+    throughput = results[key]["throughputs"]
+    for i in range(0, len(result["interactions"])):
+        print(f"{interactions[i]} | {throughput[i]:.3e}")

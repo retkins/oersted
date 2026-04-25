@@ -29,14 +29,17 @@ class CentroidMesh:
 
     @property
     def num_elems(self) -> int:
+        """Return the number of elements in the mesh"""
         return self._centroids.shape[0]
 
     @property
-    def centroids(self):
+    def centroids(self) -> NDArray[float64]:
+        """Return an (N,3) array of the centroid position of each element in the mesh"""
         return self._centroids
 
     @property
-    def volumes(self):
+    def volumes(self) -> NDArray[float64]:
+        """Return an (N,) array of the volume of each element"""
         return self._volumes
 
 
@@ -187,7 +190,8 @@ class Mesh:
         if self._edges is None:
             # self._edges = _mesh_edges(self.nodes, self.connectivity)
             pass
-        return self._edges
+        raise NotImplementedError
+        # return self._edges
 
     @property
     def faces(self):
@@ -223,7 +227,8 @@ class Mesh:
         return self._volumes
 
     @property
-    def surface(self):
+    def surface(self) -> SurfaceMesh:
+        """Return the surface mesh associated with the volumetric mesh"""
         if self._surface is None:
             faces = mesh_surface_faces(ascontiguousarray(self.connectivity))
             self._surface = SurfaceMesh(self.nodes.copy(), faces)
@@ -244,10 +249,20 @@ class Mesh:
     ) -> Mesh:
         """Create a Mesh from a step file
 
-        Note: we need mesh dimensions in meters, but gmsh typically works in mm. This
-            function scales the input mesh size *up* to be in mm, and scales the gmsh
-            resultant *down* to be in m. Adjust these parameters if the mesh isn't
+        !!! note
+            `oersted` needs mesh dimensions in meters, but gmsh typically works in mm.
+            This function scales the input mesh size *up* to be in mm, and scales the
+            gmsh resultant *down* to be in m. Adjust these parameters if the mesh isn't
             working properly.
+
+        Args:
+            filename: STEP file to mesh
+            mesh_size: (m) nominal element size to use for the mesh
+            mesh_size_scale: (mm/m) adjust if the model units are in mm and not m
+            part_size_scale: (m/mm) adjust if the mesh units are in mm and not m
+
+        Returns:
+            volumetric tet4 mesh of the STEP file
         """
         return mesh_step(
             filename,
@@ -277,7 +292,20 @@ def plot_mesh(
 ):
     """Make a 3D plot of the mesh
 
-    Note: this function requires `pyvista`: `pip install pyvista`.
+    !!! note
+        This function requires `pyvista`: `pip install pyvista`.
+
+    Args:
+        mesh: the tet4 mesh to plot
+        filename: if this argument is passed, save to file only
+        scalars: (Ne,) array of scalar values to color the mesh, defined at element
+            centroids
+        centroids: (N,3) array of vector positions for plotting vector values on the
+            mesh
+        vectors: (N,3) array of vector magnitudes for plotting vector values on the
+            mesh; must be same length as `centroids`
+        vector_scale: adjust for setting vector length
+        transparency: set to `True` to plot a wireframe of the mesh
     """
 
     try:
@@ -306,6 +334,7 @@ def plot_mesh(
             factor = vector_scale
 
         if centroids is not None and vectors is not None:
+            assert centroids.shape == vectors.shape
             arrow_mesh = pv.PolyData(centroids)
             arrow_mesh["vectors"] = vectors
             arrow_mesh["magnitude"] = np.linalg.norm(vectors, axis=1)
@@ -324,8 +353,23 @@ def plot_mesh(
         print("Please install before continuing: `pip install pyvista")
 
 
-def mesh_step(infile: str, max_size: float, min_size: float = 0.0, scale=1e-3) -> Mesh:
-    """Mesh a step file using gmsh"""
+def mesh_step(
+    infile: str, max_size: float, min_size: float = 0.0, scale: float = 1e-3
+) -> Mesh:
+    """Mesh a step file using gmsh
+
+    !!! note
+        This requires `gmsh` to be installed: `pip install gmsh`
+
+    Args:
+        infile: path to the STEP file to mesh
+        max_size: (m) maximum allowable element size
+        min_size: (m) minimum allowable element size
+        scale: (mm/m) adjust if the part or mesh is scaled incorrectly
+
+    Returns:
+        a tet4 (volumetric) mesh of the component
+    """
 
     mshfile = infile.split(".")[0] + ".msh"
     nodes: NDArray[float64]

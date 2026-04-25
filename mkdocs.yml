@@ -16,7 +16,8 @@ nav:
   - "About oersted": index.md
   - "Getting Started": getting-started.md
   - "Examples": 
-    - "Force on a Magnetized Sphere": magnetized-sphere.md
+    - "Force on a Magnetized Sphere": examples/magnetized-sphere.md
+    - "Two Magnetized Spheres": examples/two-spheres.md
   - "Theory Reference": theory-reference.md
   - "Python API": python-api.md
   - "Rust API": "https://docs.rs/oersted/latest/oersted/"
@@ -25,6 +26,7 @@ nav:
 markdown_extensions:
   - pymdownx.arithmatex:
       generic: true
+  - admonition
 
 extra_javascript:
   - javascripts/katex.js

@@ -3,7 +3,9 @@ use crate::{
     morton,
     octree::BoundingBox,
     octree::{CurrentSources, DipoleSources, HFieldSolver, Sources},
-    sources::{h_field_tet4, h_mag_tet4, h_point, h_point_dipole},
+    sources::{
+        h_current_tet4, h_current_tet4_edge, h_mag_tet4, h_mag_tet4_edge, h_point, h_point_dipole,
+    },
     types::{Mat3, Vec3},
 };
 
@@ -107,7 +109,7 @@ impl HFieldSolver for CurrentSources<TetSources> {
                 self.0.nodes[elem[2] as usize],
                 self.0.nodes[elem[3] as usize],
             ];
-            h_field_tet4(
+            h_current_tet4_edge(
                 &nodes,
                 &self.0.source_vectors[i],
                 (&[target[0]], &[target[1]], &[target[2]]),
@@ -138,7 +140,7 @@ impl HFieldSolver for DipoleSources<TetSources> {
                 self.0.nodes[elem[2] as usize],
                 self.0.nodes[elem[3] as usize],
             ];
-            h_mag_tet4(
+            h_mag_tet4_edge(
                 &nodes,
                 &self.0.source_vectors[i],
                 (&[target[0]], &[target[1]], &[target[2]]),

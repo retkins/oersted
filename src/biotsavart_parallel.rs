@@ -5,7 +5,9 @@ use std::num::NonZeroUsize;
 use std::thread::available_parallelism;
 
 use crate::{
-    biotsavart::{bfield_direct, h_mag_point_direct, h_mag_tet4_direct, hfield_direct_tet},
+    biotsavart::{
+        h_current_point_direct, h_current_tet4_direct, h_mag_point_direct, h_mag_tet4_direct,
+    },
     types::Vec3,
 };
 
@@ -20,7 +22,7 @@ pub fn get_nthreads(nthreads_requested: u32) -> usize {
     nthreads
 }
 
-/// Calculate magnetic flux density using direct biot-savart law integration
+/// Calculate magnetic field strength using direct biot-savart law integration
 ///
 /// This version of the function uses a user-specified number of threads
 ///
@@ -29,9 +31,9 @@ pub fn get_nthreads(nthreads_requested: u32) -> usize {
 /// - `src_vol`:                     (m^3) volume of each source element
 /// - `src_jdensity`:          (A/m^2) current density vector of each source element
 /// - `tgt_pts`:             (m) location of each target point
-/// - `out`:          (T) magnetic flux density at each target point
+/// - `out`:          (T) magnetic field strength at each target point
 /// - `nthreads_requested`:      how many OS threads the calculation should run on
-pub fn bfield_direct_parallel(
+pub fn h_current_point_direct_parallel(
     src_pts: (&[f64], &[f64], &[f64]),
     src_vol: &[f64],
     src_jdensity: (&[f64], &[f64], &[f64]),
@@ -62,7 +64,7 @@ pub fn bfield_direct_parallel(
     (_x, _y, _z, _bx, _by, _bz)
         .into_par_iter()
         .try_for_each(|(_x, _y, _z, _bx, _by, _bz)| {
-            bfield_direct(
+            h_current_point_direct(
                 (centx, centy, centz),
                 src_vol,
                 (jx, jy, jz),
@@ -123,6 +125,7 @@ pub fn h_field_tet4_direct_parallel(
     tgt_pts: (&[f64], &[f64], &[f64]),
     out: (&mut [f64], &mut [f64], &mut [f64]),
     nthreads_requested: u32,
+    edge: bool,
 ) -> Result<(), ()> {
     // TODO: length checks
     let (x, y, z) = tgt_pts;
@@ -142,7 +145,18 @@ pub fn h_field_tet4_direct_parallel(
     (_x, _y, _z, _hx, _hy, _hz)
         .into_par_iter()
         .try_for_each(|(_x, _y, _z, _hx, _hy, _hz)| {
-            hfield_direct_tet(nodes, connectivity, jdensity, _x, _y, _z, _hx, _hy, _hz)
+            h_current_tet4_direct(
+                nodes,
+                connectivity,
+                jdensity,
+                _x,
+                _y,
+                _z,
+                _hx,
+                _hy,
+                _hz,
+                edge,
+            )
         })?;
 
     Ok(())
@@ -155,6 +169,7 @@ pub fn h_mag_tet4_direct_parallel(
     targets: (&[f64], &[f64], &[f64]),
     out: (&mut [f64], &mut [f64], &mut [f64]),
     nthreads_requested: u32,
+    edge: bool,
 ) -> Result<(), ()> {
     // TODO: length checks
     let n: usize = targets.0.len();
@@ -174,7 +189,14 @@ pub fn h_mag_tet4_direct_parallel(
     (_x, _y, _z, _hx, _hy, _hz)
         .into_par_iter()
         .try_for_each(|(_x, _y, _z, _hx, _hy, _hz)| {
-            h_mag_tet4_direct(nodes, connectivity, mvectors, (_x, _y, _z), (_hx, _hy, _hz))
+            h_mag_tet4_direct(
+                nodes,
+                connectivity,
+                mvectors,
+                (_x, _y, _z),
+                (_hx, _hy, _hz),
+                edge,
+            )
         })?;
     Ok(())
 }

@@ -57,7 +57,7 @@ where
 }
 
 /// Take the vector magnitude (norm) of a slice
-#[inline(always)]
+#[inline]
 pub fn mag(slice: &[f64]) -> f64 {
     let mut sumsq: f64 = 0.0;
     for &value in slice.iter() {
@@ -69,7 +69,7 @@ pub fn mag(slice: &[f64]) -> f64 {
 /// Magnitude of a 3-length vector given separate coordinates
 ///
 /// This uses explicitly fused multiply-add instructions
-#[inline(always)]
+#[inline]
 pub fn mag3(x: f64, y: f64, z: f64) -> f64 {
     x.mul_add(x, y.mul_add(y, z * z)).sqrt()
 }

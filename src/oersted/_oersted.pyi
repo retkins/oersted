@@ -9,7 +9,7 @@ Float64Array: TypeAlias = NDArray[float64]
 U32Array: TypeAlias = NDArray[uint32]
 Vector3: TypeAlias = tuple[float, float, float]
 
-def b_current_point_direct(
+def h_current_point_direct(
     src_pts: Float64Array,
     src_vol: Float64Array,
     src_jdensity: Float64Array,
@@ -31,6 +31,7 @@ def h_current_tet4_direct(
     jdensity: Float64Array,
     tgt_pts: Float64Array,
     nthreads_requested: int,
+    edge: bool,
 ) -> Float64Array: ...
 def h_current_tet4_octree(
     nodes: Float64Array,
@@ -60,6 +61,7 @@ def h_mag_tet4(
     leaf_threshold: uint32,
     nthreads_requested: int,
     use_octree: bool,
+    edge: bool,
 ) -> Float64Array: ...
 def magnetization_tet4(
     nodes: Float64Array,
@@ -72,6 +74,7 @@ def magnetization_tet4(
     leaf_threshold: uint32,
     alpha: float,
     nthreads_requested: int,
+    edge: bool,
 ) -> tuple[Float64Array, Float64Array]: ...
 def mesh_volumes(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...
 def mesh_centroids(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...

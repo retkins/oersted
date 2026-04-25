@@ -9,3 +9,5 @@ __pycache__
 *.msh
 site/
 tests/fig/*
+working
+*.s

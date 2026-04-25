@@ -9,6 +9,7 @@ class Solver:
     _max_iterations: int
     _tol: float
     _alpha: float
+    _edge: bool
 
     @property
     def n_threads(self):
@@ -24,7 +25,8 @@ class Solver:
     def tol(self):
         """Convergence tolerance for iterative solves.
 
-        Note: this is typically a value of the H-field for magnetization calculations;
+        !!! note
+            This is typically a value of the H-field for magnetization calculations;
             the default value is roughly 1.3e-6 T, which may be more than necessary
             for most applications.
         """
@@ -35,16 +37,24 @@ class Solver:
         """Under-relaxation factor for iterative solves."""
         return self._alpha
 
+    @property
+    def edge(self):
+        """Whether or not the edge-based element calculation should be used"""
+        return self._edge
+
 
 class DirectSolver(Solver):
     """Controls solver options for using the direct (full integration)
     solution routines"""
 
-    def __init__(self, n_threads: int = 0, max_iterations=100, tol=1.0, alpha=0.5):
+    def __init__(
+        self, n_threads: int = 0, max_iterations=100, tol=1.0, alpha=0.5, edge=False
+    ):
         self._n_threads = n_threads
         self._max_iterations = max_iterations
         self._tol = tol
         self._alpha = alpha
+        self._edge = edge
 
 
 class OctreeSolver(Solver):
@@ -61,6 +71,7 @@ class OctreeSolver(Solver):
         max_iterations=100,
         tol=1.0,
         alpha=0.5,
+        edge=False,
     ):
         self._theta = theta
         self._leaf_threshold = leaf_threshold
@@ -68,6 +79,7 @@ class OctreeSolver(Solver):
         self._max_iterations = max_iterations
         self._tol = tol
         self._alpha = alpha
+        self._edge = False
 
     @property
     def theta(self):

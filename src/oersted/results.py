@@ -10,9 +10,10 @@ def maxwell_forces(mesh: SurfaceMesh, b_field: NDArray[float64]) -> NDArray[floa
     """Compute the maxwell stress tensor and determine the force vector acting on each
     surface face centroid. Returns an (N,3) array of the force vector
 
-    Note: this form of the Maxwell stress tensor is numerically unstable, especially in
-    the presence of large background fields. Perform a mesh convergence study to
-    identify an appropriate mesh.
+    !!! warning
+        This form of the Maxwell stress tensor is numerically unstable, especially in
+        the presence of large background fields. Perform a mesh convergence study to
+        identify an appropriate mesh.
 
     Args:
         mesh: a surface mesh on which to integrate the Maxwell stress tensor
@@ -33,7 +34,8 @@ def kelvin_forces(
 ) -> NDArray[float64]:
     """Compute the Kelvin forces acting on a magnetized mesh.
 
-    Note: the h_field must be calculated at the element nodes, while the magnetization
+    !!! note
+        The h_field must be calculated at the element nodes, while the magnetization
         field must be known at the centroids.
 
     Args:
@@ -62,7 +64,8 @@ def kelvin_force_density(
 ) -> NDArray[float64]:
     """Compute the Kelvin force density acting on a magnetized mesh.
 
-    Note: the h_field must be calculated at the element nodes, while the magnetization
+    !!! note
+        The h_field must be calculated at the element nodes, while the magnetization
         field must be known at the centroids.
 
     Args:

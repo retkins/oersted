@@ -1,278 +1,267 @@
 use crate::{
-    sources::element::{edge_csys, edge_integral, edge_integral_gradient, transform},
-    types::{Mat3, Vec3},
+    math::{atan2, ln},
+    types::Vec3,
 };
 
 use std::f64::consts::PI;
+const INV_4PI: f64 = 1.0 / (4.0 * PI);
 
 // Refer to the gmsh or ansys documentation for node numbering on a tet element:
-// https://gmsh.info/doc/texinfo/gmsh.html#Node-ordering
-// https://ansyshelp.ansys.com/public/account/secured?returnurl=//////////Views/Secured/corp/v242/en/ans_elem/Hlp_E_SOLID236.html
-const NODE_MAP: [[[usize; 3]; 3]; 4] = [
-    [[0, 2, 1], [2, 1, 0], [1, 0, 2]], // back face
-    [[0, 3, 2], [3, 2, 0], [2, 0, 3]], // left face
-    [[1, 2, 3], [2, 3, 1], [3, 1, 2]], // right face
-    [[0, 1, 3], [1, 3, 0], [3, 0, 1]], // bottom face
-];
+// <https://gmsh.info/doc/texinfo/gmsh.html#Node-ordering>
+// <https://ansyshelp.ansys.com/public/account/secured?returnurl=//////////Views/Secured/corp/v242/en/ans_elem/Hlp_E_SOLID236.html>
+const NODE_WINDING: [(usize, usize, usize); 4] = [(0, 2, 1), (0, 3, 2), (1, 2, 3), (0, 1, 3)];
 
-const INV_4PI: f64 = 1.0 / (4.0 * PI);
+// Return the node indices associated with a given triangular face, using the proper
+// winding order: the perimeter of the face is traversed according to the right hand
+// rule, with the normal facing away from the center of the element.
+fn face_nodes(f: usize) -> (usize, usize, usize) {
+    NODE_WINDING[f]
+}
+
+// Per-face data used for solid angle - based calculations
+#[derive(Clone, Copy, Default)]
+struct Face {
+    // Vertices of the face
+    a: Vec3,
+    b: Vec3,
+    c: Vec3,
+
+    // Unit normal vector to the face
+    n_hat: Vec3,
+
+    // Unit vector along the edge
+    e_hat: [Vec3; 3], // AB, BC, CA
+
+    // Unit vector in the plane of the face (pointing to interior)
+    t_hat: [Vec3; 3],
+}
+
+// Compute the unit vectors associated with a face given vertice A, B, C
+// Vertices are given in counter-clockwise direction according to the right hand
+// rule, to produce an outward facing normal vector
+fn precompute_face(a: &Vec3, b: &Vec3, c: &Vec3) -> Face {
+    let mut face: Face = Face {
+        a: *a,
+        b: *b,
+        c: *c,
+        ..Default::default()
+    };
+
+    // Face unit normal
+    face.n_hat = (*b - *a).cross(&(*c - *a));
+    face.n_hat /= face.n_hat.mag();
+
+    for (e, (p, q)) in [(a, b), (b, c), (c, a)].into_iter().enumerate() {
+        // Unit vector along edge
+        let mut e_hat = *q - *p;
+        e_hat /= e_hat.mag();
+
+        // Unit vector in plane, perpendicular to edge and normal
+        let mut t_hat = face.n_hat.cross(&e_hat);
+        t_hat /= t_hat.mag();
+
+        face.e_hat[e] = e_hat;
+        face.t_hat[e] = t_hat;
+    }
+    face
+}
+
+// Compute the Van Osterom and Strackee solid angle
+//
+// A, B, C are the vertices of a triangle in 3D space
+// r is the position vector of another pt in 3D space at which to evaluate the
+// solid angle
+//
+// # Reference
+// A. Van Oosterom and J. Strackee, "The Solid Angle of a Plane Triangle,"
+// in IEEE Transactions on Biomedical Engineering,
+// vol. BME-30, no. 2, pp. 125-126, Feb. 1983,
+// doi: <10.1109/TBME.1983.325207>.
+#[allow(non_snake_case)]
+#[inline]
+fn solid_angle(A: &Vec3, B: &Vec3, C: &Vec3, r: &Vec3) -> f64 {
+    let a: Vec3 = *A - *r;
+    let b: Vec3 = *B - *r;
+    let c: Vec3 = *C - *r;
+    let a_mag: f64 = a.mag();
+    let b_mag: f64 = b.mag();
+    let c_mag: f64 = c.mag();
+
+    let num = a.dot(&b.cross(&c));
+    let den1 = a_mag * b_mag * c_mag;
+    let den2 = a.dot(&b) * c_mag;
+    let den3 = a.dot(&c) * b_mag;
+    let den4 = b.dot(&c) * a_mag;
+    let den = den1 + den2 + den3 + den4;
+
+    2.0 * atan2(num, den)
+}
+
+// Edge potential as defined in eq. 18 in Fabbri (2008).
+//
+// This function is NOT regularized and therefore is singular on the edge
+fn edge_potential(r1: &Vec3, r2: &Vec3, r: &Vec3) -> f64 {
+    // Distance from r1 to r, r2 to r, and r1 to r2
+    let d1: f64 = (*r1 - *r).mag();
+    let d2: f64 = (*r2 - *r).mag();
+    let e: f64 = (*r2 - *r1).mag();
+    let s: f64 = d1 + d2;
+
+    // Edge potential in stable form
+    // 2.0 * ln(s + e) - ln(2.0 * (d1 + d2 + (*r1 - *r).dot(&(*r2 - *r))));
+
+    // Edge potential without regularization
+    ln((s + e) / (s - e))
+}
+
+// Charge potential of the face as defined in eq. 17 in Fabbri (2008)
+#[inline(always)]
+fn charge_potential(face: &Face, r: &Vec3) -> f64 {
+    // Normal distance from the plane of the face to the target point
+    let d: f64 = face.n_hat.dot(&(*r - face.a));
+
+    // Solid angle subtended by the triangular face
+    let omega: f64 = solid_angle(&face.a, &face.b, &face.c, r);
+
+    // Manually unroll the summation over edges so that this function can be
+    // vectorized when inlined by the compiler
+    let mut result: f64 = d * omega;
+
+    // Use the scalar triple product definition to rearrange eq 17
+    // This version uses the in-plane unit vector on the edge, which
+    // saves a cross-product every iteration
+    result += face.t_hat[0].dot(&(*r - face.a)) * edge_potential(&face.a, &face.b, r);
+    result += face.t_hat[1].dot(&(*r - face.b)) * edge_potential(&face.b, &face.c, r);
+    result += face.t_hat[2].dot(&(*r - face.c)) * edge_potential(&face.c, &face.a, r);
+
+    result
+}
+
+// Charge potential gradient from Byzov 2022 (equation 5)
+#[inline(always)]
+fn charge_potential_gradient(face: &Face, r: &Vec3) -> Vec3 {
+    let omega: f64 = solid_angle(&face.a, &face.b, &face.c, r);
+
+    let mut result: Vec3 = face.n_hat * omega;
+
+    // Vi(a) = 2 atanh(e / S)
+    // e = vector from start node to end node on edge
+    // S = sum of the magnitudes of the vectors from a to each node
+    let v0: f64 = edge_potential(&face.a, &face.b, r);
+    let v1: f64 = edge_potential(&face.b, &face.c, r);
+    let v2: f64 = edge_potential(&face.c, &face.a, r);
+
+    // Edge sum
+    let mut edge_sum: Vec3 = face.e_hat[0] * v0;
+    edge_sum += face.e_hat[1] * v1;
+    edge_sum += face.e_hat[2] * v2;
+
+    result += face.n_hat.cross(&edge_sum);
+
+    result
+}
 
 /// Compute magnetic field intensity generated by a 4-node tetrahedral finite element
 ///
 /// This function operates on n-number of target points and
-/// is vectorized for efficient computation.
+/// is vectorized for efficient computation. This version uses the solid angle
+/// formulation (see reference).
 ///
 /// # Arguments
 /// - `nodes`: (m), coordinates of each corner node in 3D space
 /// - `jdensity`: (A/m2), current density vector, assumed constant throughout the element
-/// - `targets`: (m),  target locations in 3d space
-/// - `f`: workspace allocated by the caller
-/// - `h`: (A/m), preallocated arrays for h-field results
+/// - `targets`: (m), target locations in 3d space
+/// * `out`: (A/m) pre-allocated results accumulation for h-field (hx, hy, hz)
 ///
-/// # Reference  
+/// # Note
+/// Accumulates into `out`. Caller must zero `out` before the first call.
 ///
-/// CRYO-06-034: "MAGNUM - A Fortran Library for the Calculation of Magnetic Configurations"  
-/// [https://supermagnet.sourceforge.io/notes/CRYO-06-034.pdf](https://supermagnet.sourceforge.io/notes/CRYO-06-034.pdf)
-pub fn h_field_tet4(
+/// # Reference
+/// M. Fabbri, "Magnetic Flux Density and Vector Potential of Uniform Polyhedral
+/// Sources," in IEEE Transactions on Magnetics, vol. 44, no. 1, pp. 32-36, Jan. 2008,
+/// doi: <https://ieeexplore.ieee.org/document/4407584>.
+pub fn h_current_tet4(
     nodes: &[Vec3; 4],
     jdensity: &Vec3,
     targets: (&[f64], &[f64], &[f64]),
-    f: &mut [Vec3],
     h: (&mut [f64], &mut [f64], &mut [f64]),
 ) {
-    assert_eq!(f.len(), targets.0.len());
+    let (x, y, z) = targets;
+    let (hx, hy, hz) = h;
+    let n_targets = x.len();
+    assert_eq!(n_targets, y.len());
+    assert_eq!(n_targets, z.len());
+    assert_eq!(n_targets, hx.len());
+    assert_eq!(n_targets, hy.len());
+    assert_eq!(n_targets, hz.len());
 
-    // Allocate memory for the result of the sum before crossing with J
-    // TODO: replace?
-    // let mut f: Vec<Vec3> = vec![Vec3([0.0; 3]); targets.0.len()];
+    for f in 0..4 {
+        let (na, nb, nc) = face_nodes(f);
 
-    for face in 0..4 {
-        for edge in 0..3 {
-            // normal on face
+        let a: Vec3 = nodes[na];
+        let b: Vec3 = nodes[nb];
+        let c: Vec3 = nodes[nc];
 
-            // Node numbers from the map
-            let n0: usize = NODE_MAP[face][edge][0];
-            let n1: usize = NODE_MAP[face][edge][1];
-            let n2: usize = NODE_MAP[face][edge][2];
+        let face = precompute_face(&a, &b, &c);
+        let prefactor = jdensity.cross(&face.n_hat) * INV_4PI;
 
-            // Local coordinate system tensor; transform the target point into the local system
-            let (xhat, yhat, zhat) = edge_csys(&nodes[n0], &nodes[n1], &nodes[n2]);
-            let ni: Vec3 = zhat;
-            let xpq2 = (nodes[n1] - nodes[n0]).mag(); // length of the edge
-
-            // Compute the effect of this edge by transforming each target into the local reference frame
-            for i in 0..targets.0.len() {
-                let target_local: Vec3 = Vec3([
-                    targets.0[i] - nodes[n1][0],
-                    targets.1[i] - nodes[n1][1],
-                    targets.2[i] - nodes[n1][2],
-                ]);
-                let p = transform(&target_local, &xhat, &yhat, &zhat);
-                let s_face = p[1]
-                    * (edge_integral(xpq2 - p[0], p[1], p[2]) - edge_integral(-p[0], p[1], p[2]));
-                f[i] += ni * s_face;
-            }
+        for i in 0..n_targets {
+            let r = Vec3([x[i], y[i], z[i]]);
+            let psi = charge_potential(&face, &r);
+            hx[i] += prefactor[0] * psi;
+            hy[i] += prefactor[1] * psi;
+            hz[i] += prefactor[2] * psi;
         }
-    }
-
-    // Cross with J/4pi and accumulate
-    for i in 0..targets.0.len() {
-        let _h = jdensity.cross(&f[i]) * INV_4PI;
-        h.0[i] += _h[0];
-        h.1[i] += _h[1];
-        h.2[i] += _h[2];
     }
 }
 
-/// Compute the h field generated by a single magnetized tetrahedral element at the centroid
-/// of each element in a target mesh
+/// Compute the magnetic field intensity generated by a uniformly magnetized
+/// tetrahedral element.
 ///
-/// This computes equations 58 and 60 in CRYO-06-034, assuming the target point is outside the element:  
-/// $$ H(\vec{r}) = \frac{-M}{4\pi} \cdot \nabla \int_V \frac{\vec{r}}{r^3}dV $$
-///
-/// # Arguments
-/// * `nodes`: (m) coordinates of the corner nodes of the source element
-/// * `mvector`: (A/m) magnetization vector, assumed constant over the element
-/// * `j_invt`: (1/m) inverse transpose of the Jacobian matrix as defined in `crate::gradient`
-/// * `target_nodes`: (m) x,y,z coordinates of the elements in the target mesh
-/// * `target_element_connectivity`: node indices for each element in the target mesh
-/// * `f`: pre-allocated scratch workspace of length `n_target_nodes`
-/// * `h`: (x,y,z) pre-allocated results accumulation for h-field
-pub fn hmag_tet4_grad(
-    nodes: &[Vec3; 4], // source nodes
-    mvector: &Vec3,    // source element
-    j_invt: &[Mat3],   // at each *target* element
-    target_nodes: (&[f64], &[f64], &[f64]),
-    target_element_connectivity: &[[u32; 4]],
-    f: &mut [Vec3],
-    h: (&mut [f64], &mut [f64], &mut [f64]),
-) {
-    // Temporary storage is for nodes, hmag field is calculated at elements
-    assert_eq!(f.len(), target_nodes.0.len());
-    assert_eq!(h.0.len(), target_element_connectivity.len());
-
-    // Ensure f is zeroed
-    for v in f.iter_mut() {
-        *v = Vec3::default();
-    }
-
-    // Compute the value of the all edge integrals at each target node
-    for face in 0..4 {
-        for edge in 0..3 {
-            // Node numbers from the map
-            let n0: usize = NODE_MAP[face][edge][0];
-            let n1: usize = NODE_MAP[face][edge][1];
-            let n2: usize = NODE_MAP[face][edge][2];
-
-            // Local coordinate system tensor; transform the target point into the local system
-            let (xhat, yhat, zhat) = edge_csys(&nodes[n0], &nodes[n1], &nodes[n2]);
-            let ni: Vec3 = zhat; // normal on face 
-            let xpq2 = (nodes[n1] - nodes[n0]).mag(); // length of the edge
-
-            // Compute the effect of this edge by transforming each target into the local reference frame
-            for i in 0..target_nodes.0.len() {
-                let target_local: Vec3 = Vec3([
-                    target_nodes.0[i] - nodes[n1][0],
-                    target_nodes.1[i] - nodes[n1][1],
-                    target_nodes.2[i] - nodes[n1][2],
-                ]);
-                println!("nodal target: {:?}", target_local);
-                let p = transform(&target_local, &xhat, &yhat, &zhat);
-                let s_face = p[1]
-                    * (edge_integral(xpq2 - p[0], p[1], p[2]) - edge_integral(-p[0], p[1], p[2]));
-                f[i] += ni * s_face;
-            }
-        }
-    }
-
-    // Take gradient at each element, dot with -M/4pi, and accumulate
-    let scalar: f64 = -1.0 / (4.0 * PI);
-    let m_4pi: Vec3 = *mvector * scalar;
-    let n_elements = target_element_connectivity.len();
-    for i in 0..n_elements {
-        let n_idx = target_element_connectivity[i];
-
-        // Edge/surface integral at each of the four nodes
-        let i0 = f[n_idx[0] as usize];
-        let i1 = f[n_idx[1] as usize];
-        let i2 = f[n_idx[2] as usize];
-        let i3 = f[n_idx[3] as usize];
-
-        // Compute individual `g` vectors for each component of the gradient evaluation
-        let gx = Vec3([i1[0] - i0[0], i2[0] - i0[0], i3[0] - i0[0]]);
-        let gy = Vec3([i1[1] - i0[1], i2[1] - i0[1], i3[1] - i0[1]]);
-        let gz = Vec3([i1[2] - i0[2], i2[2] - i0[2], i3[2] - i0[2]]);
-
-        // Compute gradient
-        let grad_ix = j_invt[i].mul_vec(&gx);
-        let grad_iy = j_invt[i].mul_vec(&gy);
-        let grad_iz = j_invt[i].mul_vec(&gz);
-
-        let jacobian = Mat3::from_cols(&grad_ix, &grad_iy, &grad_iz);
-        let _h_mag = jacobian.mul_vec(&m_4pi);
-        h.0[i] += _h_mag[0];
-        h.1[i] += _h_mag[1];
-        h.2[i] += _h_mag[2];
-    }
-}
-
-/// Compute the H field generated by a magnetized 4-node tetrahedral element
-///
-/// This function is vectorized over target points.
-///
-/// This computes equations 58 and 60 in CRYO-06-034, assuming the target point is outside the element:  
-/// $$ H(\vec{r}) = \frac{-M}{4\pi} \cdot \nabla \int_V \frac{\vec{r}}{r^3}dV $$
+/// This function uses the solid-angle formulation, which is faster and more stable
+/// than the edge-integral formulation.
 ///
 /// # Arguments
 /// * `nodes`: (m) coordinates of the corner nodes of the source element
 /// * `mvector`: (A/m) magnetization vector, assumed constant over the element
 /// * `targets`: (m) x,y,z coordinates of each target point
-/// * `h`: (x,y,z) pre-allocated results accumulation for h-field
+/// * `out`: (A/m) pre-allocated results accumulation for h-field (hx, hy, hz)
 ///
 /// # Note
-/// Accumulates into `h`. Caller must zero `h` before the first call.
-///
-/// # Reference
-/// <https://supermagnet.sourceforge.io/notes/CRYO-06-034.pdf>
+/// Accumulates into `out`. Caller must zero `out` before the first call.
+///  
+/// # Reference  
+/// Byzov, D., Martyshko, P., & Chernoskutov, A. (2022).
+/// Computationally Effective Modeling of Self-Demagnetization and Magnetic Field
+/// for Bodies of Arbitrary Shape Using Polyhedron Discretization.
+/// Mathematics, 10(10), 1656.
+/// <https://doi.org/10.3390/math10101656>
 pub fn h_mag_tet4(
     nodes: &[Vec3; 4], // source nodes
     mvector: &Vec3,    // source element
     targets: (&[f64], &[f64], &[f64]),
-    workspace: (&mut [Vec3], &mut [Vec3], &mut [Vec3]),
-    h: (&mut [f64], &mut [f64], &mut [f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
 ) {
-    let n_targets = targets.0.len();
-    let (dv_dx, dv_dy, dv_dz) = workspace;
-    let (hx, hy, hz) = h;
-    let scalar = -1.0 / (4.0 * PI);
+    let (x, y, z) = targets;
+    let (hx, hy, hz) = out;
+    let n_targets: usize = x.len();
 
-    // Ensure the workspace is zeroed
-    for dv in dv_dx.iter_mut() {
-        *dv = Vec3::default();
-    }
-    for dv in dv_dy.iter_mut() {
-        *dv = Vec3::default();
-    }
-    for dv in dv_dz.iter_mut() {
-        *dv = Vec3::default();
-    }
+    for f in 0..4 {
+        let (na, nb, nc) = face_nodes(f);
 
-    // Accumulate the effect of all element edges into the workspace
-    for face in 0..4 {
-        for edge in 0..3 {
-            // Node numbers from the map
-            let n0: usize = NODE_MAP[face][edge][0];
-            let n1: usize = NODE_MAP[face][edge][1];
-            let n2: usize = NODE_MAP[face][edge][2];
+        let a: Vec3 = nodes[na];
+        let b: Vec3 = nodes[nb];
+        let c: Vec3 = nodes[nc];
+        let face: Face = precompute_face(&a, &b, &c);
+        let sigma: f64 = mvector.dot(&face.n_hat);
 
-            // Local coordinate system tensor; transform the target point into the local system
-            let (xhat, yhat, zhat) = edge_csys(&nodes[n0], &nodes[n1], &nodes[n2]);
-            let ni: Vec3 = zhat;
-            let xpq2 = (nodes[n1] - nodes[n0]).mag(); // length of the edge
-
-            // Compute the effect of this edge by transforming each target into the local reference frame
-            for i in 0..targets.0.len() {
-                let target_local: Vec3 = Vec3([
-                    targets.0[i] - nodes[n1][0],
-                    targets.1[i] - nodes[n1][1],
-                    targets.2[i] - nodes[n1][2],
-                ]);
-                let p = transform(&target_local, &xhat, &yhat, &zhat);
-
-                // Edge integral: E[end] - E[start]
-                let e_diff =
-                    edge_integral(xpq2 - p[0], p[1], p[2]) - edge_integral(-p[0], p[1], p[2]);
-
-                // Edge integral gradients at the start and end points
-                // Each is a Vec3 = (de_dx, de_dy, de_dz)
-                let grad_start: Vec3 = edge_integral_gradient(-p[0], p[1], p[2]);
-                let grad_end: Vec3 = edge_integral_gradient(xpq2 - p[0], p[1], p[2]);
-
-                // Chain rule
-                let ds_dx: f64 = -p[1] * (grad_end[0] - grad_start[0]);
-                let ds_dy: f64 = e_diff + p[1] * (grad_end[1] - grad_start[1]);
-                let ds_dz: f64 = p[1] * (grad_end[2] - grad_start[2]);
-
-                // Transform local gradients into global frame using basis vectors (eq 61)
-                let grad_s_x: f64 = xhat[0] * ds_dx + yhat[0] * ds_dy + zhat[0] * ds_dz;
-                let grad_s_y: f64 = xhat[1] * ds_dx + yhat[1] * ds_dy + zhat[1] * ds_dz;
-                let grad_s_z: f64 = xhat[2] * ds_dx + yhat[2] * ds_dy + zhat[2] * ds_dz;
-
-                // Accumulate into workspace
-                dv_dx[i] += ni * grad_s_x;
-                dv_dy[i] += ni * grad_s_y;
-                dv_dz[i] += ni * grad_s_z;
-            }
+        for i in 0..n_targets {
+            let r: Vec3 = Vec3([x[i], y[i], z[i]]);
+            let grad_psi: Vec3 = charge_potential_gradient(&face, &r);
+            let contribution: Vec3 = grad_psi * (-INV_4PI * sigma);
+            hx[i] += contribution[0];
+            hy[i] += contribution[1];
+            hz[i] += contribution[2];
         }
-    }
-
-    // Dot with M and accumulate
-    for i in 0..n_targets {
-        hx[i] += scalar
-            * (mvector[0] * dv_dx[i][0] + mvector[1] * dv_dx[i][1] + mvector[2] * dv_dx[i][2]);
-        hy[i] += scalar
-            * (mvector[0] * dv_dy[i][0] + mvector[1] * dv_dy[i][1] + mvector[2] * dv_dy[i][2]);
-        hz[i] += scalar
-            * (mvector[0] * dv_dz[i][0] + mvector[1] * dv_dz[i][1] + mvector[2] * dv_dz[i][2]);
     }
 }

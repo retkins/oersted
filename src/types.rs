@@ -96,6 +96,28 @@ impl std::ops::MulAssign<f64> for Vec3 {
     }
 }
 
+impl std::ops::Div<f64> for Vec3 {
+    type Output = Vec3;
+    fn div(self, rhs: f64) -> Self::Output {
+        Self([self[0] / rhs, self[1] / rhs, self[2] / rhs])
+    }
+}
+
+impl std::ops::DivAssign<f64> for Vec3 {
+    fn div_assign(&mut self, rhs: f64) {
+        self[0] /= rhs;
+        self[1] /= rhs;
+        self[2] /= rhs;
+    }
+}
+
+impl std::ops::Neg for Vec3 {
+    type Output = Vec3;
+    fn neg(self) -> Self::Output {
+        Self([-self[0], -self[1], -self[2]])
+    }
+}
+
 /// A row-major 3x3 matrix
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(transparent)]
@@ -129,7 +151,7 @@ impl Mat3 {
 
     /// Compute the determinant of the matrix:
     ///
-    /// ```
+    /// ```text
     /// | a b c |
     /// | d e f | = aei + bfg + cdh - ceg - bdi - afh
     /// | g h i |

@@ -30,6 +30,7 @@
 * Update docs homepage and readme
 
 ## v0.2.0
+### [#19](https://github.com/retkins/oersted/pull/19)
 * Added ellipsoid test (flat disc)
 * Updated mesh handling interface to have its own class
 * Updated octree methods to operate on magnetized tet4's
@@ -51,6 +52,7 @@
 * Added test for mesh-related functionality
 * Remove maxwell force calculation on magnetized meshes (not currently working)
 
+### [#20](https://github.com/retkins/oersted/pull/20)
 * Added helper functions in `python.rs` for transposing memory at the boundary
 * Updated the interfaces for calling the flux density (B field) calculation for point sources using direct summation
 * Fixed bug in parallel direct point solver and multiple bugs in solenoid test
@@ -69,6 +71,7 @@
 * Moved magnetization calculation completely to Rust
 * Updated magnetization calculation to use octree methods
 
+### [#21](https://github.com/retkins/oersted/pull/21)
 * Added a "getting started" tutorial and set docs theme to `material`
 * Added 3d plotting capabilities
 * Updated `Solver` classes to handle iterative solver parameters
@@ -82,3 +85,26 @@
 * Added docs: theory manual, references, math/latex support
 * Added example: magnetized sphere on axis of current-carrying ring
 * Added writeup of the example
+
+## v0.2.1
+* Add a benchmark to call directly from Rust for profiling
+* Cleaned up docstrings
+* Fixed Rust code to provide `h_current_point_direct_parallel` instead of `bfield_direct`, 
+bringing it in-line with the tetrahedron functions
+* Organized and updated docs
+* Added two spheres example writeup
+* Fixed the point source singularity handling; now uses the volume & equivalent
+radius of a sphere
+* Point source current kernel now uses explicit `fma` instructions for minor perf
+and correctness wins
+* Applied a trig identity for `atan(x) - atan(y)` in edge integral to improve
+current source speed by 10-15% (on M1/MacOS)
+* Added a version of `h_field_tet4` that reuses edge data for all targets; however,
+does not auto-vectorize and is therefore 30-40% slower
+* Added solid angle formulations for `h_mag_tet4()` and `h_current_tet4()`. The version
+for magnetization is about 2-2.5x faster than the edge based formulation, which puts it
+near parity in throughput to the current source function. The new formulation for 
+current source is not measurably faster than the edge-integral version, but it is 
+more consise and shares a lot of the same machinery with the magnetization source.
+* Updated solid angle formulations to Fabbri (2008) terminology; moved edge-based (Bottura) 
+integrals to their own module

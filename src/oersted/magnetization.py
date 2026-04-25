@@ -54,4 +54,5 @@ def demag_solve(
         leaf_threshold,
         solver.alpha,
         solver.n_threads,
+        solver.edge,
     )

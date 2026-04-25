@@ -75,7 +75,7 @@ fn col_buffer(n: usize) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
 // ---
 
 #[pyfunction]
-fn b_current_point_direct<'py>(
+fn h_current_point_direct<'py>(
     py: Python<'py>,
     src_pts: PyReadonlyArray2<f64>,
     src_vol: PyReadonlyArray1<f64>,
@@ -91,7 +91,7 @@ fn b_current_point_direct<'py>(
     let (x, y, z): (Vec<f64>, Vec<f64>, Vec<f64>) = pyarray_to_3cols(tgt_pts);
     let (mut bx, mut by, mut bz): (Vec<f64>, Vec<f64>, Vec<f64>) = col_buffer(n);
 
-    biotsavart_parallel::bfield_direct_parallel(
+    biotsavart_parallel::h_current_point_direct_parallel(
         (&centx, &centy, &centz),
         _src_vol,
         (&jx, &jy, &jz),
@@ -147,6 +147,7 @@ pub fn h_current_tet4_direct<'py>(
     jdensity: PyReadonlyArray2<f64>,
     tgts: PyReadonlyArray2<f64>,
     nthreads_requested: u32,
+    edge: bool,
 ) -> PyResult<BoundPyArray2f64<'py>> {
     // Transpose input data and allocate output arrays
     let n_tgts: usize = tgts.shape()[0];
@@ -160,6 +161,7 @@ pub fn h_current_tet4_direct<'py>(
         (&x, &y, &z),
         (&mut hx, &mut hy, &mut hz),
         nthreads_requested,
+        edge,
     );
 
     Ok(cols_to_pyarray(py, (hx, hy, hz)))
@@ -274,6 +276,7 @@ fn h_mag_tet4<'py>(
     leaf_threshold: u32,
     nthreads_requested: u32,
     use_octree: bool,
+    edge: bool,
 ) -> PyResult<BoundPyArray2f64<'py>> {
     let _nodes = to_vec3s(nodes.as_slice()?);
     let _connectivity = to_u32x4s(connectivity.as_slice()?);
@@ -306,6 +309,7 @@ fn h_mag_tet4<'py>(
             (&x, &y, &z),
             (&mut hx, &mut hy, &mut hz),
             nthreads_requested,
+            edge,
         );
     }
 
@@ -325,6 +329,7 @@ fn magnetization_tet4<'py>(
     leaf_threshold: u32,
     alpha: f64,
     nthreads_requested: u32,
+    edge: bool,
 ) -> PyResult<(Bound<'py, PyArray2<f64>>, Bound<'py, PyArray2<f64>>)> {
     let n_centroids = connectivity.shape()[0];
 
@@ -362,6 +367,7 @@ fn magnetization_tet4<'py>(
         tol,
         max_iterations,
         alpha,
+        edge,
     );
 
     let (mut mx, mut my, mut mz) = (
@@ -545,7 +551,7 @@ fn _mesh_surface_tets<'py>(
 
 #[pymodule]
 fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(b_current_point_direct, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(h_current_point_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_point_octree, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_tet4_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_tet4_octree, m.clone())?)?;

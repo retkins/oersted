@@ -3,17 +3,16 @@
 #![allow(non_snake_case)]
 
 use crate::{
-    MU0_4PI,
+    math::mag3,
     mesh::node_coords,
-    sources::{
-        point::h_point_dipole,
-        tet4::{h_field_tet4, h_mag_tet4},
-    },
+    sources::{h_current_tet4, h_current_tet4_edge, h_mag_tet4, h_mag_tet4_edge, h_point_dipole},
     types::Vec3,
 };
 use std::f64::consts::PI;
 
-/// Compute the magnetic field at target points (x, y, z) using a direct (O(N^2)) Biot-Savart summation
+const ONE_OVER_4PI: f64 = 1.0 / (4.0 * PI);
+
+/// Compute the magnetic field strength at target points (x, y, z) using a direct (O(N^2)) Biot-Savart summation
 ///
 /// This is the 'scalar' version of this function; i.e. it uses only one thread.
 ///
@@ -22,8 +21,8 @@ use std::f64::consts::PI;
 /// - `vol`:                     (m^3) volume of each source element
 /// - `jx`, `jy`, `jz`:          (A/m^2) current density vector of each source element
 /// - `x`, `y`, `z`:             (m) location of each target point
-/// - `bx`, `by`, `bz`:          (T) magnetic flux density at each target point
-pub fn bfield_direct(
+/// - `out`:          (T) magnetic field strength at each target point
+pub fn h_current_point_direct(
     src_pts: (&[f64], &[f64], &[f64]),
     src_vol: &[f64],
     src_jdensity: (&[f64], &[f64], &[f64]),
@@ -34,7 +33,7 @@ pub fn bfield_direct(
     let (centx, centy, centz) = src_pts;
     let (jx, jy, jz) = src_jdensity;
     let (x, y, z) = tgt_pts;
-    let (bx, by, bz) = out;
+    let (hx, hy, hz) = out;
     // TODO: length checks on input arrays
 
     // Outer loop over source elements
@@ -43,92 +42,43 @@ pub fn bfield_direct(
         let centxi: f64 = centx[i];
         let centyi: f64 = centy[i];
         let centzi: f64 = centz[i];
-        let vol_mu0_4pi: f64 = src_vol[i] * MU0_4PI;
+        let vol_over_4pi: f64 = src_vol[i] * ONE_OVER_4PI;
+        let radius = ((3.0 / (4.0 * PI)) * src_vol[i]).powf(1.0 / 3.0);
+        let R3 = radius * radius * radius;
         let jxi = jx[i];
         let jyi = jy[i];
         let jzi = jz[i];
 
         // Inner loop over target points
-        for (((xj, yj), zj), ((bxj, byj), bzj)) in x
+        for (((xj, yj), zj), ((hxj, hyj), hzj)) in x
             .iter()
             .zip(y.iter())
             .zip(z.iter())
-            .zip(bx.iter_mut().zip(by.iter_mut()).zip(bz.iter_mut()))
+            .zip(hx.iter_mut().zip(hy.iter_mut()).zip(hz.iter_mut()))
         {
             // Vector from the element centroid to the target point: r'
             let rx: f64 = xj - centxi;
             let ry: f64 = yj - centyi;
             let rz: f64 = zj - centzi;
-            let r: f64 = (rx * rx + ry * ry + rz * rz).sqrt();
+            let r: f64 = mag3(rx, ry, rz);
 
             // J x r'
-            let jxrpx: f64 = jyi * rz - jzi * ry;
-            let jxrpy: f64 = jzi * rx - jxi * rz;
-            let jxrpz: f64 = jxi * ry - jyi * rx;
+            let jxrpx: f64 = jyi.mul_add(rz, -jzi * ry);
+            let jxrpy: f64 = jzi.mul_add(rx, -jxi * rz);
+            let jxrpz: f64 = jxi.mul_add(ry, -jyi * rx);
 
             // Null out the singularity around the element centroid
             // This avoids `jmp` instructions and enables auto-vectorization of the inner loop
-            // Hard-coded a tolerance of 0.1mm (TODO: update)
-            let mask = if r > 1e-4 { 1.0 } else { 0.0 };
-            let r3 = r * r * r + (1.0 - mask);
-            let constant = vol_mu0_4pi * mask / r3;
+            let r3 = r * r * r;
+            let constant = vol_over_4pi / r3.max(R3);
 
             // Accumulation
-            *bxj += constant * jxrpx;
-            *byj += constant * jxrpy;
-            *bzj += constant * jxrpz;
+            *hxj = constant.mul_add(jxrpx, *hxj);
+            *hyj = constant.mul_add(jxrpy, *hyj);
+            *hzj = constant.mul_add(jxrpz, *hzj);
         }
     }
     Ok(())
-}
-
-// Older version of the above that uses explicit indices for the inner loop
-#[allow(unused)]
-fn bfield_direct_old(
-    centx: &[f64],
-    centy: &[f64],
-    centz: &[f64],
-    vol: &[f64],
-    jx: &[f64],
-    jy: &[f64],
-    jz: &[f64],
-    x: &[f64],
-    y: &[f64],
-    z: &[f64],
-    bx: &mut [f64],
-    by: &mut [f64],
-    bz: &mut [f64],
-) {
-    let m: usize = centx.len();
-    let n: usize = x.len();
-
-    for i in 0..m {
-        let centxi: f64 = centx[i];
-        let centyi: f64 = centy[i];
-        let centzi: f64 = centz[i];
-        let vol_mu0_4pi: f64 = vol[i] * MU0_4PI;
-        let jxi = jx[i];
-        let jyi = jy[i];
-        let jzi = jz[i];
-
-        for j in 0..n {
-            let rx: f64 = x[j] - centxi;
-            let ry: f64 = y[j] - centyi;
-            let rz: f64 = z[j] - centzi;
-            let r: f64 = (rx * rx + ry * ry + rz * rz).sqrt();
-
-            let jxrpx: f64 = jyi * rz - jzi * ry;
-            let jxrpy: f64 = jzi * rx - jxi * rz;
-            let jxrpz: f64 = jxi * ry - jyi * rx;
-
-            let mask = if r > 1e-4 { 1.0 } else { 0.0 };
-            let r3 = r * r * r + (1.0 - mask); // avoid div by zero
-            let constant = vol_mu0_4pi * mask / r3;
-            bx[j] += constant * jxrpx;
-            by[j] += constant * jxrpy;
-            bz[j] += constant * jxrpz;
-        }
-    }
 }
 
 /// Compute the magnetic field strength (H-field) at a set of target points, using a simplified dipole model
@@ -162,7 +112,7 @@ pub fn h_mag_point_direct(
 /// Compute the magnetic field using the direct tetrahedral integration method
 ///
 ///
-pub fn hfield_direct_tet(
+pub fn h_current_tet4_direct(
     nodes: &[f64],
     connectivity: &[u32],
     jdensity_flat: &[f64],
@@ -172,9 +122,11 @@ pub fn hfield_direct_tet(
     hx: &mut [f64],
     hy: &mut [f64],
     hz: &mut [f64],
+    edge: bool,
 ) -> Result<(), ()> {
     let n_targets = x.len();
-    let mut f = vec![Vec3([0.0; 3]); n_targets];
+
+    let mut f: Vec<Vec3> = vec![Vec3([0.0; 3]); n_targets];
 
     // TODO: length checks
     for (i, elem) in connectivity.chunks_exact(4).enumerate() {
@@ -190,8 +142,15 @@ pub fn hfield_direct_tet(
             jdensity_flat[3 * i + 1],
             jdensity_flat[3 * i + 2],
         ]);
-        h_field_tet4(&nodes, &jdensity, (x, y, z), &mut f, (hx, hy, hz));
-        f.fill(Vec3([0.0; 3]));
+        if edge {
+            h_current_tet4_edge(&nodes, &jdensity, (x, y, z), &mut f, (hx, hy, hz));
+        } else {
+            h_current_tet4(&nodes, &jdensity, (x, y, z), (hx, hy, hz));
+        }
+
+        if edge {
+            f.fill(Vec3([0.0; 3]));
+        }
     }
 
     Ok(())
@@ -204,6 +163,7 @@ pub fn h_mag_tet4_direct(
     mvectors: &[Vec3],
     targets: (&[f64], &[f64], &[f64]),
     out: (&mut [f64], &mut [f64], &mut [f64]),
+    edge: bool,
 ) -> Result<(), ()> {
     let n_targets = targets.0.len();
 
@@ -219,13 +179,17 @@ pub fn h_mag_tet4_direct(
             nodes[elem[3] as usize],
         ];
 
-        h_mag_tet4(
-            &elem_nodes,
-            &mvectors[i],
-            targets,
-            (&mut wx, &mut wy, &mut wz),
-            (out.0, out.1, out.2),
-        );
+        if edge {
+            h_mag_tet4_edge(
+                &elem_nodes,
+                &mvectors[i],
+                targets,
+                (&mut wx, &mut wy, &mut wz),
+                (out.0, out.1, out.2),
+            );
+        } else {
+            h_mag_tet4(&elem_nodes, &mvectors[i], targets, (out.0, out.1, out.2));
+        }
     }
 
     Ok(())
