@@ -86,7 +86,7 @@
 * Added example: magnetized sphere on axis of current-carrying ring
 * Added writeup of the example
 
-## v0.2.1
+## v0.3.0
 * Add a benchmark to call directly from Rust for profiling
 * Cleaned up docstrings
 * Fixed Rust code to provide `h_current_point_direct_parallel` instead of `bfield_direct`, 
@@ -108,3 +108,5 @@ current source is not measurably faster than the edge-integral version, but it i
 more consise and shares a lot of the same machinery with the magnetization source.
 * Updated solid angle formulations to Fabbri (2008) terminology; moved edge-based (Bottura) 
 integrals to their own module
+
+## v0.4.0

@@ -1,4 +1,4 @@
-name: release-rust
+name: Release Rust
 
 permissions:
   contents: read
