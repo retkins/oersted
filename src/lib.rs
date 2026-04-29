@@ -32,6 +32,7 @@ pub mod math;
 pub mod mesh;
 pub mod morton;
 pub mod octree;
+pub mod octree_lists;
 pub mod sources;
 pub mod types;
 
