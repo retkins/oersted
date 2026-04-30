@@ -34,6 +34,11 @@ impl Vec3 {
     pub fn to_slice(&self) -> &[f64; 3] {
         &self.0
     }
+
+    // Distance between two vectors
+    pub fn distance(&self, other: &Vec3) -> f64 {
+        (*self - *other).mag()
+    }
 }
 
 impl std::ops::Index<usize> for Vec3 {

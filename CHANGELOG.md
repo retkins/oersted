@@ -111,3 +111,4 @@ integrals to their own module
 
 ## v0.4.0
 * Add macros for length checking on vectors
+* Add distance method for comparing positions of two `Vec3`
