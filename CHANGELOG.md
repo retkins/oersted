@@ -110,3 +110,4 @@ more consise and shares a lot of the same machinery with the magnetization sourc
 integrals to their own module
 
 ## v0.4.0
+* Add macros for length checking on vectors
