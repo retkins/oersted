@@ -4,16 +4,23 @@
 //! 1. Completely removes recursion (replaced with stack-based traversal)
 //! 2. Separation of concerns between the octree (geometry) and the physics kernels
 //! 3. Splits the interactions into near (tet4), mid (point) and far-field (node)
-//! interactions
+//!    interactions
+//!
+#![allow(unused)]
 
 use crate::{
-    archive::octree::size_at_level, check_lengths, check_optional_lengths, math::sort_by_indices,
-    mesh, morton, octree::bbox::BoundingBox, types::Vec3,
+    check_lengths, check_optional_lengths,
+    math::sort_by_indices,
+    mesh, morton,
+    octree::{bbox::BoundingBox, size_at_level},
+    sources::{h_current_point, h_current_tet4},
+    types::Vec3,
 };
 
 use std::f64::consts::PI;
+use std::time::Instant;
 
-// Sentinel value to identify invalid nodes
+// Sentinel value to identify nodes who have not been assigned in the tree yet
 const INVALID_NODE: u32 = u32::MAX;
 
 /// Return the morton code prefix at a given level of the tree
@@ -26,6 +33,7 @@ pub fn get_prefix(code: u64, max_level: u8, level: u8) -> u64 {
 
 // Get the end index of a range that has the same parent node at the current level
 // Returns the index that has the changed prefix, so an open range [start_index, end_index)
+// The range is bounded by [start, end]
 pub fn get_range_in_same_node(
     codes: &[u64],
     level: u8,
@@ -68,13 +76,13 @@ impl Topology {
         check_lengths!(children, centroids, volumes, sizes, source_range, is_leaf);
 
         Self {
-            children: children,
-            centroids: centroids,
-            volumes: volumes,
-            sizes: sizes,
-            source_range: source_range,
-            is_leaf: is_leaf,
-            max_depth: max_depth,
+            children,
+            centroids,
+            volumes,
+            sizes,
+            source_range,
+            is_leaf,
+            max_depth,
         }
     }
 
@@ -118,13 +126,13 @@ impl Sources {
         check_optional_lengths!(n_sources, &jdensity, &mvectors);
 
         Self {
-            elem_connectivity: elem_connectivity,
-            elem_centroids: elem_centroids,
-            elem_volumes: elem_volumes,
-            elem_radii: elem_radii,
-            elem_nodes: elem_nodes,
-            jdensity: jdensity,
-            mvectors: mvectors,
+            elem_connectivity,
+            elem_centroids,
+            elem_volumes,
+            elem_radii,
+            elem_nodes,
+            jdensity,
+            mvectors,
         }
     }
 
@@ -135,8 +143,8 @@ impl Sources {
 
 #[derive(Debug)]
 pub struct InteractionList {
-    source_indices: Vec<u32>,
-    target_indices: Vec<u32>,
+    pub source_indices: Vec<u32>,
+    pub target_indices: Vec<u32>,
 }
 
 impl InteractionList {
@@ -152,7 +160,7 @@ impl InteractionList {
         self.target_indices.push(target);
     }
 
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.source_indices.len()
     }
 
@@ -161,6 +169,7 @@ impl InteractionList {
         let mut indices: Vec<usize> = (0..self.len()).collect();
         indices.sort_by(|&i, &j| self.source_indices[i].cmp(&self.source_indices[j]));
         sort_by_indices(&mut self.target_indices, &mut scratch, &indices);
+        sort_by_indices(&mut self.source_indices, &mut scratch, &indices);
     }
 }
 
@@ -188,24 +197,44 @@ impl Octree {
         connectivity: &[[u32; 4]],
         jdensity: Option<&[Vec3]>,
         mvectors: Option<&[Vec3]>,
+        leaf_threshold: u32,
     ) -> Self {
         let max_depth: u8 = 21;
-        let leaf_threshold: u32 = 16; // Make an argument to the constructor
 
+        let sort_timer = Instant::now();
         let (codes, idx_sorted, bbox, sources) =
             Self::sort_sources(nodes, connectivity, jdensity, mvectors, max_depth);
+        println!(
+            "Source sort time: {:.3} sec",
+            sort_timer.elapsed().as_secs_f64()
+        );
 
+        let top_timer = Instant::now();
         let topology = Self::build_topology(&sources, &codes, &bbox, max_depth, leaf_threshold);
+        println!(
+            "Topology time: {:.3} sec",
+            top_timer.elapsed().as_secs_f64()
+        );
 
-        Octree {
-            codes: codes,
-            idx_sorted: idx_sorted,
-            bbox: bbox,
-            topology: topology,
+        let mut octree: Octree = Octree {
+            codes,
+            idx_sorted,
+            bbox,
+            topology,
             j_moments: None,
             m_moments: None,
-            sources: sources,
+            sources,
+        };
+
+        if let Some(j) = jdensity {
+            octree.update_jdensity_moments(j);
         }
+
+        if let Some(m) = mvectors {
+            octree.update_mvector_moments(m);
+        }
+
+        octree
     }
 
     // Sort and organize the tree source data
@@ -220,9 +249,9 @@ impl Octree {
 
         // Compute bounding box and morton codes
         let mut centroids: Vec<Vec3> = vec![Vec3::default(); n_sources];
-        mesh::centroids(nodes, &connectivity, &mut centroids);
+        mesh::centroids(nodes, connectivity, &mut centroids);
         let bbox: BoundingBox = BoundingBox::from_centroids_vec(&centroids);
-        let codes: Vec<u64> = encode(&centroids, &bbox, max_depth);
+        let mut codes: Vec<u64> = encode(&centroids, &bbox, max_depth);
 
         // Sort the morton codes and the source data
         let mut unsorted_to_sorted: Vec<usize> = (0..n_sources).collect();
@@ -276,6 +305,10 @@ impl Octree {
             }
             None => None,
         };
+
+        // Finally, sort the morton codes
+        let mut scratch_codes: Vec<u64> = vec![0; n_sources];
+        sort_by_indices(&mut codes, &mut scratch_codes, &unsorted_to_sorted);
 
         let sources = Sources {
             elem_connectivity: connectivity_sorted,
@@ -380,17 +413,17 @@ impl Octree {
             }
         }
 
-        let mut topology: Topology = Topology {
-            children: children,
-            centroids: centroids,
-            volumes: volumes,
-            sizes: sizes,
-            source_range: source_range,
-            is_leaf: is_leaf,
-            max_depth: max_depth,
-        };
+        let mut topology: Topology = Topology::new(
+            children,
+            centroids,
+            volumes,
+            sizes,
+            source_range,
+            is_leaf,
+            max_depth,
+        );
 
-        Self::update_centroids(&sources, &mut topology);
+        Self::update_centroids(sources, &mut topology);
 
         topology
     }
@@ -458,7 +491,7 @@ impl Octree {
         }
     }
 
-    /// Update jdensity moments in the tree
+    /// Update jdensity moments in the tree using unsorted values
     pub fn update_jdensity_moments(&mut self, jdensity: &[Vec3]) {
         // Reset the j_moments array on the octree
         self.j_moments = Some(vec![Vec3::default(); self.topology.len()]);
@@ -476,7 +509,9 @@ impl Octree {
             &self.sources.elem_volumes,
             &self.topology,
             self.j_moments.as_mut().unwrap(),
-        )
+        );
+
+        self.sources.jdensity = Some(jdensity_sorted);
     }
 
     /// Update magnetization moments in the tree
@@ -500,6 +535,8 @@ impl Octree {
             &self.topology,
             self.m_moments.as_mut().unwrap(),
         );
+
+        self.sources.mvectors = Some(mvectors_sorted);
     }
 
     /// Traverse the octree and generate interaction lists
@@ -519,12 +556,13 @@ impl Octree {
     ) -> (InteractionList, InteractionList, InteractionList) {
         let n_targets: usize = check_lengths!(targets.0, targets.1, targets.2);
 
-        let initial_list_capacity: usize = 100;
+        let initial_list_capacity: usize = 1_000_000;
         let mut near: InteractionList = InteractionList::new(initial_list_capacity);
         let mut mid: InteractionList = InteractionList::new(initial_list_capacity);
         let mut far: InteractionList = InteractionList::new(initial_list_capacity);
 
         let mut stack: Vec<u32> = Vec::with_capacity(128);
+        let theta2 = theta * theta;
 
         for i in 0..n_targets {
             let target: Vec3 = Vec3([targets.0[i], targets.1[i], targets.2[i]]);
@@ -534,12 +572,18 @@ impl Octree {
             stack.push(0);
 
             while let Some(idx_node) = stack.pop() {
-                let d: f64 = target.distance(&self.topology.centroids[idx_node as usize]);
+                // let d: f64 = target.distance(&self.topology.centroids[idx_node as usize]);
+                let dx: f64 = target[0] - self.topology.centroids[idx_node as usize][0];
+                let dy: f64 = target[1] - self.topology.centroids[idx_node as usize][1];
+                let dz: f64 = target[2] - self.topology.centroids[idx_node as usize][2];
+                let d2: f64 = dx * dx + dy * dy + dz * dz;
 
                 if self.topology.is_leaf[idx_node as usize] {
                     let source_range = self.topology.source_range[idx_node as usize];
                     for idx_source in source_range.0..source_range.1 {
-                        if d > alpha * self.sources.elem_radii[idx_source as usize] {
+                        // if d > alpha * self.sources.elem_radii[idx_source as usize] {
+                        let r: f64 = alpha * self.sources.elem_radii[idx_source as usize];
+                        if d2 > r * r {
                             mid.push(idx_source, i as u32);
                         } else {
                             near.push(idx_source, i as u32);
@@ -550,7 +594,8 @@ impl Octree {
                     // The BH check is:
                     // ACCEPT if theta > size / distance
                     // OPEN if theta < size / distance
-                    if self.topology.sizes[idx_node as usize] < theta * d {
+                    let size = self.topology.sizes[idx_node as usize];
+                    if size * size < theta2 * d2 {
                         // Accept node
                         far.push(idx_node, i as u32);
                     } else {
@@ -565,8 +610,178 @@ impl Octree {
             }
         }
 
+        near.sort_by_sources();
+        mid.sort_by_sources();
+        far.sort_by_sources();
+
         // TODO: source output lists for easy aggregation by source (target in inner loop)
         (near, mid, far)
+    }
+
+    /// Compute the magnetic field strength at target points using the interaction lists
+    pub fn h_current(
+        &self,
+        targets: (&[f64], &[f64], &[f64]),
+        alpha: f64,
+        theta: f64,
+        mut out: (&mut [f64], &mut [f64], &mut [f64]),
+    ) {
+        let (near, mid, far) = self.traverse(targets, alpha, theta);
+
+        // Near interactions first
+        evaluate_source_batch(
+            &near,
+            targets,
+            &mut out,
+            |idx_source, txb, tyb, tzb, hxb, hyb, hzb| {
+                let elem: [u32; 4] = self.sources.elem_connectivity[idx_source];
+                let nodes: [Vec3; 4] = [
+                    self.sources.elem_nodes[elem[0] as usize],
+                    self.sources.elem_nodes[elem[1] as usize],
+                    self.sources.elem_nodes[elem[2] as usize],
+                    self.sources.elem_nodes[elem[3] as usize],
+                ];
+
+                h_current_tet4(
+                    &nodes,
+                    &self.sources.jdensity.as_ref().unwrap()[idx_source],
+                    (txb, tyb, tzb),
+                    (hxb, hyb, hzb),
+                );
+            },
+        );
+
+        // Mid field
+        evaluate_source_batch(
+            &mid,
+            targets,
+            &mut out,
+            |idx_source, txb, tyb, tzb, hxb, hyb, hzb| {
+                let centroid: Vec3 = self.sources.elem_centroids[idx_source];
+                let vj: Vec3 = self.sources.jdensity.as_ref().unwrap()[idx_source]
+                    * self.sources.elem_volumes[idx_source];
+                h_current_point(&centroid, &vj, (txb, tyb, tzb), (hxb, hyb, hzb));
+            },
+        );
+
+        // Far field
+        evaluate_source_batch(
+            &far,
+            targets,
+            &mut out,
+            |idx_source, txb, tyb, tzb, hxb, hyb, hzb| {
+                let centroid: Vec3 = self.topology.centroids[idx_source];
+                let vj: Vec3 = self.j_moments.as_ref().unwrap()[idx_source];
+                h_current_point(&centroid, &vj, (txb, tyb, tzb), (hxb, hyb, hzb));
+            },
+        );
+    }
+
+    #[cfg(feature = "parallel")]
+    pub fn h_current_parallel(
+        &self,
+        targets: (&[f64], &[f64], &[f64]),
+        alpha: f64,
+        theta: f64,
+        out: (&mut [f64], &mut [f64], &mut [f64]),
+        n_threads_requested: u32,
+    ) {
+        // Unpack
+        let (x, y, z) = targets;
+        let (hx, hy, hz) = out;
+
+        // TODO: length checks
+        let n_tgt: usize = check_lengths!(x, y, z, hx, hy, hz);
+
+        use rayon::prelude::*;
+        let nthreads: usize = crate::biotsavart_parallel::get_nthreads(n_threads_requested);
+        let chunk_size: usize = (n_tgt / nthreads).max(1);
+
+        // chunk the inputs
+        let _x = x.par_chunks(chunk_size);
+        let _y = y.par_chunks(chunk_size);
+        let _z = z.par_chunks(chunk_size);
+        let _hx = hx.par_chunks_mut(chunk_size);
+        let _hy = hy.par_chunks_mut(chunk_size);
+        let _hz = hz.par_chunks_mut(chunk_size);
+
+        (_x, _y, _z, _hx, _hy, _hz)
+            .into_par_iter()
+            .for_each(|(_x, _y, _z, _hx, _hy, _hz)| {
+                self.h_current((_x, _y, _z), alpha, theta, (_hx, _hy, _hz))
+            });
+    }
+}
+
+// Compute the effect of a source at a batch of target points
+fn evaluate_source_batch<F>(
+    list: &InteractionList,
+    targets: (&[f64], &[f64], &[f64]),
+    out: &mut (&mut [f64], &mut [f64], &mut [f64]),
+    mut eval: F,
+) where
+    F: FnMut(usize, &[f64], &[f64], &[f64], &mut [f64], &mut [f64], &mut [f64]),
+{
+    let (hx, hy, hz) = out;
+    let (tx, ty, tz) = targets;
+
+    let batch_capacity: usize = 1000;
+    let mut tx_batch: Vec<f64> = Vec::with_capacity(batch_capacity);
+    let mut ty_batch: Vec<f64> = Vec::with_capacity(batch_capacity);
+    let mut tz_batch: Vec<f64> = Vec::with_capacity(batch_capacity);
+    let mut hx_batch: Vec<f64> = Vec::with_capacity(batch_capacity);
+    let mut hy_batch: Vec<f64> = Vec::with_capacity(batch_capacity);
+    let mut hz_batch: Vec<f64> = Vec::with_capacity(batch_capacity);
+
+    let mut start: usize = 0;
+    while start < list.len() {
+        let idx_source: usize = list.source_indices[start] as usize;
+        let remainder: &[u32] = &list.source_indices[start..];
+        let run_length: usize = remainder.partition_point(|&s| s as usize <= idx_source);
+        let end = start + run_length;
+
+        let n_batch = end - start;
+        tx_batch.clear();
+        ty_batch.clear();
+        tz_batch.clear();
+        hx_batch.clear();
+        hy_batch.clear();
+        hz_batch.clear();
+        tx_batch.reserve(n_batch);
+        ty_batch.reserve(n_batch);
+        tz_batch.reserve(n_batch);
+        hx_batch.resize(n_batch, 0.0);
+        hy_batch.resize(n_batch, 0.0);
+        hz_batch.resize(n_batch, 0.0);
+
+        // Copy to batch
+        for i in start..end {
+            let idx_target = list.target_indices[i] as usize;
+            tx_batch.push(tx[idx_target]);
+            ty_batch.push(ty[idx_target]);
+            tz_batch.push(tz[idx_target]);
+        }
+
+        // Run computations
+        eval(
+            idx_source,
+            &tx_batch,
+            &ty_batch,
+            &tz_batch,
+            &mut hx_batch,
+            &mut hy_batch,
+            &mut hz_batch,
+        );
+
+        // Copy back
+        for (i, idx_batch) in (start..end).zip(0..n_batch) {
+            let idx_target = list.target_indices[i] as usize;
+            hx[idx_target] += hx_batch[idx_batch];
+            hy[idx_target] += hy_batch[idx_batch];
+            hz[idx_target] += hz_batch[idx_batch];
+        }
+
+        start = end;
     }
 }
 
@@ -624,7 +839,7 @@ mod tests {
             elem_nodes.push(c + Vec3([0.0, 1.0, 1.0 / (2.0f64).sqrt()]) * scale);
         }
 
-        let mut tree = Octree::new(&elem_nodes, *&&connectivity, None, None);
+        let mut tree = Octree::new(&elem_nodes, *&&connectivity, None, None, 16);
         println!("{:?}", tree.topology);
 
         let mut targets: (Vec<f64>, Vec<f64>, Vec<f64>) = (Vec::new(), Vec::new(), Vec::new());
