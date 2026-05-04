@@ -22,6 +22,7 @@ from .results import (
     lorentz_force_density,
 )
 
+from ._oersted import interaction_lists, h_current_octree
 
 __all__ = [
     # Constants and material properties
@@ -56,4 +57,7 @@ __all__ = [
     "bz_loop_axis",
     "dbzdz_loop_axis",
     "bz_finite_length_solenoid",
+    # Octree (interaction lists)
+    "interaction_lists",
+    "h_current_octree",
 ]
