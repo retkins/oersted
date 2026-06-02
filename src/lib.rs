@@ -32,6 +32,7 @@ pub mod math;
 pub mod mesh;
 pub mod morton;
 pub mod octree;
+pub mod octree_lists;
 pub mod sources;
 pub mod types;
 
@@ -40,3 +41,43 @@ pub mod python;
 
 #[cfg(feature = "parallel")]
 pub mod biotsavart_parallel;
+
+// Utility functions used across the library
+
+/// Check the lengths on an arbitrary number of vectors
+#[macro_export]
+macro_rules! check_lengths {
+    ($first:expr $(, $rest:expr)*) => {{
+        let n = $first.len();
+        $(
+            assert_eq!(
+                $rest.len(), n,
+                concat!(stringify!($rest), " has length {}; expected: {}"), $rest.len(), n
+            );
+        )*
+        n
+    }};
+}
+
+/// Check the lengths on an arbitrary number of optional vectors with a provided
+/// common length
+#[macro_export]
+macro_rules! check_optional_lengths {
+    ($common_length:expr $(, $rest:expr)*) => {{
+        let n = $common_length;
+        $(
+            if let Some(r) = $rest.as_ref() {
+                assert_eq!(
+                    r.len(),
+                    n,
+                    concat!(
+                        stringify!($rest),
+                        " has length {}; expected: {}"
+                    ),
+                    r.len(),
+                    n
+                );
+            }
+        )*
+    }};
+}

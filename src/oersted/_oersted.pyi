@@ -94,3 +94,23 @@ def mesh_kelvin_force_density(
     m_field_centroids: Float64Array,
     h_field_nodes: Float64Array,
 ) -> Float64Array: ...
+
+# Interaction list octree functions
+def interaction_lists(
+    nodes: Float64Array,
+    connectivity: U32Array,
+    targets: Float64Array,
+    leaf_threshold: uint32,
+    alpha: float,
+    theta: float,
+) -> tuple[U32Array, U32Array, U32Array]: ...
+def h_current_octree(
+    nodes: Float64Array,
+    connectivity: U32Array,
+    targets: Float64Array,
+    jdensity: Float64Array,
+    leaf_threshold: uint32,
+    alpha: float,
+    theta: float,
+    n_threads_requested: uint32,
+) -> Float64Array: ...

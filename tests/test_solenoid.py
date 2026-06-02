@@ -11,7 +11,7 @@ Note: there's some sort of units mismatch with gmsh
 """
 
 import oersted
-from oersted import Mesh, DirectSolver, OctreeSolver
+from oersted import Mesh, DirectSolver, OctreeSolver, OctreeSolver2Zone
 from oersted.testing import bz_finite_length_solenoid
 import numpy as np
 
@@ -32,7 +32,10 @@ def test_solenoid():
     nthreads: int = 0
     ntargets_axis: int = 100
     direct_solver = DirectSolver(n_threads=nthreads)
-    octree_solver = OctreeSolver(n_threads=nthreads, leaf_threshold=16, theta=theta)
+    octree_solver = OctreeSolver2Zone(
+        n_threads=nthreads, leaf_threshold=16, theta=theta
+    )
+    octree_solver_lists = OctreeSolver(n_threads=nthreads, theta=theta)
 
     # load mesh
     mesh: Mesh = oersted.mesh_step("tests/data/solenoid.stp", mesh_size, mesh_size)
@@ -61,7 +64,7 @@ def test_solenoid():
         mesh, jdensity, targets_axis, solver=direct_solver
     )
     boctree_tet_axis = oersted.b_field(
-        mesh, jdensity, targets_axis, solver=octree_solver
+        mesh, jdensity, targets_axis, solver=octree_solver_lists
     )
 
     # Errors along axis

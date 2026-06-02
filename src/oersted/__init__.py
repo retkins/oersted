@@ -1,7 +1,7 @@
 """Python bindings for oersted"""
 
 from .materials import MU0, FreeSpace, LinearMaterial, NonlinearMaterial, BHCurve
-from .solver import Solver, DirectSolver, OctreeSolver
+from .solver import Solver, DirectSolver, OctreeSolver, OctreeSolver2Zone
 
 from .biotsavart import b_field, h_field, h_mag
 
@@ -22,6 +22,7 @@ from .results import (
     lorentz_force_density,
 )
 
+from ._oersted import interaction_lists, h_current_octree
 
 __all__ = [
     # Constants and material properties
@@ -44,6 +45,7 @@ __all__ = [
     "Solver",
     "DirectSolver",
     "OctreeSolver",
+    "OctreeSolver2Zone",
     # Results
     "maxwell_forces",
     "kelvin_forces",
@@ -56,4 +58,7 @@ __all__ = [
     "bz_loop_axis",
     "dbzdz_loop_axis",
     "bz_finite_length_solenoid",
+    # Octree (interaction lists)
+    "interaction_lists",
+    "h_current_octree",
 ]

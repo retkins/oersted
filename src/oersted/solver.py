@@ -57,11 +57,19 @@ class DirectSolver(Solver):
         self._edge = edge
 
 
-class OctreeSolver(Solver):
-    """Controls solver options for using the octree (Barnes-Hut) solution routines"""
+class OctreeSolver2Zone(Solver):
+    """Controls solver options for using the octree (Barnes-Hut) solution routines
+
+    This uses the "old" 2-zone octree solver.
+    """
 
     _theta: float
     _leaf_threshold: int
+    _n_threads: int
+    _max_iterations: int
+    _tol: float
+    _alpha: float
+    _edge: bool
 
     def __init__(
         self,
@@ -85,6 +93,58 @@ class OctreeSolver(Solver):
     def theta(self):
         """Returns the Barnes-Hut angle-opening criteria (accuracy control)"""
         return self._theta
+
+    @property
+    def leaf_threshold(self):
+        """Returns the number of sources that will be evaluated individually at the
+        octree leaf level"""
+        return self._leaf_threshold
+
+
+class OctreeSolver(Solver):
+    """Controls solver options for using the octree (Barnes-Hut) solution routines
+
+    This uses the "new" 3-zone octree solver.
+
+    !!! warning
+        There is currently a bug with `leaf_threshold` > 1, so the solver will
+        always use a leaf threshold of 1.
+    """
+
+    _theta: float
+    _leaf_threshold: int
+    _n_threads: int
+    _max_iterations: int
+    _tol: float
+    _alpha: float
+    _edge: bool
+
+    def __init__(
+        self,
+        theta: float = 0.25,
+        alpha: float = 3.0,
+        leaf_threshold: int = 1,
+        n_threads: int = 0,
+        max_iterations=100,
+        tol=1.0,
+    ):
+        self._theta = theta
+        self._alpha = alpha
+        self._n_threads = n_threads
+        self._max_iterations = max_iterations
+        self._tol = tol
+        self._leaf_threshold = 1
+        self._edge = False
+
+    @property
+    def theta(self):
+        """Returns the Barnes-Hut angle-opening criteria (accuracy control)"""
+        return self._theta
+
+    @property
+    def alpha(self):
+        """Returns the near/mid-field element radius ratio (accuracy control)"""
+        return self._alpha
 
     @property
     def leaf_threshold(self):
