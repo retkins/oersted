@@ -349,8 +349,8 @@ impl Octree {
 
         // Start at root node
         levels.push(0); // TODO: might be unnecessary
-        children.push([INVALID_NODE; 8]); // Updated later 
-        // Centroids and volumes are computed in bottom-up pass
+        children.push([INVALID_NODE; 8]); // Updated later
+                                          // Centroids and volumes are computed in bottom-up pass
         centroids.push(Vec3::default());
         volumes.push(0.0);
         sizes.push(size_at_level(bbox.side_length, 0));
@@ -383,7 +383,7 @@ impl Octree {
                     // Add a child node
                     levels.push(level + 1);
                     children.push([INVALID_NODE; 8]);
-                    centroids.push(Vec3::default()); // Compute later 
+                    centroids.push(Vec3::default()); // Compute later
                     volumes.push(0.0);
                     sizes.push(size_at_level(bbox.side_length, level + 1));
                     source_range.push((cursor as u32, child_end as u32));
@@ -581,9 +581,13 @@ impl Octree {
                 if self.topology.is_leaf[idx_node as usize] {
                     let source_range = self.topology.source_range[idx_node as usize];
                     for idx_source in source_range.0..source_range.1 {
+                        // TODO: attempted fix for leaf_threshold issue (still not working...)
+                        let c: Vec3 = self.sources.elem_centroids[idx_source as usize];
+                        let e: Vec3 = target - c;
+                        let de2: f64 = e.0[0].powi(2) + e.0[1].powi(2) + e.0[2].powi(2);
                         // if d > alpha * self.sources.elem_radii[idx_source as usize] {
                         let r: f64 = alpha * self.sources.elem_radii[idx_source as usize];
-                        if d2 > r * r {
+                        if de2 > r * r {
                             mid.push(idx_source, i as u32);
                         } else {
                             near.push(idx_source, i as u32);
