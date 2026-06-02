@@ -11,10 +11,11 @@ from ._oersted import (
     h_current_tet4_octree,
     h_mag_tet4,
     h_mag_point,
+    h_current_octree,
 )
 
 from .mesh import Mesh, CentroidMesh
-from .solver import DirectSolver, OctreeSolver
+from .solver import DirectSolver, OctreeSolver, OctreeSolver2Zone
 from .constants import MU0
 
 # For typing; currently unused
@@ -25,7 +26,7 @@ def b_field(
     source: Mesh | CentroidMesh,
     j_density: NDArray[float64],
     targets: NDArray[float64],
-    solver: DirectSolver | OctreeSolver | None = None,
+    solver: DirectSolver | OctreeSolver | OctreeSolver2Zone | None = None,
 ) -> NDArray[float64]:
     """Compute the magnetic flux density at a collection of target points using the
     specific source mesh and solver options, assuming the target points are in free
@@ -48,7 +49,7 @@ def h_field(
     source: Mesh | CentroidMesh,
     j_density: NDArray[float64],
     targets: NDArray[float64],
-    solver: DirectSolver | OctreeSolver | None = None,
+    solver: DirectSolver | OctreeSolver | OctreeSolver2Zone | None = None,
     edge: bool = False,
 ) -> NDArray[float64]:
     """Compute the magnetic field strength at a collection of target points using
@@ -80,7 +81,7 @@ def h_field(
                 src_pts, src_vol, j_density, tgt_pts, solver.n_threads
             )
 
-        elif isinstance(solver, OctreeSolver):
+        elif isinstance(solver, OctreeSolver2Zone):
             return h_current_point_octree(
                 src_pts,
                 src_vol,
@@ -104,7 +105,7 @@ def h_field(
                 src_nodes, src_connectivity, j_density, tgt_pts, solver.n_threads, edge
             )
 
-        elif isinstance(solver, OctreeSolver):
+        elif isinstance(solver, OctreeSolver2Zone):
             return h_current_tet4_octree(
                 src_nodes,
                 src_connectivity,
@@ -112,6 +113,18 @@ def h_field(
                 tgt_pts,
                 solver.theta,
                 solver.leaf_threshold,
+                solver.n_threads,
+            )
+
+        elif isinstance(solver, OctreeSolver):
+            return h_current_octree(
+                src_nodes,
+                src_connectivity,
+                tgt_pts,
+                j_density,
+                uint32(solver.leaf_threshold),
+                solver.alpha,
+                solver.theta,
                 solver.n_threads,
             )
 
@@ -130,7 +143,7 @@ def h_mag(
     source: Mesh | CentroidMesh,
     m_field: NDArray[float64],
     targets: NDArray[float64],
-    solver: DirectSolver | OctreeSolver | None = None,
+    solver: DirectSolver | OctreeSolver | OctreeSolver2Zone | None = None,
 ) -> NDArray[float64]:
     """Compute the magnetic field strength using a magnetized mesh as the source
 
@@ -173,7 +186,7 @@ def h_mag(
                 use_octree,
             )
 
-        elif isinstance(solver, OctreeSolver):
+        elif isinstance(solver, OctreeSolver2Zone):
             use_octree = True
             return h_mag_point(
                 src_centroids,
@@ -184,6 +197,10 @@ def h_mag(
                 solver.leaf_threshold,
                 solver.n_threads,
                 use_octree,
+            )
+        else:
+            raise TypeError(
+                f"Unsupported source/solver combination: {type(source)}, {type(solver)}"
             )
 
     elif isinstance(source, Mesh):
@@ -207,7 +224,7 @@ def h_mag(
                 solver.edge,
             )
 
-        elif isinstance(solver, OctreeSolver):
+        elif isinstance(solver, OctreeSolver2Zone):
             use_octree = True
             return h_mag_tet4(
                 src_nodes,

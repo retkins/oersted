@@ -204,17 +204,17 @@ impl Octree {
         let sort_timer = Instant::now();
         let (codes, idx_sorted, bbox, sources) =
             Self::sort_sources(nodes, connectivity, jdensity, mvectors, max_depth);
-        println!(
-            "Source sort time: {:.3} sec",
-            sort_timer.elapsed().as_secs_f64()
-        );
+        // println!(
+        //     "Source sort time: {:.3} sec",
+        //     sort_timer.elapsed().as_secs_f64()
+        // );
 
         let top_timer = Instant::now();
         let topology = Self::build_topology(&sources, &codes, &bbox, max_depth, leaf_threshold);
-        println!(
-            "Topology time: {:.3} sec",
-            top_timer.elapsed().as_secs_f64()
-        );
+        // println!(
+        //     "Topology time: {:.3} sec",
+        //     top_timer.elapsed().as_secs_f64()
+        // );
 
         let mut octree: Octree = Octree {
             codes,
@@ -350,7 +350,7 @@ impl Octree {
         // Start at root node
         levels.push(0); // TODO: might be unnecessary
         children.push([INVALID_NODE; 8]); // Updated later
-                                          // Centroids and volumes are computed in bottom-up pass
+        // Centroids and volumes are computed in bottom-up pass
         centroids.push(Vec3::default());
         volumes.push(0.0);
         sizes.push(size_at_level(bbox.side_length, 0));

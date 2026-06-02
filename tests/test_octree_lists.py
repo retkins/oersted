@@ -1,13 +1,13 @@
 """Use the Helmholz coil problem to measure the accuracy and speed of the (new) 3-zone
     octree method
 
-Error metric: total force acting on the upper coil is < 0.5% error from the 
+Error metric: total force acting on the upper coil is < 0.5% error from the
 direct solution
 """
 
 import oersted
 import numpy as np
-from oersted import DirectSolver, OctreeSolver, MU0
+from oersted import DirectSolver, OctreeSolver, OctreeSolver2Zone
 from numpy import uint32, abs
 from time import perf_counter
 import matplotlib.pyplot as plt
@@ -17,7 +17,7 @@ thetas = np.linspace(0.05, 0.5, 10)
 # alphas = [1.0, 2.0, 3.0, 5.0, 10.0]
 alphas: list[float] = [2.0]
 leaf_threshold: uint32 = uint32(1)
-mesh_size: float = 5.0  # (m)
+mesh_size: float = 10.0  # (m)
 jmag: float = 1e8  # (A/m^2)
 MAX_ERR_PCT: float = 5e-3
 iterations: int = 5
@@ -65,16 +65,13 @@ def run():
             print("Octree Lists solution: ")
             start = perf_counter()
             for _ in range(iterations):
-                b_lists = MU0 * oersted.h_current_octree(
-                    mesh.nodes,
-                    mesh.connectivity,
-                    mesh1.centroids,
+                b_lists = oersted.b_field(
+                    mesh,
                     jdensity_total,
-                    leaf_threshold,
-                    alpha,
-                    theta,
-                    uint32(0),
+                    mesh1.centroids,
+                    solver=OctreeSolver(theta=theta, alpha=alpha),
                 )
+
             elapsed = (perf_counter() - start) / float(iterations)
             times_lists.append(elapsed)
             speedup = direct_elapsed / elapsed
@@ -93,7 +90,7 @@ def run():
                     mesh,
                     jdensity_total,
                     mesh1.centroids,
-                    solver=OctreeSolver(theta, leaf_threshold=int(leaf_threshold)),
+                    solver=OctreeSolver2Zone(theta, leaf_threshold=int(leaf_threshold)),
                 )
             elapsed = (perf_counter() - start) / float(iterations)
             times_tree.append(elapsed)

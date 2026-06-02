@@ -16,7 +16,7 @@ We basically do two tests in one:
 Note: there's some sort of units mismatch with gmsh
 """
 
-from oersted import CentroidMesh, Mesh, DirectSolver, OctreeSolver
+from oersted import CentroidMesh, Mesh, DirectSolver, OctreeSolver, OctreeSolver2Zone
 from oersted.testing import make_helmholtz, smape
 
 import numpy as np
@@ -37,9 +37,10 @@ def setup_test():
     axis_halfdistance = 0.01
 
     direct_solver = DirectSolver(n_threads=nthreads)
-    octree_solver = OctreeSolver(
+    octree_solver = OctreeSolver2Zone(
         theta=theta, leaf_threshold=leaf_threshold, n_threads=nthreads
     )
+    octree_solver_lists = OctreeSolver(theta=theta, n_threads=nthreads)
 
     #
     # Generate a mesh from a STEP file
@@ -53,16 +54,32 @@ def setup_test():
         -axis_halfdistance, axis_halfdistance, ntargets_axis
     )
 
-    return mesh, jdensity, targets_axis, direct_solver, octree_solver
+    return (
+        mesh,
+        jdensity,
+        targets_axis,
+        direct_solver,
+        octree_solver,
+        octree_solver_lists,
+    )
 
 
-def rel_field_on_axis(mesh: Mesh, jdensity, targets_axis, direct_solver, octree_solver):
+def rel_field_on_axis(
+    mesh: Mesh,
+    jdensity,
+    targets_axis,
+    direct_solver,
+    octree_solver,
+    octree_solver_lists,
+):
     """Test that the field on the axis is the same for all four solver methods"""
 
     centroid_mesh: CentroidMesh = mesh.to_centroid_mesh()
 
     b_tet4_direct = oersted.b_field(mesh, jdensity, targets_axis, solver=direct_solver)
-    b_tet4_octree = oersted.b_field(mesh, jdensity, targets_axis, solver=octree_solver)
+    b_tet4_octree = oersted.b_field(
+        mesh, jdensity, targets_axis, solver=octree_solver_lists
+    )
     b_point_direct = oersted.b_field(
         centroid_mesh, jdensity, targets_axis, solver=direct_solver
     )
@@ -110,8 +127,12 @@ def rel_field_on_axis(mesh: Mesh, jdensity, targets_axis, direct_solver, octree_
 
 
 def test_helmholtz():
-    mesh, jdensity, targets_axis, direct_solver, octree_solver = setup_test()
-    rel_field_on_axis(mesh, jdensity, targets_axis, direct_solver, octree_solver)
+    mesh, jdensity, targets_axis, direct_solver, octree_solver, octree_solver_lists = (
+        setup_test()
+    )
+    rel_field_on_axis(
+        mesh, jdensity, targets_axis, direct_solver, octree_solver, octree_solver_lists
+    )
 
 
 if __name__ == "__main__":

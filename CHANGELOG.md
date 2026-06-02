@@ -114,3 +114,4 @@ integrals to their own module
 * Add distance method for comparing positions of two `Vec3`
 * Added interaction list octree functionality: tree build, moment updates, and traversal
 * Added test for interaction list octree vs direct and old octree
+* Updated interfaces to use both interaction list and 2-zone octrees

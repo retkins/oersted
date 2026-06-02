@@ -1,6 +1,6 @@
 import numpy as np
 import oersted
-from oersted import Mesh, DirectSolver, OctreeSolver
+from oersted import Mesh, DirectSolver, OctreeSolver2Zone
 import time
 
 # Test parameters
@@ -9,10 +9,10 @@ mesh_size: float = 15e-3  # (m)
 b_ext_mag: float = 1.0  # (T)
 mu_r: float = 1.5
 solver = oersted.DirectSolver()
-solvers = [oersted.DirectSolver(), oersted.OctreeSolver()]
+solvers = [oersted.DirectSolver(), oersted.OctreeSolver2Zone()]
 
 
-def check_mag_sphere(mesh: Mesh, solver: DirectSolver | OctreeSolver):
+def check_mag_sphere(mesh: Mesh, solver: DirectSolver | OctreeSolver2Zone):
 
     # Create material properties and calculate uniform background field
     mat = oersted.materials.LinearMaterial(mu_r)

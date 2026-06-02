@@ -1,7 +1,7 @@
 """Python bindings for oersted"""
 
 from .materials import MU0, FreeSpace, LinearMaterial, NonlinearMaterial, BHCurve
-from .solver import Solver, DirectSolver, OctreeSolver
+from .solver import Solver, DirectSolver, OctreeSolver, OctreeSolver2Zone
 
 from .biotsavart import b_field, h_field, h_mag
 
@@ -45,6 +45,7 @@ __all__ = [
     "Solver",
     "DirectSolver",
     "OctreeSolver",
+    "OctreeSolver2Zone",
     # Results
     "maxwell_forces",
     "kelvin_forces",
