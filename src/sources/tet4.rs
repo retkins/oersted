@@ -1,11 +1,12 @@
 use crate::{
     math::{atan2, ln},
     types::Vec3,
+    MU0_4PI
 };
 
 use std::f64::consts::PI;
 const INV_4PI: f64 = 1.0 / (4.0 * PI);
-const INV_8PI: f64 = 1.0 / (8.0 * PI);
+const MU0_8PI: f64 = 0.5 * MU0_4PI;
 
 // Refer to the gmsh or ansys documentation for node numbering on a tet element:
 // <https://gmsh.info/doc/texinfo/gmsh.html#Node-ordering>
@@ -197,7 +198,7 @@ pub fn a_current_tet4(
     assert_eq!(n_targets, ay.len());
     assert_eq!(n_targets, az.len());
 
-    let prefactor: Vec3 = *jdensity * INV_8PI;
+    let prefactor: Vec3 = *jdensity * MU0_8PI;
 
     for f in 0..4 {
         let (na, nb, nc) = face_nodes(f);
