@@ -667,8 +667,10 @@ fn _mesh_surface_tets<'py>(
 
 #[pymodule]
 fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
+    // Field calculations
     m.add_function(wrap_pyfunction!(h_current_point_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_point_octree, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(a_current_tet4, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_tet4_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_tet4_octree, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_mag_point, m.clone())?)?;

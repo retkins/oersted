@@ -3,7 +3,7 @@
 from .materials import MU0, FreeSpace, LinearMaterial, NonlinearMaterial, BHCurve
 from .solver import Solver, DirectSolver, OctreeSolver, OctreeSolver2Zone
 
-from .biotsavart import b_field, h_field, h_mag
+from .biotsavart import a_field, b_field, h_field, h_mag
 
 from .mesh import Mesh, CentroidMesh, mesh_step, plot_mesh
 from .testing import (
@@ -37,6 +37,7 @@ __all__ = [
     "mesh_step",
     "plot_mesh",
     # Fields calculations
+    "a_field",
     "b_field",
     "h_field",
     "h_mag",
