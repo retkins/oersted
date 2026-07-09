@@ -5,7 +5,10 @@
 use crate::{
     math::mag3,
     mesh::node_coords,
-    sources::{h_current_tet4, h_current_tet4_edge, h_mag_tet4, h_mag_tet4_edge, h_point_dipole},
+    sources::{
+        a_current_tet4, h_current_tet4, h_current_tet4_edge, h_mag_tet4, h_mag_tet4_edge,
+        h_point_dipole,
+    },
     types::Vec3,
 };
 use std::f64::consts::PI;
@@ -193,4 +196,23 @@ pub fn h_mag_tet4_direct(
     }
 
     Ok(())
+}
+
+pub fn a_current_tet4_direct(
+    nodes: &[Vec3],
+    connectivity: &[[u32; 4]],
+    jdensity: &[Vec3],
+    targets: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
+    n_threads_requested: u32,
+) {
+    for (i, elem) in connectivity.iter().enumerate() {
+        let elem_nodes = [
+            nodes[elem[0] as usize],
+            nodes[elem[1] as usize],
+            nodes[elem[2] as usize],
+            nodes[elem[3] as usize],
+        ];
+        a_current_tet4(&elem_nodes, &jdensity[i], targets, (out.0, out.1, out.2));
+    }
 }

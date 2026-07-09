@@ -7,6 +7,7 @@ from numpy.typing import NDArray
 from ._oersted import (
     h_current_point_direct,
     h_current_point_octree,
+    a_current_tet4,
     h_current_tet4_direct,
     h_current_tet4_octree,
     h_mag_tet4,
@@ -20,6 +21,26 @@ from .constants import MU0
 
 # For typing; currently unused
 Nx3Array = NDArray[float64]
+
+
+def a_field(
+    source: Mesh,
+    j_density: NDArray[float64],
+    targets: NDArray[float64],
+    solver: DirectSolver = DirectSolver(),
+) -> NDArray[float64]:
+    """Compute the magnetic vector potential at a collection of target points"""
+
+    return a_current_tet4(
+        source.nodes,
+        source.connectivity,
+        j_density,
+        targets,
+        0.0,
+        uint32(1),
+        solver.n_threads,
+        False,
+    )
 
 
 def b_field(

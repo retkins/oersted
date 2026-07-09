@@ -25,6 +25,16 @@ def h_current_point_octree(
     leaf_threshold: int,
     nthreads_requested: int,
 ) -> Float64Array: ...
+def a_current_tet4(
+    src_nodes: Float64Array,
+    src_connectivity: U32Array,
+    src_jdensity: Float64Array,
+    targets: Float64Array,
+    theta: float,
+    leaf_threshold: uint32,
+    nthreads_requested: int,
+    use_octree: bool,
+) -> Float64Array: ...
 def h_current_tet4_direct(
     nodes: Float64Array,
     connectivity: U32Array,

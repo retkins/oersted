@@ -208,11 +208,11 @@ pub fn a_current_tet4(
 
         let face: Face = precompute_face(&a, &b, &c);
 
-        // At each target point, for each face, compute the contribution from 
+        // At each target point, for each face, compute the contribution from
         // Fabbri (2008) eq. 5
         for i in 0..n_targets {
             let r: Vec3 = Vec3([x[i], y[i], z[i]]);
-            let rf: Vec3 = face.a; 
+            let rf: Vec3 = face.a;
             let psi: f64 = charge_potential(&face, &r);
             let a_contribution: Vec3 = prefactor * (rf - r).dot(&face.n_hat) * psi;
             ax[i] += a_contribution[0];
@@ -326,4 +326,3 @@ pub fn h_mag_tet4(
         }
     }
 }
-
