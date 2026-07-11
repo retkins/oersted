@@ -1,7 +1,7 @@
 use crate::{
+    MU0_4PI,
     math::{atan2, ln},
     types::Vec3,
-    MU0_4PI
 };
 
 use std::f64::consts::PI;

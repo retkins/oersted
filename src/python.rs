@@ -6,12 +6,11 @@ use numpy::{
     Element, PyArray1, PyArray2, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2,
     PyReadwriteArray1, PyUntypedArrayMethods,
 };
-use pyo3::prelude::*;
 use pyo3::exceptions::PyNotImplementedError;
+use pyo3::prelude::*;
 
 use crate::{
-    biotsavart,
-    biotsavart_parallel, magnetization,
+    biotsavart, biotsavart_parallel, magnetization,
     math::gradient,
     mesh,
     octree::{CurrentSources, DipoleSources, HFieldSolver, Octree, point, tet_element},
@@ -155,7 +154,9 @@ fn a_current_tet4<'py>(
     use_octree: bool,
 ) -> PyResult<BoundPyArray2f64<'py>> {
     if use_octree {
-        return Err(PyErr::new::<PyNotImplementedError, _>("Octree is not yet available for a-field solves"));
+        return Err(PyErr::new::<PyNotImplementedError, _>(
+            "Octree is not yet available for a-field solves",
+        ));
     }
 
     let _nodes = to_vec3s(nodes.as_slice()?);
@@ -165,10 +166,16 @@ fn a_current_tet4<'py>(
     let n_tgts = x.len();
     let (mut ax, mut ay, mut az) = col_buffer(n_tgts);
 
-    biotsavart::a_current_tet4_direct(&_nodes, &_connectivity, &_jdensity, (&x, &y, &z), (&mut ax, &mut ay, &mut az), n_threads_requested);
+    biotsavart::a_current_tet4_direct(
+        &_nodes,
+        &_connectivity,
+        &_jdensity,
+        (&x, &y, &z),
+        (&mut ax, &mut ay, &mut az),
+        n_threads_requested,
+    );
 
     Ok(cols_to_pyarray(py, (ax, ay, az)))
-    
 }
 
 #[pyfunction]

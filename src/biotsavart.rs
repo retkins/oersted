@@ -3,6 +3,7 @@
 #![allow(non_snake_case)]
 
 use crate::{
+    get_nthreads,
     math::mag3,
     mesh::node_coords,
     sources::{
@@ -11,7 +12,7 @@ use crate::{
     },
     types::Vec3,
 };
-use std::f64::consts::PI;
+use std::{f64::consts::PI, thread};
 
 const ONE_OVER_4PI: f64 = 1.0 / (4.0 * PI);
 
@@ -198,21 +199,64 @@ pub fn h_mag_tet4_direct(
     Ok(())
 }
 
+/// Compute the magnetic vector potential at a collection of target points, using a
+/// collection of 4-node tetrahedral elements with constant current density vectors
+/// as the sources
+///
+/// This function is parallelized over target points
+///
+/// # Args
+/// * `src_nodes`: (m) x,y,z coordinates of all nodes in the source mesh
+/// * `src_connectivity`: indices into `src_nodes` defining the nodes associated with
+///   each element
+/// * `src_jdensity`: (A/m^2) current density vector associated with the centroid of
+///   each element
+/// * `targets`: (m) x,y,z coordinates of target points
+/// * `out`: (T*m) magnetic vector potential at each target point
+/// * `n_threads_requested`: set equal to 0 to use all available parallelism, or specify
+///   a number of cpu cores to use
+///
+/// # Note
+/// This function accumulates into `out`. Responsibility for properly zeroing this
+/// parameter is the caller's.
 pub fn a_current_tet4_direct(
-    nodes: &[Vec3],
-    connectivity: &[[u32; 4]],
-    jdensity: &[Vec3],
+    src_nodes: &[Vec3],
+    src_connectivity: &[[u32; 4]],
+    src_jdensity: &[Vec3],
     targets: (&[f64], &[f64], &[f64]),
     out: (&mut [f64], &mut [f64], &mut [f64]),
     n_threads_requested: u32,
 ) {
-    for (i, elem) in connectivity.iter().enumerate() {
-        let elem_nodes = [
-            nodes[elem[0] as usize],
-            nodes[elem[1] as usize],
-            nodes[elem[2] as usize],
-            nodes[elem[3] as usize],
-        ];
-        a_current_tet4(&elem_nodes, &jdensity[i], targets, (out.0, out.1, out.2));
-    }
+    let n_threads: usize = get_nthreads(n_threads_requested);
+    let n_targets: usize = targets.0.len();
+    let chunk_size: usize = n_targets.div_ceil(n_threads);
+
+    let (x, y, z) = targets;
+    let (ax, ay, az) = out;
+
+    let chunks = x
+        .chunks(chunk_size)
+        .zip(y.chunks(chunk_size))
+        .zip(z.chunks(chunk_size))
+        .zip(ax.chunks_mut(chunk_size))
+        .zip(ay.chunks_mut(chunk_size))
+        .zip(az.chunks_mut(chunk_size));
+
+    thread::scope(|s| {
+        for (((((xc, yc), zc), axc), ayc), azc) in chunks {
+            s.spawn(move || {
+                for (i, elem) in src_connectivity.iter().enumerate() {
+                    let elem_nodes = [
+                        src_nodes[elem[0] as usize],
+                        src_nodes[elem[1] as usize],
+                        src_nodes[elem[2] as usize],
+                        src_nodes[elem[3] as usize],
+                    ];
+
+                    // Compute the effect of an individual element on all targets
+                    a_current_tet4(&elem_nodes, &src_jdensity[i], (xc, yc, zc), (axc, ayc, azc));
+                }
+            });
+        }
+    });
 }
