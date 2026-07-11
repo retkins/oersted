@@ -7,7 +7,7 @@ from numpy.typing import NDArray
 from ._oersted import (
     h_current_point_direct,
     h_current_point_octree,
-    a_current_tet4,
+    a_current,
     h_current_tet4_direct,
     h_current_tet4_octree,
     h_mag_tet4,
@@ -16,7 +16,7 @@ from ._oersted import (
 )
 
 from .mesh import Mesh, CentroidMesh
-from .solver import DirectSolver, OctreeSolver, OctreeSolver2Zone
+from .solver import DirectSolver, OctreeSolver, OctreeSolver2Zone, DEFAULT_SOLVER
 from .constants import MU0
 
 # For typing; currently unused
@@ -27,19 +27,25 @@ def a_field(
     source: Mesh,
     j_density: NDArray[float64],
     targets: NDArray[float64],
-    solver: DirectSolver = DirectSolver(),
+    solver: DirectSolver = DEFAULT_SOLVER,
 ) -> NDArray[float64]:
     """Compute the magnetic vector potential at a collection of target points"""
 
-    return a_current_tet4(
+    # TODO: make these variable based on selected solver
+    exact_integration: bool = True
+    n_threads: uint32 = uint32(solver.n_threads)
+    use_octree: bool = False
+    theta: float = 0.0
+
+    return a_current(
         source.nodes,
         source.connectivity,
         j_density,
         targets,
-        0.0,
-        uint32(1),
-        solver.n_threads,
-        False,
+        exact_integration,
+        n_threads,
+        use_octree,
+        theta,
     )
 
 

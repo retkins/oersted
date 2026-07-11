@@ -142,23 +142,17 @@ fn h_current_point_octree<'py>(
 }
 
 #[pyfunction]
-fn a_current_tet4<'py>(
+fn a_current<'py>(
     py: Python<'py>,
     nodes: PyReadonlyArray2<f64>,
     connectivity: PyReadonlyArray2<u32>,
     jdensity: PyReadonlyArray2<f64>,
     targets: PyReadonlyArray2<f64>,
-    theta: f64,
-    leaf_threshold: u32,
+    exact_integration: bool,
     n_threads_requested: u32,
     use_octree: bool,
+    theta: f64,
 ) -> PyResult<BoundPyArray2f64<'py>> {
-    if use_octree {
-        return Err(PyErr::new::<PyNotImplementedError, _>(
-            "Octree is not yet available for a-field solves",
-        ));
-    }
-
     let _nodes = to_vec3s(nodes.as_slice()?);
     let _connectivity = to_u32x4s(connectivity.as_slice()?);
     let _jdensity = to_vec3s(jdensity.as_slice()?);
@@ -166,14 +160,36 @@ fn a_current_tet4<'py>(
     let n_tgts = x.len();
     let (mut ax, mut ay, mut az) = col_buffer(n_tgts);
 
-    biotsavart::a_current_tet4_direct(
-        &_nodes,
-        &_connectivity,
-        &_jdensity,
-        (&x, &y, &z),
-        (&mut ax, &mut ay, &mut az),
-        n_threads_requested,
-    );
+    if use_octree {
+        return Err(PyErr::new::<PyNotImplementedError, _>(
+            "Octree is not yet available for a-field solves",
+        ));
+    } else {
+        if exact_integration {
+            biotsavart::a_current_tet4_direct(
+                &_nodes,
+                &_connectivity,
+                &_jdensity,
+                (&x, &y, &z),
+                (&mut ax, &mut ay, &mut az),
+                n_threads_requested,
+            );
+        } else {
+            let n_src = _connectivity.len();
+            let mut src_centroids = vec![Vec3::default(); n_src];
+            mesh::centroids(_nodes, _connectivity, &mut src_centroids);
+            let mut src_volumes = vec![0.0; n_src];
+            mesh::volumes(_nodes, _connectivity, &mut src_volumes);
+            biotsavart::a_current_point_direct(
+                &src_centroids,
+                &src_volumes,
+                &_jdensity,
+                (&x, &y, &z),
+                (&mut ax, &mut ay, &mut az),
+                n_threads_requested,
+            )
+        }
+    }
 
     Ok(cols_to_pyarray(py, (ax, ay, az)))
 }
@@ -677,7 +693,7 @@ fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     // Field calculations
     m.add_function(wrap_pyfunction!(h_current_point_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_point_octree, m.clone())?)?;
-    m.add_function(wrap_pyfunction!(a_current_tet4, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(a_current, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_tet4_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_tet4_octree, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_mag_point, m.clone())?)?;

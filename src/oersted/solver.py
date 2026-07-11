@@ -151,3 +151,6 @@ class OctreeSolver(Solver):
         """Returns the number of sources that will be evaluated individually at the
         octree leaf level"""
         return self._leaf_threshold
+
+
+DEFAULT_SOLVER = DirectSolver()

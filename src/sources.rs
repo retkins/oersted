@@ -5,7 +5,7 @@ use crate::math::cross;
 pub mod element;
 pub use element::{edge_csys, edge_integral, transform};
 pub mod point;
-pub use point::{h_current_point, h_point, h_point_dipole};
+pub use point::{a_current_point, h_current_point, h_point, h_point_dipole};
 pub mod tet4;
 pub use tet4::{a_current_tet4, h_current_tet4, h_mag_tet4};
 pub mod tet4_edge;

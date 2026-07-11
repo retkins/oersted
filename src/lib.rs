@@ -44,9 +44,9 @@ pub mod biotsavart_parallel;
 
 // Utility functions used across the library
 
-/// Determine the number of cpu threads to use 
-/// 
-/// If `nthreads_requested` is 0, then use all available threads. Otherwise, use the 
+/// Determine the number of cpu threads to use
+///
+/// If `nthreads_requested` is 0, then use all available threads. Otherwise, use the
 /// specified value, but no more than is available.
 pub fn get_nthreads(nthreads_requested: u32) -> usize {
     let nthreads_available: usize = available_parallelism().unwrap_or(NonZeroUsize::MIN).get();

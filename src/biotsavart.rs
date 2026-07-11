@@ -7,14 +7,71 @@ use crate::{
     math::mag3,
     mesh::node_coords,
     sources::{
-        a_current_tet4, h_current_tet4, h_current_tet4_edge, h_mag_tet4, h_mag_tet4_edge,
-        h_point_dipole,
+        a_current_point, a_current_tet4, h_current_tet4, h_current_tet4_edge, h_mag_tet4,
+        h_mag_tet4_edge, h_point_dipole,
     },
     types::Vec3,
 };
 use std::{f64::consts::PI, thread};
 
 const ONE_OVER_4PI: f64 = 1.0 / (4.0 * PI);
+
+/// Compute the magnetic vector potential at a collection of target points, using a
+/// collection of "point" sources with associated constant current density vectors as
+/// the source
+///
+/// # Args
+/// * `src_centroids`: (m) x,y,z coordinates of the centroid locations of the sources
+/// * `src_volumes`: (m^3) volume associated with each source
+/// * `src_jdensity`: (A/m^2) current density vector associated with each source
+/// * `targets`: (m) x,y,z coordinates of the target points
+/// * `out`: (T*m) magnetic vector potential at the target points
+/// * `n_threads_requested`: set equal to 0 to use all available cpu cores
+///
+/// # Accuracy
+/// This function does not handle singularities at the source points, and has reduced
+/// accuracy near the sources. Therefore, it is only suitable for use as a far-field
+/// approximation. The approximation is quite good for targets 2-3 source lengths away.
+///
+/// # Solver
+/// This performs a "direct" O(N^2) integration of the effect of every source at every
+/// target point.
+pub fn a_current_point_direct(
+    src_centroids: &[Vec3],
+    src_volumes: &[f64],
+    src_jdensity: &[Vec3],
+    targets: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
+    n_threads_requested: u32,
+) {
+    let n_threads: usize = get_nthreads(n_threads_requested);
+    let n_targets: usize = targets.0.len();
+    let n_src: usize = src_centroids.len();
+    let chunk_size: usize = n_targets.div_ceil(n_threads);
+
+    let (x, y, z) = targets;
+    let (ax, ay, az) = out;
+
+    let chunks = x
+        .chunks(chunk_size)
+        .zip(y.chunks(chunk_size))
+        .zip(z.chunks(chunk_size))
+        .zip(ax.chunks_mut(chunk_size))
+        .zip(ay.chunks_mut(chunk_size))
+        .zip(az.chunks_mut(chunk_size));
+
+    thread::scope(|s| {
+        for (((((xc, yc), zc), axc), ayc), azc) in chunks {
+            s.spawn(move || {
+                for i in 0..n_src {
+                    let jmoment: Vec3 = src_jdensity[i] * src_volumes[i];
+                    // Compute the effect of an individual source on all targets
+                    a_current_point(&src_centroids[i], &jmoment, (xc, yc, zc), (axc, ayc, azc));
+                }
+            });
+        }
+    });
+}
 
 /// Compute the magnetic field strength at target points (x, y, z) using a direct (O(N^2)) Biot-Savart summation
 ///
