@@ -10,6 +10,7 @@ from ._oersted import (
     mesh_surface_faces,
     mesh_surface_face_properties,
 )
+from pathlib import Path
 
 
 class CentroidMesh:
@@ -242,7 +243,7 @@ class Mesh:
     @classmethod
     def from_step(
         cls,
-        filename: str,
+        filename: str | Path,
         mesh_size: float,
         mesh_size_scale: float = 1e3,
         part_size_scale: float = 1e-3,
@@ -265,7 +266,7 @@ class Mesh:
             volumetric tet4 mesh of the STEP file
         """
         return mesh_step(
-            filename,
+            str(filename),
             mesh_size * mesh_size_scale,
             mesh_size * mesh_size_scale,
             part_size_scale,

@@ -12,6 +12,8 @@ from .testing import (
     bz_finite_length_solenoid,
     bz_loop_axis,
     dbzdz_loop_axis,
+    uniform_3d_grid,
+    curl,
 )
 from .magnetization import demag_solve
 from .results import (
@@ -59,6 +61,8 @@ __all__ = [
     "bz_loop_axis",
     "dbzdz_loop_axis",
     "bz_finite_length_solenoid",
+    "uniform_3d_grid",
+    "curl",
     # Octree (interaction lists)
     "interaction_lists",
     "h_current_octree",

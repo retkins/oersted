@@ -194,3 +194,74 @@ def dbzdz_loop_axis(current: float, radius: float, z: float) -> float:
         (T/m) magnetic flux density gradient, oriented along the loop axis
     """
     return -1.5 * MU0 * current * (radius**2) * z / (z**2 + radius**2) ** 2.5
+
+
+def curl(
+    fx: NDArray[float64],
+    fy: NDArray[float64],
+    fz: NDArray[float64],
+    spacing: tuple[float, float, float],
+) -> tuple[NDArray[float64], NDArray[float64], NDArray[float64]]:
+    """Compute the curl of a vector-value function in 3D space on a uniform grid
+    
+    Args:
+        fx: shape (nx, ny, nz) value of function in x-direction at all points in 3d grid
+        fy: shape (nx, ny, nz) value of function in y-direction at all points in 3d grid
+        fz: shape (nx, ny, nz) value of function in z-direction at all points in 3d grid
+        spacing: (dx, dy, dz) step size in each direction 
+
+    Returns:
+        curl_x, curl_y, curl_z: each shape (nx, ny, nz) 
+    """
+
+    (dx, dy, dz) = spacing
+
+    dfz_dy = np.gradient(fz, dy, axis=1)
+    dfy_dz = np.gradient(fy, dz, axis=2)
+
+    dfx_dz = np.gradient(fx, dz, axis=2)
+    dfz_dx = np.gradient(fz, dx, axis=0)
+
+    dfy_dx = np.gradient(fy, dx, axis=0)
+    dfx_dy = np.gradient(fx, dy, axis=1)
+
+    curl_x = dfz_dy - dfy_dz
+    curl_y = dfx_dz - dfz_dx
+    curl_z = dfy_dx - dfx_dy
+
+    return curl_x, curl_y, curl_z
+
+
+def uniform_3d_grid(
+    xrange: tuple[float, float],
+    yrange: tuple[float, float],
+    zrange: tuple[float, float],
+    n: tuple[int, int, int],
+) -> tuple[NDArray[float64], tuple[float, float, float]]:
+    """ Create a uniform 3D grid 
+
+    Args
+        xrange: (xmin, xmax) 
+        yrange: (ymin, ymax)
+        zrange: (zmin, zmax)
+        n: (nx, ny, nz) 
+
+    Returns:
+        pts: shape (nx*ny*nz,3), locations of points in 3d space 
+        (dx, dy, dz): length increment along each axis
+    """
+    
+    (xmin, xmax) = xrange
+    (ymin, ymax) = yrange
+    (zmin, zmax) = zrange
+    (nx, ny, nz) = n
+
+    x = np.linspace(xmin, xmax, nx)
+    y = np.linspace(ymin, ymax, ny)
+    z = np.linspace(zmin, zmax, nz)
+    X, Y, Z = np.meshgrid(x, y, z, indexing="ij")
+    pts = np.column_stack([X.ravel(), Y.ravel(), Z.ravel()])
+
+    dx, dy, dz = x[1] - x[0], y[1] - y[0], z[1] - z[0]
+
+    return pts, (dx, dy, dz)
