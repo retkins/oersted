@@ -115,3 +115,5 @@ integrals to their own module
 * Added interaction list octree functionality: tree build, moment updates, and traversal
 * Added test for interaction list octree vs direct and old octree
 * Updated interfaces to use both interaction list and 2-zone octrees
+* Added magnetic vector potential calculations for direct solvers
+* Fixed a correctness bug in atan2(), causing significant field errors near element surfaces
