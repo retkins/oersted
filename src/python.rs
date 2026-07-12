@@ -10,7 +10,7 @@ use pyo3::exceptions::PyNotImplementedError;
 use pyo3::prelude::*;
 
 use crate::{
-    biotsavart, biotsavart_parallel, magnetization,
+    biotsavart, biotsavart_parallel, check_lengths, magnetization,
     math::gradient,
     mesh,
     octree::{CurrentSources, DipoleSources, HFieldSolver, Octree, point, tet_element},
@@ -481,9 +481,15 @@ fn interaction_lists<'py>(
     mid.source_indices.extend(&mid.target_indices);
     far.source_indices.extend(&far.target_indices);
 
-    let arr1 = PyArray1::from_vec(py, near.source_indices).reshape([near_len, 2])?;
-    let arr2 = PyArray1::from_vec(py, mid.source_indices).reshape([mid_len, 2])?;
-    let arr3 = PyArray1::from_vec(py, far.source_indices).reshape([far_len, 2])?;
+    let arr1 = PyArray1::from_vec(py, near.source_indices)
+        .reshape([2, near_len])?
+        .transpose()?;
+    let arr2 = PyArray1::from_vec(py, mid.source_indices)
+        .reshape([2, mid_len])?
+        .transpose()?;
+    let arr3 = PyArray1::from_vec(py, far.source_indices)
+        .reshape([2, far_len])?
+        .transpose()?;
 
     Ok((arr1, arr2, arr3))
 }
@@ -688,6 +694,23 @@ fn _mesh_surface_tets<'py>(
     ))
 }
 
+#[pyfunction]
+fn atan2<'py>(
+    py: Python<'py>,
+    yvals: PyReadonlyArray1<f64>,
+    xvals: PyReadonlyArray1<f64>,
+) -> PyResult<(Bound<'py, PyArray1<f64>>)> {
+    let _yvals = yvals.as_slice()?;
+    let _xvals = xvals.as_slice()?;
+    check_lengths!(_yvals, _xvals);
+    let mut result = vec![0.0; _yvals.len()];
+
+    for (i, (&y, &x)) in _yvals.iter().zip(_xvals.iter()).enumerate() {
+        result[i] = crate::math::atan2(y, x);
+    }
+    Ok(PyArray1::from_vec(py, result))
+}
+
 #[pymodule]
 fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     // Field calculations
@@ -712,6 +735,9 @@ fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     // Interaction lists
     m.add_function(wrap_pyfunction!(interaction_lists, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_octree, m.clone())?)?;
+
+    // Math
+    m.add_function(wrap_pyfunction!(atan2, m.clone())?)?;
 
     Ok(())
 }

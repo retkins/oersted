@@ -124,3 +124,7 @@ def h_current_octree(
     theta: float,
     n_threads_requested: uint32,
 ) -> Float64Array: ...
+def atan2(
+    yvals: Float64Array,
+    xvals: Float64Array,
+) -> Float64Array: ...

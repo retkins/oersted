@@ -5,6 +5,7 @@ from numpy import float64, uint32
 from numpy.typing import NDArray
 from .mesh import Mesh
 from .constants import MU0
+from pathlib import Path
 
 
 def mean_squared_error(
@@ -86,7 +87,7 @@ def smape(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
 
 
 def make_helmholtz(
-    filename: str, size: float, jmag: None | float = None, scale: float = 1e-3
+    filename: str | Path, size: float, jmag: None | float = None, scale: float = 1e-3
 ) -> tuple[Mesh, NDArray[float64]]:
     """Make the helmholtz coil test problem
 
@@ -203,15 +204,15 @@ def curl(
     spacing: tuple[float, float, float],
 ) -> tuple[NDArray[float64], NDArray[float64], NDArray[float64]]:
     """Compute the curl of a vector-value function in 3D space on a uniform grid
-    
+
     Args:
         fx: shape (nx, ny, nz) value of function in x-direction at all points in 3d grid
         fy: shape (nx, ny, nz) value of function in y-direction at all points in 3d grid
         fz: shape (nx, ny, nz) value of function in z-direction at all points in 3d grid
-        spacing: (dx, dy, dz) step size in each direction 
+        spacing: (dx, dy, dz) step size in each direction
 
     Returns:
-        curl_x, curl_y, curl_z: each shape (nx, ny, nz) 
+        curl_x, curl_y, curl_z: each shape (nx, ny, nz)
     """
 
     (dx, dy, dz) = spacing
@@ -238,19 +239,19 @@ def uniform_3d_grid(
     zrange: tuple[float, float],
     n: tuple[int, int, int],
 ) -> tuple[NDArray[float64], tuple[float, float, float]]:
-    """ Create a uniform 3D grid 
+    """Create a uniform 3D grid
 
     Args
-        xrange: (xmin, xmax) 
+        xrange: (xmin, xmax)
         yrange: (ymin, ymax)
         zrange: (zmin, zmax)
-        n: (nx, ny, nz) 
+        n: (nx, ny, nz)
 
     Returns:
-        pts: shape (nx*ny*nz,3), locations of points in 3d space 
+        pts: shape (nx*ny*nz,3), locations of points in 3d space
         (dx, dy, dz): length increment along each axis
     """
-    
+
     (xmin, xmax) = xrange
     (ymin, ymax) = yrange
     (zmin, zmax) = zrange
