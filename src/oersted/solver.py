@@ -47,6 +47,8 @@ class DirectSolver(Solver):
     """Controls solver options for using the direct (full integration)
     solution routines"""
 
+    name = "Direct"
+
     def __init__(
         self, n_threads: int = 0, max_iterations=100, tol=1.0, alpha=0.5, edge=False
     ):
@@ -63,6 +65,7 @@ class OctreeSolver2Zone(Solver):
     This uses the "old" 2-zone octree solver.
     """
 
+    name = "Octree-2Zone"
     _theta: float
     _leaf_threshold: int
     _n_threads: int
@@ -111,6 +114,8 @@ class OctreeSolver(Solver):
         always use a leaf threshold of 1.
     """
 
+    name = "Octree-3Zone"
+
     _theta: float
     _leaf_threshold: int
     _n_threads: int
@@ -123,7 +128,7 @@ class OctreeSolver(Solver):
         self,
         theta: float = 0.25,
         alpha: float = 3.0,
-        leaf_threshold: int = 1,
+        leaf_threshold: int = 16,
         n_threads: int = 0,
         max_iterations=100,
         tol=1.0,
@@ -133,7 +138,7 @@ class OctreeSolver(Solver):
         self._n_threads = n_threads
         self._max_iterations = max_iterations
         self._tol = tol
-        self._leaf_threshold = 1
+        self._leaf_threshold = leaf_threshold
         self._edge = False
 
     @property
@@ -151,3 +156,6 @@ class OctreeSolver(Solver):
         """Returns the number of sources that will be evaluated individually at the
         octree leaf level"""
         return self._leaf_threshold
+
+
+DEFAULT_SOLVER = DirectSolver()

@@ -1,45 +1,34 @@
 use std::f64::consts::{FRAC_PI_2, PI};
 
-/// Fast, approximate atan2(y,x)
+/// Computes atan(y/x) on the range [-pi,pi] using a fast, approximate approach
 ///
-/// Follows the "atan2_auto_1" implementation described here:
-/// <https://mazzo.li/posts/vectorized-atan2.html>
+/// This function is designed to be auto-vectorized when inlined inside other functions
 #[inline(always)]
 pub fn atan2(y: f64, x: f64) -> f64 {
     let ya: f64 = y.abs();
     let xa: f64 = x.abs();
 
-    // Always divide smaller by larger to keep ratio in [-1, 1]
+    // Always divide smaller by larger to keep ratio in [0, 1]
+    // If swap, then the angle is computed against the y-axis instead of the x-axis
     let swap: bool = ya > xa;
-    let num: f64 = if swap { x } else { y };
-    let den: f64 = if swap { y } else { x };
+    let num: f64 = if swap { xa } else { ya };
+    let den: f64 = if swap { ya } else { xa };
 
     let ratio: f64 = num / (den + 1e-16); // shield div/0
-    let atan: f64 = atan_approx(ratio);
+    let mut atan: f64 = atan_approx(ratio);
 
-    let mut ret_val: f64 = if swap && ratio >= 0.0 {
-        FRAC_PI_2 - atan
-    } else {
-        atan
-    };
-    // Correct for other quadrants
-    ret_val = if swap && ratio < 0.0 {
-        -FRAC_PI_2 - atan
-    } else {
-        ret_val
-    };
-    ret_val = if swap && x < 0.0 && y >= 0.0 {
-        ret_val + PI
-    } else {
-        ret_val
-    };
-    ret_val = if swap && x < 0.0 && y < 0.0 {
-        ret_val - PI
-    } else {
-        ret_val
-    };
+    // Exchange with the complementary angle if needed
+    atan = if swap { FRAC_PI_2 - atan } else { atan };
 
-    ret_val
+    // Correct by quadrant if needed:
+    // First quadrant (x >= 0, y >= 0): atan = +(atan)
+    // Second quadrant (x < 0, y >= 0): PI - atan = +(PI - atan)
+    // Third quadrant (x < 0, y < 0): -PI + atan = -(PI - atan)
+    // Fourth quadrant (x > 0, y < 0): -atan = -(atan)
+    // Once x has been tested, then the sign change is determined from the sign of y
+
+    let ret_val = if x < 0.0 { PI - atan } else { atan };
+    ret_val.copysign(y)
 }
 
 // Use magic numbers described in the following reference to approximate atan(v)

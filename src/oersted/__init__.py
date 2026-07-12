@@ -3,7 +3,7 @@
 from .materials import MU0, FreeSpace, LinearMaterial, NonlinearMaterial, BHCurve
 from .solver import Solver, DirectSolver, OctreeSolver, OctreeSolver2Zone
 
-from .biotsavart import b_field, h_field, h_mag
+from .biotsavart import a_field, b_field, h_field, h_mag
 
 from .mesh import Mesh, CentroidMesh, mesh_step, plot_mesh
 from .testing import (
@@ -12,6 +12,8 @@ from .testing import (
     bz_finite_length_solenoid,
     bz_loop_axis,
     dbzdz_loop_axis,
+    uniform_3d_grid,
+    curl,
 )
 from .magnetization import demag_solve
 from .results import (
@@ -22,7 +24,7 @@ from .results import (
     lorentz_force_density,
 )
 
-from ._oersted import interaction_lists, h_current_octree
+from ._oersted import interaction_lists, h_current_octree, atan2
 
 __all__ = [
     # Constants and material properties
@@ -37,6 +39,7 @@ __all__ = [
     "mesh_step",
     "plot_mesh",
     # Fields calculations
+    "a_field",
     "b_field",
     "h_field",
     "h_mag",
@@ -58,7 +61,11 @@ __all__ = [
     "bz_loop_axis",
     "dbzdz_loop_axis",
     "bz_finite_length_solenoid",
+    "uniform_3d_grid",
+    "curl",
     # Octree (interaction lists)
     "interaction_lists",
     "h_current_octree",
+    # Math
+    "atan2",
 ]

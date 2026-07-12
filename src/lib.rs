@@ -11,7 +11,7 @@
 #![allow(clippy::len_without_is_empty)]
 #![allow(clippy::type_complexity)]
 
-use std::f64::consts::PI;
+use std::{f64::consts::PI, num::NonZeroUsize, thread::available_parallelism};
 
 /// Biot-Savart integration constant:  
 /// $$\frac{\mu_0}{4\pi} [H/m]$$
@@ -43,6 +43,21 @@ pub mod python;
 pub mod biotsavart_parallel;
 
 // Utility functions used across the library
+
+/// Determine the number of cpu threads to use
+///
+/// If `nthreads_requested` is 0, then use all available threads. Otherwise, use the
+/// specified value, but no more than is available.
+pub fn get_nthreads(nthreads_requested: u32) -> usize {
+    let nthreads_available: usize = available_parallelism().unwrap_or(NonZeroUsize::MIN).get();
+    let nthreads: usize =
+        if nthreads_requested as usize > nthreads_available || nthreads_requested == 0 {
+            nthreads_available
+        } else {
+            nthreads_requested as usize
+        };
+    nthreads
+}
 
 /// Check the lengths on an arbitrary number of vectors
 #[macro_export]

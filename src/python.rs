@@ -6,10 +6,11 @@ use numpy::{
     Element, PyArray1, PyArray2, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2,
     PyReadwriteArray1, PyUntypedArrayMethods,
 };
+use pyo3::exceptions::PyNotImplementedError;
 use pyo3::prelude::*;
 
 use crate::{
-    biotsavart_parallel, magnetization,
+    biotsavart, biotsavart_parallel, check_lengths, magnetization,
     math::gradient,
     mesh,
     octree::{CurrentSources, DipoleSources, HFieldSolver, Octree, point, tet_element},
@@ -138,6 +139,59 @@ fn h_current_point_octree<'py>(
     );
 
     Ok(cols_to_pyarray(py, (bx, by, bz)))
+}
+
+#[pyfunction]
+fn a_current<'py>(
+    py: Python<'py>,
+    nodes: PyReadonlyArray2<f64>,
+    connectivity: PyReadonlyArray2<u32>,
+    jdensity: PyReadonlyArray2<f64>,
+    targets: PyReadonlyArray2<f64>,
+    exact_integration: bool,
+    n_threads_requested: u32,
+    use_octree: bool,
+    theta: f64,
+) -> PyResult<BoundPyArray2f64<'py>> {
+    let _nodes = to_vec3s(nodes.as_slice()?);
+    let _connectivity = to_u32x4s(connectivity.as_slice()?);
+    let _jdensity = to_vec3s(jdensity.as_slice()?);
+    let (x, y, z) = pyarray_to_3cols(targets);
+    let n_tgts = x.len();
+    let (mut ax, mut ay, mut az) = col_buffer(n_tgts);
+
+    if use_octree {
+        return Err(PyErr::new::<PyNotImplementedError, _>(
+            "Octree is not yet available for a-field solves",
+        ));
+    } else {
+        if exact_integration {
+            biotsavart::a_current_tet4_direct(
+                &_nodes,
+                &_connectivity,
+                &_jdensity,
+                (&x, &y, &z),
+                (&mut ax, &mut ay, &mut az),
+                n_threads_requested,
+            );
+        } else {
+            let n_src = _connectivity.len();
+            let mut src_centroids = vec![Vec3::default(); n_src];
+            mesh::centroids(_nodes, _connectivity, &mut src_centroids);
+            let mut src_volumes = vec![0.0; n_src];
+            mesh::volumes(_nodes, _connectivity, &mut src_volumes);
+            biotsavart::a_current_point_direct(
+                &src_centroids,
+                &src_volumes,
+                &_jdensity,
+                (&x, &y, &z),
+                (&mut ax, &mut ay, &mut az),
+                n_threads_requested,
+            )
+        }
+    }
+
+    Ok(cols_to_pyarray(py, (ax, ay, az)))
 }
 
 #[pyfunction]
@@ -427,9 +481,15 @@ fn interaction_lists<'py>(
     mid.source_indices.extend(&mid.target_indices);
     far.source_indices.extend(&far.target_indices);
 
-    let arr1 = PyArray1::from_vec(py, near.source_indices).reshape([near_len, 2])?;
-    let arr2 = PyArray1::from_vec(py, mid.source_indices).reshape([mid_len, 2])?;
-    let arr3 = PyArray1::from_vec(py, far.source_indices).reshape([far_len, 2])?;
+    let arr1 = PyArray1::from_vec(py, near.source_indices)
+        .reshape([2, near_len])?
+        .transpose()?;
+    let arr2 = PyArray1::from_vec(py, mid.source_indices)
+        .reshape([2, mid_len])?
+        .transpose()?;
+    let arr3 = PyArray1::from_vec(py, far.source_indices)
+        .reshape([2, far_len])?
+        .transpose()?;
 
     Ok((arr1, arr2, arr3))
 }
@@ -634,10 +694,29 @@ fn _mesh_surface_tets<'py>(
     ))
 }
 
+#[pyfunction]
+fn atan2<'py>(
+    py: Python<'py>,
+    yvals: PyReadonlyArray1<f64>,
+    xvals: PyReadonlyArray1<f64>,
+) -> PyResult<(Bound<'py, PyArray1<f64>>)> {
+    let _yvals = yvals.as_slice()?;
+    let _xvals = xvals.as_slice()?;
+    check_lengths!(_yvals, _xvals);
+    let mut result = vec![0.0; _yvals.len()];
+
+    for (i, (&y, &x)) in _yvals.iter().zip(_xvals.iter()).enumerate() {
+        result[i] = crate::math::atan2(y, x);
+    }
+    Ok(PyArray1::from_vec(py, result))
+}
+
 #[pymodule]
 fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
+    // Field calculations
     m.add_function(wrap_pyfunction!(h_current_point_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_point_octree, m.clone())?)?;
+    m.add_function(wrap_pyfunction!(a_current, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_tet4_direct, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_tet4_octree, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_mag_point, m.clone())?)?;
@@ -656,6 +735,9 @@ fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     // Interaction lists
     m.add_function(wrap_pyfunction!(interaction_lists, m.clone())?)?;
     m.add_function(wrap_pyfunction!(h_current_octree, m.clone())?)?;
+
+    // Math
+    m.add_function(wrap_pyfunction!(atan2, m.clone())?)?;
 
     Ok(())
 }
