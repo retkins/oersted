@@ -22,7 +22,7 @@ pub const MU0_4PI: f64 = 1e-7;
 pub const MU0: f64 = 4.0 * PI * MU0_4PI;
 
 pub mod analytical;
-pub mod archive;
+// pub mod archive;
 pub mod biotsavart;
 pub mod errors;
 pub mod io;
@@ -31,16 +31,13 @@ pub mod magnetization;
 pub mod math;
 pub mod mesh;
 pub mod morton;
-pub mod octree;
+// pub mod octree;
 pub mod octree_lists;
 pub mod sources;
 pub mod types;
 
 #[cfg(feature = "python")]
 pub mod python;
-
-#[cfg(feature = "parallel")]
-pub mod biotsavart_parallel;
 
 // Utility functions used across the library
 
@@ -57,6 +54,35 @@ pub fn get_nthreads(nthreads_requested: u32) -> usize {
             nthreads_requested as usize
         };
     nthreads
+}
+
+/// Chunk targets for parallel evaluation
+pub fn par_chunks<'a>(
+    x: &'a [f64],
+    y: &'a [f64],
+    z: &'a [f64],
+    fx: &'a mut [f64],
+    fy: &'a mut [f64],
+    fz: &'a mut [f64],
+    chunk_size: usize,
+) -> impl Iterator<
+    Item = (
+        &'a [f64],
+        &'a [f64],
+        &'a [f64],
+        &'a mut [f64],
+        &'a mut [f64],
+        &'a mut [f64],
+    ),
+> {
+    let _ = check_lengths!(x, y, z, fx, fy, fz);
+    x.chunks(chunk_size)
+        .zip(y.chunks(chunk_size))
+        .zip(z.chunks(chunk_size))
+        .zip(fx.chunks_mut(chunk_size))
+        .zip(fy.chunks_mut(chunk_size))
+        .zip(fz.chunks_mut(chunk_size))
+        .map(|(((((xc, yc), zc), fxc), fyc), fzc)| (xc, yc, zc, fxc, fyc, fzc))
 }
 
 /// Check the lengths on an arbitrary number of vectors

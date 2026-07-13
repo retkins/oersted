@@ -1,7 +1,5 @@
 use crate::{
-    MU0_4PI,
-    math::{atan2, ln},
-    types::Vec3,
+    MU0_4PI, check_lengths, math::{atan2, ln}, types::Vec3,
 };
 
 use std::f64::consts::PI;
@@ -250,12 +248,7 @@ pub fn h_current_tet4(
 ) {
     let (x, y, z) = targets;
     let (hx, hy, hz) = out;
-    let n_targets = x.len();
-    assert_eq!(n_targets, y.len());
-    assert_eq!(n_targets, z.len());
-    assert_eq!(n_targets, hx.len());
-    assert_eq!(n_targets, hy.len());
-    assert_eq!(n_targets, hz.len());
+    let n_targets: usize = check_lengths!(x, y, z, hx, hy, hz);
 
     for f in 0..4 {
         let (na, nb, nc) = face_nodes(f);
@@ -273,6 +266,40 @@ pub fn h_current_tet4(
             hx[i] += prefactor[0] * psi;
             hy[i] += prefactor[1] * psi;
             hz[i] += prefactor[2] * psi;
+        }
+    }
+}
+
+pub fn a_mag_tet4(
+    nodes: &[Vec3; 4], // source nodes
+    mvector: &Vec3,    // source element
+    targets: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
+) {
+    // From Fabbri eq 11, A-field from magnetization is the same as B-field from
+    // current density 
+    let (x, y, z) = targets;
+    let (ax, ay, az) = out;
+    let n_targets: usize = check_lengths!(x, y, z, ax, ay, az);
+
+    for f in 0..4 {
+        let (na, nb, nc) = face_nodes(f);
+
+        let a: Vec3 = nodes[na];
+        let b: Vec3 = nodes[nb];
+        let c: Vec3 = nodes[nc];
+
+        let face: Face = precompute_face(&a, &b, &c);
+        // Note the difference in prefactor term to compute A-field like B-field 
+        // (not like H-field)
+        let prefactor: Vec3 = mvector.cross(&face.n_hat) * MU0_4PI;
+
+        for i in 0..n_targets {
+            let r: Vec3 = Vec3([x[i], y[i], z[i]]);
+            let psi: f64 = charge_potential(&face, &r);
+            ax[i] += prefactor[0] * psi;
+            ay[i] += prefactor[1] * psi;
+            az[i] += prefactor[2] * psi;
         }
     }
 }

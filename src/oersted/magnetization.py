@@ -1,20 +1,20 @@
 """Operations for magnetic materials"""
 
-from oersted import DirectSolver, OctreeSolver, OctreeSolver2Zone
+from oersted import SolverSettings
 
 from numpy.typing import NDArray
 from numpy import float64, uint32, ascontiguousarray
 
 from .mesh import Mesh
 from .materials import Material
-from ._oersted import magnetization_tet4
+from ._oersted import magnetization_solve
 
 
 def demag_solve(
     mesh: Mesh,
     material: Material,
     h_external: NDArray[float64],
-    solver: DirectSolver | OctreeSolver | OctreeSolver2Zone,
+    settings: SolverSettings
 ) -> tuple[NDArray[float64], NDArray[float64]]:
     """Compute magnetization field M and the total H field at element centroids,
         given a background field
@@ -47,7 +47,7 @@ def demag_solve(
         theta = solver.theta
         leaf_threshold = solver.leaf_threshold
 
-    return magnetization_tet4(
+    return magnetization_solve(
         ascontiguousarray(mesh.nodes),
         ascontiguousarray(mesh.connectivity),
         material.chi(1.0),

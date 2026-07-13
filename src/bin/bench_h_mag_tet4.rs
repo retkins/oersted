@@ -1,4 +1,4 @@
-use oersted::biotsavart::h_mag_tet4_direct;
+use oersted::biotsavart::h_mag_tet4;
 use oersted::io::{CsvData, read_csv};
 use oersted::types::Vec3;
 

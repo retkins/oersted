@@ -10,18 +10,107 @@
 
 use crate::{
     check_lengths, check_optional_lengths,
-    math::sort_by_indices,
+    math::{min_and_max, sort_by_indices},
     mesh, morton,
-    octree::{bbox::BoundingBox, size_at_level},
     sources::{h_current_point, h_current_tet4},
     types::Vec3,
 };
 
-use std::f64::consts::PI;
-use std::time::Instant;
+use std::{f64::consts::PI, thread, time::Instant};
+
+#[derive(Clone, Copy)]
+pub struct OctreeSettings {
+    pub theta: f64,
+    pub near_field_ratio: f64,
+    pub max_leaf_size: u32,
+}
 
 // Sentinel value to identify nodes who have not been assigned in the tree yet
 const INVALID_NODE: u32 = u32::MAX;
+
+/// Return the size of an octree node given the side length of the root
+/// node and the level in the tree
+pub fn size_at_level(side_length: f64, level: u8) -> f64 {
+    side_length / (2f64.powi(level as i32))
+}
+
+/// Determines the location and extent of a collection of source points
+#[derive(Debug, Clone, Copy)]
+pub struct BoundingBox {
+    xc: f64,
+    yc: f64,
+    zc: f64,
+    pub side_length: f64,
+    xbounds: (f64, f64),
+    ybounds: (f64, f64),
+    zbounds: (f64, f64),
+}
+
+// Get the maximum side length of a bounding box cube that encloses all x,y,z bounds
+fn side_length_from_bounds(xbounds: (f64, f64), ybounds: (f64, f64), zbounds: (f64, f64)) -> f64 {
+    let xrange: f64 = xbounds.1 - xbounds.0;
+    let yrange: f64 = ybounds.1 - ybounds.0;
+    let zrange: f64 = zbounds.1 - zbounds.0;
+
+    let xymax = match xrange > yrange {
+        true => xrange,
+        false => yrange,
+    };
+
+    match xymax > zrange {
+        true => xymax,
+        false => zrange,
+    }
+}
+
+impl BoundingBox {
+    pub fn from_centroids(centroids: (&[f64], &[f64], &[f64])) -> Option<Self> {
+        // TODO: length check
+
+        let xbounds: Option<(f64, f64)> = min_and_max(centroids.0);
+        let ybounds: Option<(f64, f64)> = min_and_max(centroids.1);
+        let zbounds: Option<(f64, f64)> = min_and_max(centroids.2);
+
+        if xbounds.is_none() | ybounds.is_none() | zbounds.is_none() {
+            return None;
+        }
+
+        let (xb, yb, zb) = (xbounds.unwrap(), ybounds.unwrap(), zbounds.unwrap());
+        let side_length = side_length_from_bounds(xb, yb, zb);
+        let xc: f64 = xb.0 + 0.5 * side_length;
+        let yc: f64 = yb.0 + 0.5 * side_length;
+        let zc: f64 = zb.0 + 0.5 * side_length;
+
+        Some(Self {
+            xc,
+            yc,
+            zc,
+            side_length,
+            xbounds: xb,
+            ybounds: yb,
+            zbounds: zb,
+        })
+    }
+
+    /// TODO: fix this so there's no data copy
+    pub fn from_centroids_vec(centroids: &[Vec3]) -> Self {
+        let n: usize = centroids.len();
+        let mut x: Vec<f64> = vec![0.0; n];
+        let mut y: Vec<f64> = vec![0.0; n];
+        let mut z: Vec<f64> = vec![0.0; n];
+        for i in 0..n {
+            x[i] = centroids[i][0];
+            y[i] = centroids[i][1];
+            z[i] = centroids[i][2];
+        }
+
+        Self::from_centroids((&x, &y, &z)).unwrap()
+    }
+
+    pub fn min_corner(&self) -> (f64, f64, f64) {
+        (self.xbounds.0, self.ybounds.0, self.zbounds.0)
+    }
+}
 
 /// Return the morton code prefix at a given level of the tree
 #[inline(always)]
@@ -662,9 +751,20 @@ impl Octree {
             &mut out,
             |idx_source, txb, tyb, tzb, hxb, hyb, hzb| {
                 let centroid: Vec3 = self.sources.elem_centroids[idx_source];
-                let vj: Vec3 = self.sources.jdensity.as_ref().unwrap()[idx_source]
-                    * self.sources.elem_volumes[idx_source];
-                h_current_point(&centroid, &vj, (txb, tyb, tzb), (hxb, hyb, hzb));
+                let volume: f64 = self.sources.elem_volumes[idx_source];
+                let jdensity: Vec3 = self.sources.jdensity.as_ref().unwrap()[idx_source];
+                // let vj: Vec3 = self.sources.jdensity.as_ref().unwrap()[idx_source] * volume;
+                // let radius: f64 = 0.0;
+
+                let elem = self.sources.elem_connectivity[idx_source];
+                let nodes = [
+                    self.sources.elem_nodes[elem[0] as usize],
+                    self.sources.elem_nodes[elem[1] as usize],
+                    self.sources.elem_nodes[elem[2] as usize],
+                    self.sources.elem_nodes[elem[3] as usize],
+                ];
+
+                h_current_point(&nodes, &jdensity, (txb, tyb, tzb), (hxb, hyb, hzb));
             },
         );
 
@@ -674,14 +774,23 @@ impl Octree {
             targets,
             &mut out,
             |idx_source, txb, tyb, tzb, hxb, hyb, hzb| {
-                let centroid: Vec3 = self.topology.centroids[idx_source];
-                let vj: Vec3 = self.j_moments.as_ref().unwrap()[idx_source];
-                h_current_point(&centroid, &vj, (txb, tyb, tzb), (hxb, hyb, hzb));
+                let centroid: Vec3 = self.sources.elem_centroids[idx_source];
+                let volume: f64 = self.sources.elem_volumes[idx_source];
+                let jdensity: Vec3 = self.sources.jdensity.as_ref().unwrap()[idx_source];
+                // let vj: Vec3 = self.sources.jdensity.as_ref().unwrap()[idx_source] * volume;
+                // let radius: f64 = 0.0;
+
+                let elem = self.sources.elem_connectivity[idx_source];
+                let nodes = [
+                    self.sources.elem_nodes[elem[0] as usize],
+                    self.sources.elem_nodes[elem[1] as usize],
+                    self.sources.elem_nodes[elem[2] as usize],
+                    self.sources.elem_nodes[elem[3] as usize],
+                ];
             },
         );
     }
 
-    #[cfg(feature = "parallel")]
     pub fn h_current_parallel(
         &self,
         targets: (&[f64], &[f64], &[f64]),
@@ -697,23 +806,18 @@ impl Octree {
         // TODO: length checks
         let n_tgt: usize = check_lengths!(x, y, z, hx, hy, hz);
 
-        use rayon::prelude::*;
-        let nthreads: usize = crate::biotsavart_parallel::get_nthreads(n_threads_requested);
+        let nthreads: usize = crate::get_nthreads(n_threads_requested);
         let chunk_size: usize = (n_tgt / nthreads).max(1);
 
-        // chunk the inputs
-        let _x = x.par_chunks(chunk_size);
-        let _y = y.par_chunks(chunk_size);
-        let _z = z.par_chunks(chunk_size);
-        let _hx = hx.par_chunks_mut(chunk_size);
-        let _hy = hy.par_chunks_mut(chunk_size);
-        let _hz = hz.par_chunks_mut(chunk_size);
+        let chunks = crate::par_chunks(x, y, z, hx, hy, hz, chunk_size);
 
-        (_x, _y, _z, _hx, _hy, _hz)
-            .into_par_iter()
-            .for_each(|(_x, _y, _z, _hx, _hy, _hz)| {
-                self.h_current((_x, _y, _z), alpha, theta, (_hx, _hy, _hz))
-            });
+        thread::scope(|s| {
+            for (xc, yc, zc, hxc, hyc, hzc) in chunks {
+                s.spawn(move || {
+                    self.h_current((xc, yc, zc), alpha, theta, (hxc, hyc, hzc));
+                });
+            }
+        });
     }
 }
 

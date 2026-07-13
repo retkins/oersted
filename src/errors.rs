@@ -7,4 +7,5 @@ pub enum OerstedError {
     FileOpenError,
     FloatParseError,
     ColNumberChange,
+    ConvergenceFailure,
 }

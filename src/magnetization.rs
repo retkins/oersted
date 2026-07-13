@@ -7,18 +7,10 @@
 //! * Require iteration and therefore benefit from non-trivial solver techniques
 
 use crate::{
-    biotsavart_parallel::h_mag_tet4_direct_parallel,
-    mesh,
-    octree::{DipoleSources, Octree, tet_element::TetSources},
+    biotsavart::{IntegrationMethod, RequestedField, SourceVectors, calculate_fields},
+    octree_lists::OctreeSettings,
     types::Vec3,
 };
-
-pub enum Solver {
-    PointDirect(u32),           // num threads
-    PointOctree(u32, f64, u32), // num threads, theta, leaf_threshold
-    Tet4Direct(u32),
-    Tet4Octree(u32, f64, u32),
-}
 
 /// Compute the magnetization of a finite element mesh, using a background field generated
 /// by sources that are assumed to be independent of the magnetized mesh.
@@ -45,84 +37,56 @@ pub fn magnetization(
     connectivity: &[[u32; 4]],
     centroids: (&[f64], &[f64], &[f64]),
     chi: f64,
-    hext: (&[f64], &[f64], &[f64]),
-    solver: Solver,
-    tol: f64,
+    h_ext: (&[f64], &[f64], &[f64]),
+    m_out: &mut [Vec3],
+    h_total_out: (&mut [f64], &mut [f64], &mut [f64]),
+    method: IntegrationMethod,
+    n_threads_requested: u32,
+    atol: f64,
     max_iterations: u32,
-    alpha: f64,
-    edge: bool,
-) -> ((Vec<f64>, Vec<f64>, Vec<f64>), Vec<Vec3>) {
-    let n_elem: usize = connectivity.len();
+    under_relaxation_factor: f64,
+    octree_settings: Option<OctreeSettings>,
+) {
+    if octree_settings.is_some() {
+        return;
+    }
+
     let n_centroids: usize = centroids.0.len();
 
     // Initialize memory for results
-    let [mut hx, mut hy, mut hz] = [vec![0.0; n_elem], vec![0.0; n_elem], vec![0.0; n_elem]];
+    let (hx, hy, hz) = h_total_out;
+    let mvectors = m_out;
 
-    // initial guess: note that starting an initial guess of zeros causes the octree solver to calculate extremely slowly
-    let mut mvectors = vec![Vec3::default(); n_centroids];
+    // initial guess: note that starting an initial guess of zeros causes the
+    // octree solver to calculate extremely slowly
     for (i, mvector) in mvectors.iter_mut().enumerate() {
-        *mvector = Vec3([hext.0[i], hext.1[i], hext.2[i]]) * chi;
+        *mvector = Vec3([h_ext.0[i], h_ext.1[i], h_ext.2[i]]) * chi;
     }
 
     for it in 0..max_iterations {
         // Dispatch over solver method to compute the current iteration of the demag field
-        match solver {
-            Solver::Tet4Direct(n_threads) => {
-                h_mag_tet4_direct_parallel(
-                    nodes,
-                    connectivity,
-                    &mvectors,
-                    centroids,
-                    (&mut hx, &mut hy, &mut hz),
-                    n_threads,
-                    edge,
-                )
-                .unwrap();
-            }
-
-            Solver::Tet4Octree(nthreads_requested, theta, leaf_threshold) => {
-                // Currently, we rebuild the octree every iteration, but it takes ~us to ~ms,
-                // meaning that it basically has zero computational cost relative to traversal
-                let tree: Octree<DipoleSources<TetSources>> = {
-                    let mut _centroids = vec![Vec3::default(); n_elem];
-                    let mut volumes = vec![0.0; n_elem];
-                    mesh::volumes(nodes, connectivity, &mut volumes);
-
-                    for i in 0..n_elem {
-                        _centroids[i] = Vec3([centroids.0[i], centroids.1[i], centroids.2[i]])
-                    }
-                    let sources: DipoleSources<TetSources> = DipoleSources(TetSources::new(
-                        nodes,
-                        connectivity,
-                        &_centroids,
-                        &volumes,
-                        &mvectors,
-                    ));
-                    let max_depth: u8 = 21;
-                    Octree::build_from_sources(sources, max_depth, leaf_threshold)
-                };
-                tree.h_field_parallel(
-                    centroids,
-                    (&mut hx, &mut hy, &mut hz),
-                    theta,
-                    nthreads_requested,
-                )
-                .unwrap();
-            }
-
-            _ => {}
-        }
+        calculate_fields(
+            nodes,
+            connectivity,
+            SourceVectors::Magnetization(mvectors),
+            RequestedField::HField,
+            centroids,
+            (hx, hy, hz),
+            method,
+            n_threads_requested,
+        );
 
         let mut max_change = 0.0;
         for i in 0..n_centroids {
-            let mx_new: f64 = chi * (hx[i] + hext.0[i]);
-            let my_new: f64 = chi * (hy[i] + hext.1[i]);
-            let mz_new: f64 = chi * (hz[i] + hext.2[i]);
+            let mx_new: f64 = chi * (hx[i] + h_ext.0[i]);
+            let my_new: f64 = chi * (hy[i] + h_ext.1[i]);
+            let mz_new: f64 = chi * (hz[i] + h_ext.2[i]);
 
             let mx_change = (mvectors[i][0] - mx_new).abs();
             let my_change = (mvectors[i][1] - my_new).abs();
             let mz_change = (mvectors[i][2] - mz_new).abs();
 
+            // TODO: make this branchless with .max()
             if mx_change > max_change {
                 max_change = mx_change;
             }
@@ -134,6 +98,7 @@ pub fn magnetization(
             }
 
             // Use under-relaxation to improve convergence for higher mu_r materials
+            let alpha: f64 = under_relaxation_factor;
             mvectors[i][0] = alpha * mx_new + (1.0 - alpha) * mvectors[i][0];
             mvectors[i][1] = alpha * my_new + (1.0 - alpha) * mvectors[i][1];
             mvectors[i][2] = alpha * mz_new + (1.0 - alpha) * mvectors[i][2];
@@ -141,7 +106,7 @@ pub fn magnetization(
 
         println!("Iteration: {}; max change: {:.3e}", it, max_change);
 
-        if max_change <= tol {
+        if max_change <= atol {
             break;
         } else {
             // zero the results vector between calls
@@ -153,10 +118,8 @@ pub fn magnetization(
 
     // Return h = h_demag + h_ext
     for i in 0..n_centroids {
-        hx[i] += hext.0[i];
-        hy[i] += hext.1[i];
-        hz[i] += hext.2[i];
+        hx[i] += h_ext.0[i];
+        hy[i] += h_ext.1[i];
+        hz[i] += h_ext.2[i];
     }
-
-    ((hx, hy, hz), mvectors)
 }

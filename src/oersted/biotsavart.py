@@ -4,13 +4,21 @@ from numpy import float64, uint32, ascontiguousarray
 from numpy.typing import NDArray
 
 # Create bindings for calculation engine written in Rust
-from ._oersted import a_from_current, h_from_current, a_from_mag, h_from_mag
+from ._oersted import calculate_fields
 
 from .mesh import Mesh
 from .solver import SolverSettings, DEFAULT_SETTINGS
 from .constants import MU0
 import warnings
+from enum import Enum 
 
+class _RequestedField(Enum): 
+    AFIELD = 0 
+    HFIELD = 1
+
+class _SourceVectorType(Enum):
+    CURRENT_DENSITY = 0 
+    MAGNETIZATION = 1 
 
 def _check_inputs(
     src_mesh: Mesh,
@@ -22,6 +30,10 @@ def _check_inputs(
     passing to Rust, and raise an exception if jdensity/magnetization are not
     exclusively passed
     """
+
+    src_vectors: NDArray[float64]
+    source_vector_type: _SourceVectorType
+
     if jdensity is None and magnetization is None:
         raise ValueError("No source jdensity or magnetization provided")
     if jdensity is not None and magnetization is not None:
@@ -29,24 +41,25 @@ def _check_inputs(
             "Ambiguous request: both source jdensity and magnetization provided"
         )
     if jdensity is not None:
-        if jdensity.shape != src_mesh.num_elems:
+        if jdensity.shape[0] != src_mesh.num_elems:
             raise ValueError(
-                f"Array for jdensity has shape {jdensity.shape} but"
+                f"Array for jdensity has shape {jdensity.shape} but "
                 f"mesh centroids array has shape ({src_mesh.num_elems}, 3)"
             )
 
-        jdensity = ascontiguousarray(jdensity, dtype=float64)
+        src_vectors = ascontiguousarray(jdensity, dtype=float64)
+        source_vector_type = _SourceVectorType.CURRENT_DENSITY
 
     if magnetization is not None:
-        if magnetization.shape != src_mesh.num_elems:
+        if magnetization.shape[0] != src_mesh.num_elems:
             raise ValueError(
                 f"Array for magnetization has shape "
                 f"{magnetization.shape} but mesh centroids array has shape"
                 f"({src_mesh.num_elems}, 3)"
             )
 
-        magnetization = ascontiguousarray(magnetization, dtype=float64)
-
+        src_vectors = ascontiguousarray(magnetization, dtype=float64)
+        source_vector_type = _SourceVectorType.MAGNETIZATION
     if targets.ndim != 2 or targets.shape[1] != 3:
         raise ValueError(f"Target array must be N x 3, received {targets.shape}")
 
@@ -54,8 +67,8 @@ def _check_inputs(
         ascontiguousarray(src_mesh.nodes, dtype=float64),
         ascontiguousarray(src_mesh.connectivity, dtype=uint32),
         ascontiguousarray(targets, dtype=float64),
-        jdensity,
-        magnetization,
+        src_vectors,
+        source_vector_type
     )
 
 
@@ -64,6 +77,36 @@ def _solver_args(settings: SolverSettings) -> tuple[bool, bool]:
     use_octree: bool = settings.method == "octree"
 
     return (element_integration, use_octree)
+
+def _evaluate_fields(
+    src_mesh: Mesh,
+    targets: NDArray[float64],
+    requested_field : _RequestedField,
+    *,  # Force remaining variables to be passed by name
+    jdensity: NDArray[float64] | None = None,
+    magnetization: NDArray[float64] | None = None,
+    settings: SolverSettings = DEFAULT_SETTINGS,
+) -> NDArray[float64]: 
+
+    src_nodes, src_connectivity, targets, src_vectors, source_vector_type = _check_inputs(
+        src_mesh, targets, jdensity, magnetization
+    )
+    element_integration, use_octree = _solver_args(settings)
+
+    return calculate_fields(
+        src_nodes,
+        src_connectivity,
+        src_vectors,
+        source_vector_type.value,
+        requested_field.value,
+        targets,
+        element_integration,
+        settings.n_threads,
+        use_octree,
+        settings.octree.theta,
+        settings.octree.near_field_ratio,
+        settings.octree.max_leaf_size,
+    )
 
 
 def a_field(
@@ -91,27 +134,13 @@ def a_field(
             target position
     """
 
-    src_nodes, src_connectivity, targets, jdensity, magnetization = _check_inputs(
-        src_mesh, targets, jdensity, magnetization
-    )
-    element_integration, use_octree = _solver_args(settings)
-    kernel, src_vectors = (
-        (a_from_current, jdensity)
-        if jdensity is not None
-        else (a_from_mag, magnetization)
-    )
-
-    return kernel(
-        src_nodes,
-        src_connectivity,
-        src_vectors,
-        targets,
-        element_integration,
-        settings.n_threads,
-        use_octree,
-        settings.octree.theta,
-        settings.octree.near_field_ratio,
-        settings.octree.max_leaf_size,
+    return _evaluate_fields(
+        src_mesh, 
+        targets, 
+        _RequestedField.AFIELD, 
+        jdensity=jdensity,
+        magnetization=magnetization,
+        settings=settings
     )
 
 
@@ -138,27 +167,13 @@ def h_field(
         (A/m) (N,3) array of magnetic field strength (H) vectors at each target position
     """
 
-    src_nodes, src_connectivity, targets, jdensity, magnetization = _check_inputs(
-        src_mesh, targets, jdensity, magnetization
-    )
-    element_integration, use_octree = _solver_args(settings)
-    kernel, src_vectors = (
-        (h_from_current, jdensity)
-        if jdensity is not None
-        else (h_from_mag, magnetization)
-    )
-
-    return kernel(
-        src_nodes,
-        src_connectivity,
-        src_vectors,
-        targets,
-        element_integration,
-        settings.n_threads,
-        use_octree,
-        settings.octree.theta,
-        settings.octree.near_field_ratio,
-        settings.octree.max_leaf_size,
+    return _evaluate_fields(
+        src_mesh, 
+        targets, 
+        _RequestedField.HFIELD, 
+        jdensity=jdensity,
+        magnetization=magnetization,
+        settings=settings
     )
 
 

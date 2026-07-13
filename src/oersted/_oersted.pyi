@@ -9,55 +9,22 @@ Float64Array: TypeAlias = NDArray[float64]
 U32Array: TypeAlias = NDArray[uint32]
 Vector3: TypeAlias = tuple[float, float, float]
 
-def a_from_current(
+def calculate_fields(
     src_nodes: Float64Array,
     src_connectivity: U32Array,
-    jdensity: Float64Array,
+    src_vectors: Float64Array,
+    src_vector_type: int,
+    requested_field: int,
     targets: Float64Array,
     element_integration: bool,
-    nthreads_requested: int,
+    n_threads_requested: int,
     use_octree: bool,
     theta: float,
     near_field_ratio: float,
     max_leaf_size: int,
 ) -> Float64Array: ...
-def h_from_current(
-    src_nodes: Float64Array,
-    src_connectivity: U32Array,
-    jdensity: Float64Array,
-    targets: Float64Array,
-    element_integration: bool,
-    nthreads_requested: int,
-    use_octree: bool,
-    theta: float,
-    near_field_ratio: float,
-    max_leaf_size: int,
-) -> Float64Array: ...
-def a_from_mag(
-    src_nodes: Float64Array,
-    src_connectivity: U32Array,
-    magnetization: Float64Array,
-    targets: Float64Array,
-    element_integration: bool,
-    nthreads_requested: int,
-    use_octree: bool,
-    theta: float,
-    near_field_ratio: float,
-    max_leaf_size: int,
-) -> Float64Array: ...
-def h_from_mag(
-    src_nodes: Float64Array,
-    src_connectivity: U32Array,
-    magnetization: Float64Array,
-    targets: Float64Array,
-    element_integration: bool,
-    nthreads_requested: int,
-    use_octree: bool,
-    theta: float,
-    near_field_ratio: float,
-    max_leaf_size: int,
-) -> Float64Array: ...
-def magnetization_tet4(
+
+def magnetization_solve(
     nodes: Float64Array,
     connectivity: U32Array,
     chi: float,
@@ -67,7 +34,7 @@ def magnetization_tet4(
     theta: float,
     leaf_threshold: uint32,
     alpha: float,
-    nthreads_requested: int,
+    n_threads_requested: int,
     edge: bool,
 ) -> tuple[Float64Array, Float64Array]: ...
 def mesh_volumes(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...
