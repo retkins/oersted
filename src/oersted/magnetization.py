@@ -3,7 +3,7 @@
 from oersted import SolverSettings
 
 from numpy.typing import NDArray
-from numpy import float64, uint32, ascontiguousarray
+from numpy import float64, ascontiguousarray
 
 from .mesh import Mesh
 from .materials import Material
@@ -14,7 +14,7 @@ def demag_solve(
     mesh: Mesh,
     material: Material,
     h_external: NDArray[float64],
-    settings: SolverSettings
+    settings: SolverSettings,
 ) -> tuple[NDArray[float64], NDArray[float64]]:
     """Compute magnetization field M and the total H field at element centroids,
         given a background field
@@ -33,30 +33,22 @@ def demag_solve(
         at element centroids. These can be summed to give B = mu0 * (Htotal + M).
     """
 
-    theta: float
-    leaf_threshold: uint32
-
-    if isinstance(solver, DirectSolver):
-        theta = 0.5
-        leaf_threshold = uint32(0)
-    elif isinstance(solver, OctreeSolver):
-        raise NotImplementedError(
-            f"{type(solver)} not implemented yet for demag solve."
-        )
-    else:
-        theta = solver.theta
-        leaf_threshold = solver.leaf_threshold
+    element_integration = settings.integration == "element"
+    use_octree = settings.method == "octree"
 
     return magnetization_solve(
         ascontiguousarray(mesh.nodes),
         ascontiguousarray(mesh.connectivity),
+        ascontiguousarray(mesh.centroids),
         material.chi(1.0),
         ascontiguousarray(h_external),
-        solver.tol,
-        solver.max_iterations,
-        theta,
-        leaf_threshold,
-        solver.alpha,
-        solver.n_threads,
-        solver.edge,
+        element_integration,
+        settings.n_threads,
+        settings.atol,
+        settings.max_iterations,
+        settings.under_relaxation_factor,
+        use_octree,
+        settings.theta,
+        settings.near_field_ratio,
+        settings.max_leaf_size,
     )

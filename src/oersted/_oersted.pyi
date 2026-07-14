@@ -23,19 +23,21 @@ def calculate_fields(
     near_field_ratio: float,
     max_leaf_size: int,
 ) -> Float64Array: ...
-
 def magnetization_solve(
     nodes: Float64Array,
     connectivity: U32Array,
+    centroids: Float64Array,
     chi: float,
-    hext: Float64Array,
-    tol: float,
-    max_iterations: int,
-    theta: float,
-    leaf_threshold: uint32,
-    alpha: float,
+    h_ext: Float64Array,
+    element_integration: bool,
     n_threads_requested: int,
-    edge: bool,
+    atol: float,
+    max_iterations: int,
+    under_relaxation_factor: float,
+    use_octree: bool,
+    theta: float,
+    near_field_ratio: float,
+    leaf_threshold: int,
 ) -> tuple[Float64Array, Float64Array]: ...
 def mesh_volumes(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...
 def mesh_centroids(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...

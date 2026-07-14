@@ -32,7 +32,7 @@ use crate::{
 /// (H_total, M): total H and M fields acting on each element
 ///     H_total = H_external - H_demag
 ///     B = mu0 * (H_total + M)
-pub fn magnetization(
+pub fn magnetization_solve(
     nodes: &[Vec3],
     connectivity: &[[u32; 4]],
     centroids: (&[f64], &[f64], &[f64]),

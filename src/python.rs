@@ -219,7 +219,7 @@ fn magnetization_solve<'py>(
     let mut m_out = vec![Vec3::default(); n_centroids];
     let (mut hx, mut hy, mut hz) = col_buffer(n_centroids);
 
-    magnetization::magnetization(
+    magnetization::magnetization_solve(
         _nodes,
         _connectivity,
         (&cx, &cy, &cz),
