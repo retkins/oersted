@@ -70,6 +70,7 @@ pub fn a_current_point(
     }
 }
 
+#[allow(unused)]
 pub fn a_mag_point(
     nodes: &[Vec3; 4],
     jdensity: &Vec3,
@@ -141,20 +142,18 @@ pub fn h_mag_point(
         let target: Vec3 = Vec3([x[i], y[i], z[i]]);
         let r = target - centroid;
         let rmag = r.mag();
-        let h_field: Vec3;
-
-        if rmag <= radius {
+        let h_field: Vec3 = if rmag <= radius {
             // Internal magnetization field provided by the dipole moment at `radius`
             // TODO: should this just be
             let m_field: Vec3 = moment * (3.0 / (4.0 * PI * radius.powi(3)));
-            h_field = m_field * (-1.0 / 3.0);
+            m_field * (-1.0 / 3.0)
         } else {
             // outside the sphere
             let rmag_inv: f64 = 1.0 / rmag;
             let rhat: Vec3 = r * rmag_inv;
             let scale: f64 = INV_4PI * rmag_inv.powi(3);
-            h_field = ((rhat * (3.0 * rhat.dot(&moment))) - moment) * scale;
-        }
+            ((rhat * (3.0 * rhat.dot(&moment))) - moment) * scale
+        };
 
         hx[i] += h_field[0];
         hy[i] += h_field[1];

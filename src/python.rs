@@ -13,7 +13,7 @@ use crate::{
     biotsavart::{self, IntegrationMethod, RequestedField, SourceVectors},
     check_lengths, magnetization,
     math::gradient,
-    mesh, octree_lists,
+    mesh, octree,
     types::{Vec3, to_u32x4s, to_vec3s, to_vec3s_mut},
 };
 
@@ -144,7 +144,7 @@ fn calculate_fields<'py>(
             None
         };
 
-        let octree: octree_lists::Octree = octree_lists::Octree::new(
+        let octree: octree::Octree = octree::Octree::new(
             &_src_nodes,
             &_src_connectivity,
             jdensity,
@@ -201,7 +201,7 @@ fn magnetization_solve<'py>(
     let (cx, cy, cz) = pyarray_to_3cols(centroids);
 
     let octree_settings = if use_octree {
-        Some(octree_lists::OctreeSettings {
+        Some(octree::OctreeSettings {
             theta,
             near_field_ratio,
             max_leaf_size,
@@ -263,7 +263,7 @@ fn interaction_lists<'py>(
     let _connectivity = to_u32x4s(connectivity.as_slice()?);
     let _targets = pyarray_to_3cols(targets);
 
-    let tree = octree_lists::Octree::new(&_nodes, &_connectivity, None, None, leaf_threshold);
+    let tree = octree::Octree::new(&_nodes, &_connectivity, None, None, leaf_threshold);
 
     use std::time::Instant;
     let now = Instant::now();
@@ -310,7 +310,7 @@ fn h_current_octree<'py>(
     let _targets = pyarray_to_3cols(targets);
     let _jdensity = to_vec3s(jdensity.as_slice()?);
 
-    let octree: octree_lists::Octree = octree_lists::Octree::new(
+    let octree: octree::Octree = octree::Octree::new(
         &_nodes,
         &_connectivity,
         Some(&_jdensity),

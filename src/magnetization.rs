@@ -8,7 +8,7 @@
 
 use crate::{
     biotsavart::{IntegrationMethod, RequestedField, SourceVectors, calculate_fields},
-    octree_lists::OctreeSettings,
+    octree::OctreeSettings,
     types::Vec3,
 };
 

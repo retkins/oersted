@@ -1,5 +1,7 @@
 use crate::{
-    MU0_4PI, check_lengths, math::{atan2, ln}, types::Vec3,
+    MU0_4PI, check_lengths,
+    math::{atan2, ln},
+    types::Vec3,
 };
 
 use std::f64::consts::PI;
@@ -277,7 +279,7 @@ pub fn a_mag_tet4(
     out: (&mut [f64], &mut [f64], &mut [f64]),
 ) {
     // From Fabbri eq 11, A-field from magnetization is the same as B-field from
-    // current density 
+    // current density
     let (x, y, z) = targets;
     let (ax, ay, az) = out;
     let n_targets: usize = check_lengths!(x, y, z, ax, ay, az);
@@ -290,7 +292,7 @@ pub fn a_mag_tet4(
         let c: Vec3 = nodes[nc];
 
         let face: Face = precompute_face(&a, &b, &c);
-        // Note the difference in prefactor term to compute A-field like B-field 
+        // Note the difference in prefactor term to compute A-field like B-field
         // (not like H-field)
         let prefactor: Vec3 = mvector.cross(&face.n_hat) * MU0_4PI;
 
