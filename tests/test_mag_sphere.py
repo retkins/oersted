@@ -1,6 +1,6 @@
 import numpy as np
 import oersted
-from oersted import Mesh, DirectSolver, OctreeSolver2Zone
+from oersted import Mesh, SolverSettings
 import time
 
 # Test parameters
@@ -8,11 +8,14 @@ infile: str = "tests/data/sphere.stp"
 mesh_size: float = 15e-3  # (m)
 b_ext_mag: float = 1.0  # (T)
 mu_r: float = 1.5
-solver = oersted.DirectSolver()
-solvers = [oersted.DirectSolver(), oersted.OctreeSolver2Zone()]
+settings = SolverSettings()
+all_settings = [
+    SolverSettings(method="direct"),
+    SolverSettings(method="octree", theta=0.0),
+]
 
 
-def check_mag_sphere(mesh: Mesh, solver: DirectSolver | OctreeSolver2Zone):
+def check_mag_sphere(mesh: Mesh, settings: SolverSettings):
 
     # Create material properties and calculate uniform background field
     mat = oersted.materials.LinearMaterial(mu_r)
@@ -22,7 +25,7 @@ def check_mag_sphere(mesh: Mesh, solver: DirectSolver | OctreeSolver2Zone):
 
     # Compute demag parameters: magnetization and internal H field
     start = time.perf_counter()
-    M, Htotal = oersted.demag_solve(mesh, mat, h_external, solver)
+    M, Htotal = oersted.demag_solve(mesh, mat, h_external, settings)
     elapsed = time.perf_counter() - start
 
     # Postprocessing
@@ -74,9 +77,9 @@ def check_mag_sphere(mesh: Mesh, solver: DirectSolver | OctreeSolver2Zone):
 
 def test_magnetized_sphere():
 
-    for solver in solvers:
+    for settings in all_settings:
         mesh: Mesh = oersted.Mesh.from_step(infile, mesh_size)
-        check_mag_sphere(mesh, solver)
+        check_mag_sphere(mesh, settings)
 
 
 if __name__ == "__main__":

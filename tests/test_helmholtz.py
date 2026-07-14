@@ -16,7 +16,7 @@ We basically do two tests in one:
 Note: there's some sort of units mismatch with gmsh
 """
 
-from oersted import CentroidMesh, Mesh, SolverSettings, OctreeSettings
+from oersted import Mesh, SolverSettings
 from oersted.testing import make_helmholtz, smape
 
 import numpy as np
@@ -26,7 +26,7 @@ import pathlib
 step_file: pathlib.Path = pathlib.Path(__file__).parent / "../tests/data/ring.stp"
 
 # Runtime parameters
-theta: float = 0.5
+theta: float = 0.0
 mesh_size: float = 0.010  # ~10M interactions; set to 33 for 1e6 interactions
 ntargets_axis: int = 100  # Along the axis
 nthreads = 0
@@ -34,15 +34,30 @@ max_leaf_size = 16
 near_field_ratio = 10
 axis_halfdistance = 0.01
 
+
 def setup_test():
 
-    direct_tet4 = SolverSettings(method="direct", integration="element", n_threads=nthreads)
-    octree_tet4 = SolverSettings(method="octree", integration="element",
-        octree=OctreeSettings(theta=theta,max_leaf_size=max_leaf_size, near_field_ratio=near_field_ratio), n_threads=nthreads
+    direct_tet4 = SolverSettings(
+        method="direct", integration="element", n_threads=nthreads
     )
-    direct_point = SolverSettings(method="direct", integration="point", n_threads=nthreads)
-    octree_point = SolverSettings(method="octree", integration="point",
-        octree=OctreeSettings(theta=theta,max_leaf_size=max_leaf_size, near_field_ratio=near_field_ratio), n_threads=nthreads
+    octree_tet4 = SolverSettings(
+        method="octree",
+        integration="element",
+        theta=theta,
+        max_leaf_size=max_leaf_size,
+        near_field_ratio=near_field_ratio,
+        n_threads=nthreads,
+    )
+    direct_point = SolverSettings(
+        method="direct", integration="point", n_threads=nthreads
+    )
+    octree_point = SolverSettings(
+        method="octree",
+        integration="point",
+        theta=theta,
+        max_leaf_size=max_leaf_size,
+        near_field_ratio=near_field_ratio,
+        n_threads=nthreads,
     )
 
     #
@@ -64,7 +79,7 @@ def setup_test():
         direct_tet4,
         direct_point,
         octree_tet4,
-        octree_point
+        octree_point,
     )
 
 
@@ -75,8 +90,8 @@ def rel_field_on_axis(
     direct_tet4,
     direct_point,
     octree_tet4,
-    octree_point, 
-    verbose: bool = True
+    octree_point,
+    verbose: bool = True,
 ):
     """Test that the field on the axis is the same for all four solver methods"""
 
@@ -140,11 +155,23 @@ def rel_field_on_axis(
 
 
 def test_helmholtz(verbose: bool = False):
-    mesh, jdensity, targets_axis, direct_tet4, direct_point, octree_tet4, octree_point= (
-        setup_test()
-    )
+    (
+        mesh,
+        jdensity,
+        targets_axis,
+        direct_tet4,
+        direct_point,
+        octree_tet4,
+        octree_point,
+    ) = setup_test()
     rel_field_on_axis(
-        mesh, jdensity, targets_axis, direct_tet4, direct_point, octree_tet4, octree_point
+        mesh,
+        jdensity,
+        targets_axis,
+        direct_tet4,
+        direct_point,
+        octree_tet4,
+        octree_point,
     )
 
 

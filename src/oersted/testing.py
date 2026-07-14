@@ -9,6 +9,7 @@ from pathlib import Path
 
 RTOL: float = 1e-8
 
+
 def mean_squared_error(
     baseline: NDArray[float64], measurement: NDArray[float64]
 ) -> float:
@@ -84,7 +85,7 @@ def smape(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
 
     numerator = np.abs(measurement - baseline)
     denominator = np.abs(measurement) + np.abs(baseline)
-    if denominator.any() < RTOL: 
+    if denominator.any() < RTOL:
         raise ValueError("Both measurement and baseline are near zero.")
 
     return (2 / n) * np.sum(numerator / denominator)

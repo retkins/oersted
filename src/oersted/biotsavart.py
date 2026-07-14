@@ -10,15 +10,18 @@ from .mesh import Mesh
 from .solver import SolverSettings, DEFAULT_SETTINGS
 from .constants import MU0
 import warnings
-from enum import Enum 
+from enum import Enum
 
-class _RequestedField(Enum): 
-    AFIELD = 0 
+
+class _RequestedField(Enum):
+    AFIELD = 0
     HFIELD = 1
 
+
 class _SourceVectorType(Enum):
-    CURRENT_DENSITY = 0 
-    MAGNETIZATION = 1 
+    CURRENT_DENSITY = 0
+    MAGNETIZATION = 1
+
 
 def _check_inputs(
     src_mesh: Mesh,
@@ -68,7 +71,7 @@ def _check_inputs(
         ascontiguousarray(src_mesh.connectivity, dtype=uint32),
         ascontiguousarray(targets, dtype=float64),
         src_vectors,
-        source_vector_type
+        source_vector_type,
     )
 
 
@@ -78,18 +81,19 @@ def _solver_args(settings: SolverSettings) -> tuple[bool, bool]:
 
     return (element_integration, use_octree)
 
+
 def _evaluate_fields(
     src_mesh: Mesh,
     targets: NDArray[float64],
-    requested_field : _RequestedField,
+    requested_field: _RequestedField,
     *,  # Force remaining variables to be passed by name
     jdensity: NDArray[float64] | None = None,
     magnetization: NDArray[float64] | None = None,
     settings: SolverSettings = DEFAULT_SETTINGS,
-) -> NDArray[float64]: 
+) -> NDArray[float64]:
 
-    src_nodes, src_connectivity, targets, src_vectors, source_vector_type = _check_inputs(
-        src_mesh, targets, jdensity, magnetization
+    src_nodes, src_connectivity, targets, src_vectors, source_vector_type = (
+        _check_inputs(src_mesh, targets, jdensity, magnetization)
     )
     element_integration, use_octree = _solver_args(settings)
 
@@ -103,9 +107,9 @@ def _evaluate_fields(
         element_integration,
         settings.n_threads,
         use_octree,
-        settings.octree.theta,
-        settings.octree.near_field_ratio,
-        settings.octree.max_leaf_size,
+        settings.theta,
+        settings.near_field_ratio,
+        settings.max_leaf_size,
     )
 
 
@@ -135,12 +139,12 @@ def a_field(
     """
 
     return _evaluate_fields(
-        src_mesh, 
-        targets, 
-        _RequestedField.AFIELD, 
+        src_mesh,
+        targets,
+        _RequestedField.AFIELD,
         jdensity=jdensity,
         magnetization=magnetization,
-        settings=settings
+        settings=settings,
     )
 
 
@@ -168,12 +172,12 @@ def h_field(
     """
 
     return _evaluate_fields(
-        src_mesh, 
-        targets, 
-        _RequestedField.HFIELD, 
+        src_mesh,
+        targets,
+        _RequestedField.HFIELD,
         jdensity=jdensity,
         magnetization=magnetization,
-        settings=settings
+        settings=settings,
     )
 
 

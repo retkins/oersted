@@ -1,7 +1,7 @@
 """Python bindings for oersted"""
 
 from .materials import MU0, FreeSpace, LinearMaterial, NonlinearMaterial, BHCurve
-from .solver import SolverSettings, OctreeSettings, IterationSettings
+from .solver import SolverSettings
 
 from .biotsavart import a_field, b_field, h_field
 
