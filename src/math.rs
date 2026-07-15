@@ -7,6 +7,7 @@ pub mod ln;
 pub use atan2::{atan, atan_approx, atan2};
 pub use gradient::gradient;
 pub use ln::ln;
+use std::f64::consts::PI;
 
 /// In place cross-product  
 /// $$ \vec{a} \times \vec{b} = \vec{c} $$
@@ -40,7 +41,7 @@ pub fn min_and_max(arr: &[f64]) -> Option<(f64, f64)> {
     Some((min, max))
 }
 
-/// Sort a slice using pre-computed indices
+/// Sort a slice using pre-computed indices, in place
 ///
 /// # Arguments:
 /// - `data`:       slice to be sorted
@@ -146,4 +147,10 @@ pub fn running_average(
     }
 
     new_quantity
+}
+
+/// Compute the radius of a sphere given its volume
+#[inline]
+pub fn sphere_radius(volume: f64) -> f64 {
+    ((3.0 / (4.0 * PI)) * volume).cbrt()
 }

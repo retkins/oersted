@@ -1,4 +1,3 @@
-
 use crate::{math::min_and_max, types::Vec3};
 
 /// Determines the location and extent of a collection of source points
