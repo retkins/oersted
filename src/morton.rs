@@ -9,7 +9,7 @@
 /// For typical double-precision problems, L=21
 pub fn calculate_scale_factor(L: u32) -> f64 {
     // TODO: should this be `1u << L` or `(1u << L) - 1`
-    let factor = (1u32 << L) - 1u32;
+    let factor = 1u32 << L;
     factor as f64
 }
 
@@ -35,10 +35,11 @@ pub fn normalize(
 
 /// Quantize a normalized point's location into an integer
 pub fn quantize(normalized_pt: (f64, f64, f64), scale: f64) -> (u32, u32, u32) {
+    let max_cell: u32 = scale as u32 - 1;
     (
-        (scale * normalized_pt.0).floor() as u32,
-        (scale * normalized_pt.1).floor() as u32,
-        (scale * normalized_pt.2).floor() as u32,
+        ((scale * normalized_pt.0).floor() as u32).min(max_cell),
+        ((scale * normalized_pt.1).floor() as u32).min(max_cell),
+        ((scale * normalized_pt.2).floor() as u32).min(max_cell),
     )
 }
 

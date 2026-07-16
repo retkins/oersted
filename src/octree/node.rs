@@ -77,3 +77,23 @@ pub fn encode_cols(
     }
     codes
 }
+
+/// Compute the centroid of a child node in the tree
+#[inline]
+pub fn calculate_node_centroid(
+    parent_centroid: &Vec3,
+    child_size: f64,
+    child_code: u64,
+    child_level: u8,
+    max_depth: u8,
+) -> Vec3 {
+    let octant: u64 = (child_code >> 3 * (max_depth - child_level)) & 7;
+
+    let unit_offset = Vec3([
+        if octant & 1 != 0 { 1.0 } else { -1.0 },
+        if octant & 2 != 0 { 1.0 } else { -1.0 },
+        if octant & 4 != 0 { 1.0 } else { -1.0 },
+    ]);
+
+    *parent_centroid + unit_offset * (child_size * 0.5)
+}

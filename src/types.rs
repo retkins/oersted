@@ -31,6 +31,12 @@ impl Vec3 {
         self.dot(self).sqrt()
     }
 
+    // Square the components of a vector 
+    pub fn pow2(&self) -> Vec3 {
+        Vec3(
+            [self[0]*self[0], self[1]*self[1], self[2]*self[2]])
+    }
+
     pub fn to_slice(&self) -> &[f64; 3] {
         &self.0
     }

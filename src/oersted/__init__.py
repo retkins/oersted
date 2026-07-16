@@ -24,7 +24,7 @@ from .results import (
     lorentz_force_density,
 )
 
-from ._oersted import interaction_lists, h_current_octree, atan2
+from ._oersted import atan2
 
 __all__ = [
     # Constants and material properties
@@ -61,9 +61,6 @@ __all__ = [
     "bz_finite_length_solenoid",
     "uniform_3d_grid",
     "curl",
-    # Octree (interaction lists)
-    "interaction_lists",
-    "h_current_octree",
     # Math
     "atan2",
 ]

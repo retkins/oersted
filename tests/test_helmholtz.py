@@ -26,7 +26,7 @@ import pathlib
 step_file: pathlib.Path = pathlib.Path(__file__).parent / "../tests/data/ring.stp"
 
 # Runtime parameters
-theta: float = 0.0
+theta: float = 0.5
 mesh_size: float = 0.010  # ~10M interactions; set to 33 for 1e6 interactions
 ntargets_axis: int = 100  # Along the axis
 nthreads = 0
@@ -114,6 +114,7 @@ def rel_field_on_axis(
     err_point_direct = smape(b_tet4_direct[:, 2], b_point_direct[:, 2])
     err_point_octree = smape(b_tet4_direct[:, 2], b_point_octree[:, 2])
 
+    print(f"tet4 octree err: {err_tet4_octree}")
     assert err_tet4_octree < 1e-2
     assert err_point_direct < 1e-2
     assert err_point_octree < 1e-2

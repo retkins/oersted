@@ -21,12 +21,13 @@ pub const MU0_4PI: f64 = 1e-7;
 /// $$\mu_0 = 4\pi \cdot 10^{-7} H/m$$
 pub const MU0: f64 = 4.0 * PI * MU0_4PI;
 
+pub const INV_4PI: f64 = 1.0 / (4.0 * PI);
+
 pub mod analytical;
 // pub mod archive;
 pub mod biotsavart;
 pub mod errors;
 pub mod io;
-#[cfg(feature = "parallel")]
 pub mod magnetization;
 pub mod math;
 pub mod mesh;

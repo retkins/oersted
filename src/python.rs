@@ -115,10 +115,15 @@ fn calculate_fields<'py>(
 ) -> PyResult<BoundPyArray2f64<'py>> {
     let _src_nodes: &[Vec3] = to_vec3s(src_nodes.as_slice()?);
     let _src_connectivity: &[[u32; 4]] = to_u32x4s(src_connectivity.as_slice()?);
+    let mut source; 
     let _src_vectors = if src_vector_type == 0 {
+        source = octree::Source::CurrentDensity;
         SourceVectors::CurrentDensity(to_vec3s(src_vectors.as_slice()?))
+        
     } else {
+        source = octree::Source::Magnetization;
         SourceVectors::Magnetization(to_vec3s(src_vectors.as_slice()?))
+        
     };
     let (x, y, z) = pyarray_to_3cols(targets);
 
@@ -138,10 +143,11 @@ fn calculate_fields<'py>(
     };
 
     if use_octree {
+        let batch_size: usize = 128;
         let jdensity = if src_vector_type == 0 {
             Some(to_vec3s(src_vectors.as_slice()?))
         } else {
-            None
+            panic!("Octree not available yet for magnetization solves.")
         };
 
         let octree: octree::Octree = octree::Octree::new(
@@ -152,11 +158,14 @@ fn calculate_fields<'py>(
             max_leaf_size,
         );
 
-        octree.h_current_parallel(
+        octree.compute_fields(
             (&x, &y, &z),
-            near_field_ratio,
-            theta,
             (&mut fx, &mut fy, &mut fz),
+            fields,
+            source, 
+            method,
+            theta,
+            batch_size,
             n_threads_requested,
         );
     } else {
@@ -241,95 +250,6 @@ fn magnetization_solve<'py>(
     ))
 }
 
-// ---
-// Interaction list octree functions
-// ---
-
-#[pyfunction]
-fn interaction_lists<'py>(
-    py: Python<'py>,
-    nodes: PyReadonlyArray2<f64>,
-    connectivity: PyReadonlyArray2<u32>,
-    targets: PyReadonlyArray2<f64>,
-    leaf_threshold: u32,
-    alpha: f64,
-    theta: f64,
-) -> PyResult<(
-    Bound<'py, PyArray2<u32>>,
-    Bound<'py, PyArray2<u32>>,
-    Bound<'py, PyArray2<u32>>,
-)> {
-    let _nodes = pyarray_to_vec3(nodes);
-    let _connectivity = to_u32x4s(connectivity.as_slice()?);
-    let _targets = pyarray_to_3cols(targets);
-
-    let tree = octree::Octree::new(&_nodes, &_connectivity, None, None, leaf_threshold);
-
-    use std::time::Instant;
-    let now = Instant::now();
-    let (mut near, mut mid, mut far) =
-        tree.traverse((&_targets.0, &_targets.1, &_targets.2), alpha, theta);
-    println!("Traversal time: {:.3} sec", now.elapsed().as_secs_f64());
-
-    let near_len = near.len();
-    let mid_len = mid.len();
-    let far_len = far.len();
-
-    near.source_indices.extend(&near.target_indices);
-    mid.source_indices.extend(&mid.target_indices);
-    far.source_indices.extend(&far.target_indices);
-
-    let arr1 = PyArray1::from_vec(py, near.source_indices)
-        .reshape([2, near_len])?
-        .transpose()?;
-    let arr2 = PyArray1::from_vec(py, mid.source_indices)
-        .reshape([2, mid_len])?
-        .transpose()?;
-    let arr3 = PyArray1::from_vec(py, far.source_indices)
-        .reshape([2, far_len])?
-        .transpose()?;
-
-    Ok((arr1, arr2, arr3))
-}
-
-#[pyfunction]
-fn h_current_octree<'py>(
-    py: Python<'py>,
-    nodes: PyReadonlyArray2<f64>,
-    connectivity: PyReadonlyArray2<u32>,
-    targets: PyReadonlyArray2<f64>,
-    jdensity: PyReadonlyArray2<f64>,
-    leaf_threshold: u32,
-    alpha: f64,
-    theta: f64,
-    n_threads_requested: u32,
-) -> PyResult<(Bound<'py, PyArray2<f64>>)> {
-    let n_targets = targets.shape()[0];
-    let _nodes = to_vec3s(nodes.as_slice()?);
-    let _connectivity = to_u32x4s(connectivity.as_slice()?);
-    let _targets = pyarray_to_3cols(targets);
-    let _jdensity = to_vec3s(jdensity.as_slice()?);
-
-    let octree: octree::Octree = octree::Octree::new(
-        &_nodes,
-        &_connectivity,
-        Some(&_jdensity),
-        None,
-        leaf_threshold,
-    );
-
-    let (mut hx, mut hy, mut hz) = col_buffer(n_targets);
-
-    octree.h_current_parallel(
-        (&_targets.0, &_targets.1, &_targets.2),
-        alpha,
-        theta,
-        (&mut hx, &mut hy, &mut hz),
-        n_threads_requested,
-    );
-
-    Ok(cols_to_pyarray(py, (hx, hy, hz)))
-}
 
 // ---
 // Mesh Operations
@@ -523,10 +443,6 @@ fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(mesh_surface_forces, m.clone())?)?;
     m.add_function(wrap_pyfunction!(_mesh_surface_tets, m.clone())?)?;
     m.add_function(wrap_pyfunction!(mesh_kelvin_force_density, m.clone())?)?;
-
-    // Interaction lists
-    m.add_function(wrap_pyfunction!(interaction_lists, m.clone())?)?;
-    m.add_function(wrap_pyfunction!(h_current_octree, m.clone())?)?;
 
     // Math
     m.add_function(wrap_pyfunction!(atan2, m.clone())?)?;

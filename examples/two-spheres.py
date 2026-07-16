@@ -34,10 +34,11 @@ material = oersted.LinearMaterial(mu_r)
 
 # Create a solver
 # solver = oersted.OctreeSolver(leaf_threshold=1, alpha=0.9, tol=1e0)
-solver = oersted.DirectSolver(alpha=0.5, tol=1e0)
+# solver = oersted.DirectSolver(alpha=0.5, tol=1e0)
+settings = oersted.SolverSettings(under_relaxation_factor=0.5, atol=1.0)
 
 # Demagnetization solve on both spheres
-M, _ = oersted.demag_solve(combined_mesh, material, h_external, solver)
+M, _ = oersted.demag_solve(combined_mesh, material, h_external, settings=settings)
 
 # Select only the magnetization field in the appropriate sphere
 M_lower = M[: lower_sphere.num_elems]

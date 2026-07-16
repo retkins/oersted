@@ -30,24 +30,15 @@ pub enum RequestedField {
 
 // An evaluation kernel, which is the same over all combinations of requested output
 // field, source vector type, and integration method
-type Kernel = fn(&[Vec3; 4], &Vec3, (&[f64], &[f64], &[f64]), (&mut [f64], &mut [f64], &mut [f64]));
+pub type Kernel =
+    fn(&[Vec3; 4], &Vec3, (&[f64], &[f64], &[f64]), (&mut [f64], &mut [f64], &mut [f64]));
 
-/// Compute the requested output field at target points, using a 4-node tetrahedral
-/// mesh as the source and the provided solution settings
-///
-/// This function is parallelized over target points. Responsibility for zeroing the
-/// `out` arrays is on the caller.
-pub fn calculate_fields(
-    src_nodes: &[Vec3],
-    src_connectivity: &[[u32; 4]],
-    src_vectors: SourceVectors,
+pub fn select_kernel(
     requested_field: RequestedField,
-    targets: (&[f64], &[f64], &[f64]),
-    out: (&mut [f64], &mut [f64], &mut [f64]),
+    src_vectors: &SourceVectors,
     method: IntegrationMethod,
-    n_threads_requested: u32,
-) {
-    let kernel: Kernel = match (requested_field, &src_vectors, method) {
+) -> Kernel {
+    match (requested_field, src_vectors, method) {
         (RequestedField::AField, SourceVectors::CurrentDensity(_), IntegrationMethod::Element) => {
             a_current_tet4
         }
@@ -72,7 +63,25 @@ pub fn calculate_fields(
         (RequestedField::HField, SourceVectors::Magnetization(_), IntegrationMethod::Point) => {
             h_mag_point
         }
-    };
+    }
+}
+
+/// Compute the requested output field at target points, using a 4-node tetrahedral
+/// mesh as the source and the provided solution settings
+///
+/// This function is parallelized over target points. Responsibility for zeroing the
+/// `out` arrays is on the caller.
+pub fn calculate_fields(
+    src_nodes: &[Vec3],
+    src_connectivity: &[[u32; 4]],
+    src_vectors: SourceVectors,
+    requested_field: RequestedField,
+    targets: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
+    method: IntegrationMethod,
+    n_threads_requested: u32,
+) {
+    let kernel: Kernel = select_kernel(requested_field, &src_vectors, method);
 
     let vectors = match src_vectors {
         CurrentDensity(j) => j,

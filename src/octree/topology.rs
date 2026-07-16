@@ -1,6 +1,9 @@
 use crate::{
     check_lengths,
-    octree::{BoundingBox, INVALID_NODE, Sources, get_range_in_same_node, size_at_level},
+    octree::{
+        BoundingBox, INVALID_NODE, get_range_in_same_node, node::calculate_node_centroid,
+        size_at_level,
+    },
     types::Vec3,
 };
 
@@ -10,33 +13,27 @@ pub struct Topology {
     // Each vector has length Nnodes
     pub children: Vec<[u32; 8]>, // provides indices into these arrrays (tree connectivity)
     pub centroids: Vec<Vec3>,
-    pub volumes: Vec<f64>,
     pub sizes: Vec<f64>,
     pub source_range: Vec<(u32, u32)>,
     pub is_leaf: Vec<bool>,
-    pub max_depth: u8,
 }
 
 impl Topology {
     pub fn new(
         children: Vec<[u32; 8]>,
         centroids: Vec<Vec3>,
-        volumes: Vec<f64>,
         sizes: Vec<f64>,
         source_range: Vec<(u32, u32)>,
         is_leaf: Vec<bool>,
-        max_depth: u8,
     ) -> Self {
-        check_lengths!(children, centroids, volumes, sizes, source_range, is_leaf);
+        check_lengths!(children, centroids, sizes, source_range, is_leaf);
 
         Self {
             children,
             centroids,
-            volumes,
             sizes,
             source_range,
             is_leaf,
-            max_depth,
         }
     }
 
@@ -50,7 +47,6 @@ impl Topology {
 
 // Build the internal structure of the tree, using a top down approach
 pub fn build_topology(
-    sources: &Sources,
     codes: &[u64],
     bbox: &BoundingBox,
     max_depth: u8,
@@ -67,7 +63,6 @@ pub fn build_topology(
     let mut levels: Vec<u8> = Vec::with_capacity(n_nodes_estimate);
     let mut children: Vec<[u32; 8]> = Vec::with_capacity(n_nodes_estimate);
     let mut centroids: Vec<Vec3> = Vec::with_capacity(n_nodes_estimate);
-    let mut volumes: Vec<f64> = Vec::with_capacity(n_nodes_estimate);
     let mut sizes: Vec<f64> = Vec::with_capacity(n_nodes_estimate);
     let mut source_range: Vec<(u32, u32)> = Vec::with_capacity(n_nodes_estimate);
     let mut is_leaf: Vec<bool> = Vec::with_capacity(n_nodes_estimate);
@@ -76,8 +71,7 @@ pub fn build_topology(
     levels.push(0); // TODO: might be unnecessary
     children.push([INVALID_NODE; 8]); // Updated later
     // Centroids and volumes are computed in bottom-up pass
-    centroids.push(Vec3::default());
-    volumes.push(0.0);
+    centroids.push(bbox.centroid());
     sizes.push(size_at_level(bbox.side_length, 0));
     source_range.push((0, n_sources as u32));
     is_leaf.push(false);
@@ -92,6 +86,7 @@ pub fn build_topology(
             let (range_start, range_end) = source_range[idx_parent];
             let mut child_slot: u32 = 0;
             let mut cursor: usize = range_start as usize;
+            let parent_centroid: Vec3 = centroids[idx_parent];
 
             while cursor < range_end as usize {
                 let child_end =
@@ -99,13 +94,21 @@ pub fn build_topology(
 
                 // Child index is the current length of the nodes arrays
                 let idx_child = levels.len();
+                let child_level = level + 1;
+                let child_size = size_at_level(bbox.side_length, level + 1);
+                let child_centroid = calculate_node_centroid(
+                    &parent_centroid,
+                    child_size,
+                    codes[cursor],
+                    child_level,
+                    max_depth,
+                );
 
                 // Add a child node
-                levels.push(level + 1);
+                levels.push(child_level);
                 children.push([INVALID_NODE; 8]);
-                centroids.push(Vec3::default()); // Compute later
-                volumes.push(0.0);
-                sizes.push(size_at_level(bbox.side_length, level + 1));
+                centroids.push(child_centroid);
+                sizes.push(child_size);
                 source_range.push((cursor as u32, child_end as u32));
 
                 let child_is_leaf: bool = {
@@ -133,13 +136,5 @@ pub fn build_topology(
         }
     }
 
-    Topology::new(
-        children,
-        centroids,
-        volumes,
-        sizes,
-        source_range,
-        is_leaf,
-        max_depth,
-    )
+    Topology::new(children, centroids, sizes, source_range, is_leaf)
 }

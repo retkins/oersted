@@ -18,7 +18,7 @@ pub fn sort_targets(
     let max_depth: u8 = 21;
     let codes = encode_cols(targets, &bbox, max_depth);
 
-    let (mut x, mut y, mut z) = (vec![0.0; n], vec![0.0; n], vec![0.0; n]);
+    let (mut x, mut y, mut z) = (targets.0.to_vec(), targets.1.to_vec(), targets.2.to_vec());
 
     // Sort the morton codes and the source data
     let mut unsorted_to_sorted: Vec<usize> = (0..n).collect();
@@ -31,19 +31,19 @@ pub fn sort_targets(
 }
 
 /// Return calculated fields values into the order the caller expects them
-pub fn unsort_fields(fields: (&mut [f64], &mut [f64], &mut [f64]), indices: &[usize]) {
+/// Accumulates `fields` back into `out`
+pub fn unsort_fields(
+    fields: (&[f64], &[f64], &[f64]),
+    out: (&mut [f64], &mut [f64], &mut [f64]),
+    indices: &[usize],
+) {
     let n = fields.0.len();
-    let (mut fx, mut fy, mut fz) = (vec![0.0; n], vec![0.0; n], vec![0.0; n]);
     for sorted_i in 0..n {
         let original_i: usize = indices[sorted_i];
-        fx[original_i] = fields.0[sorted_i];
-        fy[original_i] = fields.1[sorted_i];
-        fz[original_i] = fields.2[sorted_i];
+        out.0[original_i] += fields.0[sorted_i];
+        out.1[original_i] += fields.1[sorted_i];
+        out.2[original_i] += fields.2[sorted_i];
     }
-
-    fields.0.copy_from_slice(&fx);
-    fields.1.copy_from_slice(&fy);
-    fields.2.copy_from_slice(&fz);
 }
 
 /// Compute the centroid and bounding radius of a collection of target points
