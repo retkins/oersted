@@ -93,7 +93,8 @@ macro_rules! check_lengths {
         $(
             assert_eq!(
                 $rest.len(), n,
-                concat!(stringify!($rest), " has length {}; expected: {}"), $rest.len(), n
+                // Simplified error message required to enable LLVM to do bounds checks
+                concat!("length of `", stringify!($rest), "` does not match")
             );
         )*
         n
@@ -111,12 +112,8 @@ macro_rules! check_optional_lengths {
                 assert_eq!(
                     r.len(),
                     n,
-                    concat!(
-                        stringify!($rest),
-                        " has length {}; expected: {}"
-                    ),
-                    r.len(),
-                    n
+                    // Simplified error message required to enable LLVM to do bounds checks
+                    concat!("length of `", stringify!($rest), "` does not match")
                 );
             }
         )*

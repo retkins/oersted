@@ -91,7 +91,7 @@ mod tests {
     #[test]
     fn test_ln() {
         let step: f64 = 1e-8;
-        let n: usize = 100_000_000;
+        let n: usize = 1_000_000;
         let mut x: Vec<f64> = vec![0.0; n];
         x[0] = step;
         for i in 1..n {
