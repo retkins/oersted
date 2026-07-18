@@ -117,3 +117,11 @@ integrals to their own module
 * Updated interfaces to use both interaction list and 2-zone octrees
 * Added magnetic vector potential calculations for direct solvers
 * Fixed a correctness bug in atan2(), causing significant field errors near element surfaces
+* Added dipole-order multipole expansion for a and h field (from J) calculations in octree
+* Complete octree refactor; removed 3-zone octree
+* Overhauled the python interface and ffi, dramatically reducing the number of functions 
+and complexity of interfacing between rust and python
+* Overhauled the solver process (a vs h field, j vs m sources, point vs element integration)
+for direct solves, and unified the function signatures
+* Combined all solver settings into a `SolverSettings` class 
+* Unified all Python bindings for field calcs to `a_field()`, `h_field()`, and `b_field()`
