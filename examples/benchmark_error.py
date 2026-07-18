@@ -12,7 +12,7 @@ step_file: pathlib.Path = pathlib.Path(__file__).parent / "../tests/data/ring.st
 
 def main(
     nthetas: int = 1,
-    size: float = 0.010,
+    size: float = 0.015,
     theta_min: float = 0.5,
     theta_max: float = 0.5,
 ):

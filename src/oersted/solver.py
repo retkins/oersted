@@ -16,16 +16,16 @@ class SolverSettings:
         method: use either "direct" O(N^2) or "octree" O(N log(N)) integration for
             Biot-Savart law integration
         integration: use either "element" for full integration (high
-            accuracy, slow) or "point" for a point-source approximation (low accuracy 
+            accuracy, slow) or "point" for a point-source approximation (low accuracy
             near the source, but ~40x faster)
         n_threads: number of cpu threads to use for solution; default is 0 for all
             available
         theta: the Barnes-Hut angle-opening criteria (theta >= 0.0)
-        near_field_ratio: (deprecated) ratio of target distance to source element size; 
+        near_field_ratio: (deprecated) ratio of target distance to source element size;
             defines the 'mid-field' during a barnes-hut solve (alpha >= 0.0)
         max_leaf_size: defines the maximum leaf size before splitting in the octree
             (>=1)
-        batch_size: defines the number of target points to process at a time (for 
+        batch_size: defines the number of target points to process at a time (for
             Barnes-Hut solves))
         multipole_order: defines the multipole expansion order for Barnes-Hut solves;
             currently supported are "monopole" and "dipole"

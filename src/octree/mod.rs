@@ -18,9 +18,9 @@ use crate::{
     types::Vec3,
 };
 
-pub(self) mod bbox;
+mod bbox;
 use bbox::BoundingBox;
-pub(self) mod node;
+mod node;
 use node::{INVALID_NODE, get_range_in_same_node, size_at_level};
 mod topology;
 use topology::{Topology, build_topology};
@@ -244,7 +244,7 @@ impl Octree {
         for (xb, yb, zb, fxb, fyb, fzb) in
             par_chunks(&x, &y, &z, &mut fx, &mut fy, &mut fz, batch_size)
         {
-            let (target_centroid, target_radius) = evaluation::target_bounds((&xb, &yb, &zb));
+            let (target_centroid, target_radius) = evaluation::target_bounds((xb, yb, zb));
 
             // Traverse the tree
             // 1. Compute distance from nearest target to node centroid

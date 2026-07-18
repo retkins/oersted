@@ -118,4 +118,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main(nbenches=10, theta=0.5, mesh_size_max=33.0e-3, mesh_size_min=5e-3)
+    main(nbenches=10, theta=0.5, mesh_size_max=33.0e-3, mesh_size_min=15e-3)

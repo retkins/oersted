@@ -18,7 +18,7 @@
 //! * node (ni): a node of the octree, which may be a branch node (has child nodes
 //!   which are also octree nodes), or a leaf node (has childen which are elements)
 //! * nodal expansion center (c): vector,
-//!     c = sum_e [|s_e| * v_e * r_e] / sum_e [ |s_e| * v_e]
+//!   c = sum_e [|s_e| * v_e * r_e] / sum_e [ |s_e| * v_e]
 //!   defines the centroid at which the multipole moment is taken about; similar in
 //!   concept to a mass centroid. The magnitude of the source vector is used to
 //!   weight the centroid. If the elements in the node all have zero moment, then the
@@ -31,10 +31,10 @@
 //! * weight (w): w = sum_e [ |s_e| * v_e ]
 //!   unsigned moment weight, used for a coherence check on opening the node
 //! * source extent about expansion center (bmax):
-//!     bmax = max_e [ |r_e - c| + rho_e ]
+//!   bmax = max_e [ |r_e - c| + rho_e ]
 //!   max over all elements in the node's full subtree, which defines how large the
 //!   node is for Warren-Salmon acceptance criteria:
-//!     accept node if bmax < theta * (d - rho_t)
+//!   accept node if bmax < theta * (d - rho_t)
 //!   where rho_t is the extent radius of the collection of targets
 
 use crate::{
@@ -128,7 +128,7 @@ impl TreeMoments {
     ///
     /// This function does the following:
     /// 1. Updates monopole moments (J*V or M*V) and moment-weighted expansion centers
-    ///  as a top-down pass on the tree
+    ///    as a top-down pass on the tree
     /// 3. Computes dipole moment corrections, as a bottom-up pass on the tree, as they
     ///    require knowledge of the expansion centers
     pub fn update(

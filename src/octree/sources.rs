@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::{
     check_lengths, check_optional_lengths,
     math::{sort_by_indices, sphere_radius},
@@ -90,7 +92,7 @@ fn sort_source_vectors(vectors: Option<&[Vec3]>, indices: &[usize]) -> Option<Ve
         Some(v) => {
             let mut vectors_sorted: Vec<Vec3> = v.to_vec();
             let mut scratch: Vec<Vec3> = vec![Vec3::default(); v.len()];
-            sort_by_indices(&mut vectors_sorted, &mut scratch, &indices);
+            sort_by_indices(&mut vectors_sorted, &mut scratch, indices);
             Some(vectors_sorted)
         }
         None => None,
@@ -162,7 +164,7 @@ pub fn sort_sources(
         elem_centroids: centroids,
         elem_volumes: volumes,
         elem_radii: radii,
-        elem_extents: elem_extents,
+        elem_extents,
         elem_nodes: nodes.to_vec(), // Perhaps we can avoid a copy and just keep a reference?
         jdensity: jdensity_sorted,
         mvectors: mvectors_sorted,

@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 # Parameters
 mesh_size: float = 0.012  # (m)
-mu_r: float = 2.5
+mu_r: float = 1.5
 b_external_magnitude: float = 5.0  # (T)
 radius: float = 0.05  # (m)
 distance: float = 0.3  # (m)

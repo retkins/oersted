@@ -87,7 +87,7 @@ pub fn calculate_node_centroid(
     child_level: u8,
     max_depth: u8,
 ) -> Vec3 {
-    let octant: u64 = (child_code >> 3 * (max_depth - child_level)) & 7;
+    let octant: u64 = (child_code >> (3 * (max_depth - child_level))) & 7;
 
     let unit_offset = Vec3([
         if octant & 1 != 0 { 1.0 } else { -1.0 },

@@ -35,7 +35,9 @@ axis_halfdistance = 0.01
 batch_size = 1
 MAX_ERR = 1e-2
 
-direct_element = SolverSettings(method="direct", integration="element", n_threads=nthreads)
+direct_element = SolverSettings(
+    method="direct", integration="element", n_threads=nthreads
+)
 all_settings = [
     direct_element,
     SolverSettings(
@@ -47,9 +49,7 @@ all_settings = [
         n_threads=nthreads,
         batch_size=batch_size,
     ),
-    SolverSettings(
-        method="direct", integration="point", n_threads=nthreads
-    ),
+    SolverSettings(method="direct", integration="point", n_threads=nthreads),
     SolverSettings(
         method="octree",
         integration="point",
@@ -58,25 +58,26 @@ all_settings = [
         near_field_ratio=near_field_ratio,
         n_threads=nthreads,
         batch_size=batch_size,
-    )
+    ),
 ]
 
 mesh, jdensity = make_helmholtz(str(step_file), mesh_size)
 
 # Setup the targets for the axis accuracy test
 targets_axis = np.zeros((ntargets_axis, 3))
-targets_axis[:, 2] = np.linspace(
-    -axis_halfdistance, axis_halfdistance, ntargets_axis
-)
+targets_axis[:, 2] = np.linspace(-axis_halfdistance, axis_halfdistance, ntargets_axis)
 
 
 def test_on_axis():
     """Test that the field on the axis is the same for all four solver methods"""
 
-    b_direct = oersted.b_field(mesh, targets_axis, jdensity=jdensity, settings=direct_element)
+    b_direct = oersted.b_field(
+        mesh, targets_axis, jdensity=jdensity, settings=direct_element
+    )
     for settings in all_settings:
         b = oersted.b_field(mesh, targets_axis, jdensity=jdensity, settings=settings)
         assert oersted.max_verr(b, b_direct) < MAX_ERR
+
 
 def test_centroid():
     # Check that the field at the center matches analytical
@@ -86,11 +87,10 @@ def test_centroid():
 
     for settings in all_settings:
         b = oersted.b_field(mesh, target_center, jdensity=jdensity, settings=settings)
-        assert (b[0,2] - bz_analytical) / bz_analytical < MAX_ERR
-
+        assert (b[0, 2] - bz_analytical) / bz_analytical < MAX_ERR
 
 
 if __name__ == "__main__":
-    test_on_axis() 
+    test_on_axis()
     test_centroid()
     print("helmholtz test passed")

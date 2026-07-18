@@ -1,3 +1,5 @@
+#![allow(unused, non_snake_case)]
+
 use crate::{
     INV_4PI, MU0_4PI,
     biotsavart::{IntegrationMethod, Kernel, RequestedField, SourceVectors, select_kernel},
@@ -113,6 +115,7 @@ pub fn a_mag_node(
     targets: (&[f64], &[f64], &[f64]),
     out: (&mut [f64], &mut [f64], &mut [f64]),
 ) {
+    panic!("Not yet implemented");
 }
 
 pub fn h_mag_node(
@@ -122,4 +125,5 @@ pub fn h_mag_node(
     targets: (&[f64], &[f64], &[f64]),
     out: (&mut [f64], &mut [f64], &mut [f64]),
 ) {
+    panic!("Not yet implemented");
 }
