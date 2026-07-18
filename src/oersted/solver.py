@@ -37,6 +37,7 @@ class SolverSettings:
     theta: float = 0.5
     near_field_ratio: float = 10.0
     max_leaf_size: int = 16
+    batch_size: int = 256
 
     # Iterative solve settings
     max_iterations: int = 100

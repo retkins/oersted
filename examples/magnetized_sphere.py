@@ -16,8 +16,7 @@ import pathlib
 # Problem parameters
 # ---
 
-solver = oersted.OctreeSolver(theta=0.25, leaf_threshold=1, alpha=0.9)
-solver = oersted.DirectSolver(alpha=0.9)
+settings = oersted.SolverSettings(method="direct")
 current: float = 10e6  # (A)
 loop_radius: float = 1.0  # (m)
 sphere_radius: float = 0.05  # (m)
@@ -78,13 +77,19 @@ def mesh_convergence_study(
         # mesh.append(loop_mesh).plot("docs/figs/example_magnetized_sphere_meshes.svg")
 
         # Compute the external field acting on the sphere
-        bext = oersted.b_field(loop_mesh, j_density, mesh.centroids, solver=solver)
+        bext = oersted.b_field(
+            loop_mesh, mesh.centroids, jdensity=j_density, settings=settings
+        )
 
         # Solve for the magnetization of the sphere and demagnetization field
-        M, H = oersted.demag_solve(mesh, material, bext / oersted.MU0, solver)
+        M, H = oersted.demag_solve(
+            mesh, material, bext / oersted.MU0, settings=settings
+        )
 
         # Compute the background field on the nodes for the kelvin force evaluation
-        b_field_nodes = oersted.b_field(loop_mesh, j_density, mesh.nodes, solver=solver)
+        b_field_nodes = oersted.b_field(
+            loop_mesh, mesh.nodes, jdensity=j_density, settings=settings
+        )
 
         forces = oersted.kelvin_forces(mesh, M, b_field_nodes)
         force = np.sum(forces, axis=0)
@@ -147,7 +152,9 @@ def plot_fields_on_axis(loop_mesh: oersted.Mesh, j_density: NDArray[float64]):
     z_max: float = 3.0
     axis_pts = np.zeros((n_pts, 3))
     axis_pts[:, 2] = np.linspace(0.0, z_max, n_pts)
-    bz_axis = oersted.b_field(loop_mesh, j_density, axis_pts, solver=solver)
+    bz_axis = oersted.b_field(
+        loop_mesh, axis_pts, jdensity=j_density, settings=settings
+    )
 
     n_pts_analytical: int = 20
     axis_pts_analytical = np.linspace(0, z_max, n_pts_analytical)

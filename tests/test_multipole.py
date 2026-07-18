@@ -1,17 +1,19 @@
-""" Confirm that the dipole correction works as intended
+"""Confirm that the dipole correction works as intended
 
 References:
 https://arxiv.org/pdf/2211.08438
 https://www.wtamu.edu/~cbaird/Lecture11.pdf
-""" 
+"""
+
 from typing import Literal
 import numpy as np
 import oersted
+import matplotlib.pyplot as plt
 
 MU0_4PI = oersted.MU0 / (4.0 * np.pi)
 mesh_size = 10e-3
 jmag = 1e10
-mesh, jdensity = oersted.make_helmholtz("tests/data/ring.stp", mesh_size,jmag=jmag)
+mesh, jdensity = oersted.make_helmholtz("tests/data/ring.stp", mesh_size, jmag=jmag)
 
 # min xyz: [-0.20743792 -0.20743327 -0.10852091]
 # max xyz: [ 0.20747637  0.20743934  0.10855099]
@@ -90,7 +92,7 @@ def bfield_dipole(
         (src_pts * src_moments_mag[:, np.newaxis]) / np.sum(src_moments_mag), axis=0
     )
 
-    src_rp = src_pts - centroid
+    # src_rp = src_pts - centroid
 
     # Total dipole moment of the tree node
     m, M = dipole_expansion(src_pts, src_vol, src_jdensity, centroid)
@@ -101,10 +103,13 @@ def bfield_dipole(
     rhat = rp / np.linalg.norm(rp, axis=1, keepdims=True)
 
     if expansion == "full":
-        return b_monopole + MU0_4PI * (2.0*m - 3.0*np.cross(rhat, rhat @ M.T)) / rmag**3
+        return (
+            b_monopole
+            + MU0_4PI * (2.0 * m - 3.0 * np.cross(rhat, rhat @ M.T)) / rmag**3
+        )
 
     else:
-        return b_monopole + MU0_4PI * (3.0 * rhat * (rhat @ m)[:,None] - m) / rmag**3
+        return b_monopole + MU0_4PI * (3.0 * rhat * (rhat @ m)[:, None] - m) / rmag**3
 
 
 # bfield_monopole(mesh.centroids, mesh.volumes, jdensity, targets)
@@ -132,13 +137,12 @@ bm_mag = np.linalg.norm(err_bm, axis=1)
 bda_mag = np.linalg.norm(err_bda, axis=1)
 bdf_mag = np.linalg.norm(err_bdf, axis=1)
 
-import matplotlib.pyplot as plt 
 
-fig, ax = plt.subplots() 
+fig, ax = plt.subplots()
 # ax.plot(theta, bf_mag,label="Full O(N^2)")
 ax.plot(theta, bm_mag, label="Monopole")
-ax.plot(theta,bda_mag,label="Dipole, Antisymmetric")
-ax.plot(theta,bdf_mag,label="Dipole, Full")
+ax.plot(theta, bda_mag, label="Dipole, Antisymmetric")
+ax.plot(theta, bdf_mag, label="Dipole, Full")
 ax.set_xscale("log")
 ax.set_yscale("log")
 ax.legend()

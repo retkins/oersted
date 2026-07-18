@@ -141,7 +141,7 @@ pub fn sort_sources(
     }
     let mut elem_extents: Vec<f64> = vec![0.0; n_sources];
     for i in 0..n_sources {
-        let c = centroids[i]; 
+        let c = centroids[i];
         let elem_nodes = connectivity_sorted[i];
         for n in elem_nodes {
             let d = (nodes[n as usize] - c).mag();

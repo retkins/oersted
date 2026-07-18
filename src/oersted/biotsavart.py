@@ -110,6 +110,7 @@ def _evaluate_fields(
         settings.theta,
         settings.near_field_ratio,
         settings.max_leaf_size,
+        settings.batch_size,
     )
 
 

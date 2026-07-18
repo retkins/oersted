@@ -6,7 +6,7 @@ from oersted import Mesh
 mesh_size: float = 15.0  # mm
 b_ext_mag: float = 5.0  # T
 mu_r: float = 1.5
-solver = oersted.DirectSolver()
+settings = oersted.SolverSettings(method="direct")
 mat = oersted.materials.LinearMaterial(mu_r)
 
 
@@ -26,7 +26,7 @@ def calculate_magnetization_forces_on_sphere(b_ext_mag: float, b_ext_grad: float
     )
 
     # Compute demag parameters: magnetization and internal H field
-    M, Htotal = oersted.demag_solve(mesh, mat, h_external, solver)
+    M, Htotal = oersted.demag_solve(mesh, mat, h_external, settings=settings)
 
     # Compute external field at mesh nodes
     h_ext_nodes = np.zeros((mesh.num_nodes, 3))
@@ -66,17 +66,21 @@ def test_lorentz_forces():
     jdensity[:, 1] = jmag * np.cos(phi)
     jdensity_total = np.vstack((jdensity, jdensity))
 
-    solver = oersted.DirectSolver()
-
     # Compute the analytical solution by checking that the vertical force is
     #   approximately equal to Fz = -2pi * R * Itotal * Br
-    bavg = oersted.b_field(mesh1, jdensity, np.array([[radius, 0.0, -0.01]]))
+    bavg = oersted.b_field(
+        mesh1, np.array([[radius, 0.0, -0.01]]), jdensity=jdensity, settings=settings
+    )
     fz_expected = -float(2 * np.pi * radius * total_current * bavg[0, 0])
     print(f"fz expected: {fz_expected:.3f} N")
 
     # Compute the field at the lower coil's surface elements using both coils
-    bext = oersted.b_field(mesh1, jdensity, mesh2.surface.centroids, solver=solver)
-    bext += oersted.b_field(mesh2, jdensity, mesh2.surface.centroids, solver=solver)
+    bext = oersted.b_field(
+        mesh1, mesh2.surface.centroids, jdensity=jdensity, settings=settings
+    )
+    bext += oersted.b_field(
+        mesh2, mesh2.surface.centroids, jdensity=jdensity, settings=settings
+    )
 
     forces = oersted.maxwell_forces(mesh2.surface, bext)
     total_force = np.sum(forces, axis=0)
@@ -91,8 +95,12 @@ def test_lorentz_forces():
     assert np.abs(total_force[1]) < 1.0
 
     # Compute the field at the lower coil's surface elements using both coils
-    bext = oersted.b_field(mesh1, jdensity, mesh1.surface.centroids, solver=solver)
-    bext += oersted.b_field(mesh2, jdensity, mesh1.surface.centroids, solver=solver)
+    bext = oersted.b_field(
+        mesh1, mesh1.surface.centroids, jdensity=jdensity, settings=settings
+    )
+    bext += oersted.b_field(
+        mesh2, mesh1.surface.centroids, jdensity=jdensity, settings=settings
+    )
 
     # Use maxwell stress tensor
     forces = oersted.maxwell_forces(mesh1.surface, bext)
@@ -109,7 +117,7 @@ def test_lorentz_forces():
 
     # Compute the bfield at element centroids
     b_field_lower = oersted.b_field(
-        mesh, jdensity_total, mesh1.centroids, solver=solver
+        mesh, mesh1.centroids, jdensity=jdensity_total, settings=settings
     )
     lorentz_force_lower = oersted.lorentz_forces(
         mesh1, jdensity, b_field_lower, total=True

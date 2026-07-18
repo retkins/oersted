@@ -112,18 +112,17 @@ fn calculate_fields<'py>(
     theta: f64,
     near_field_ratio: f64,
     max_leaf_size: u32,
+    batch_size: u32,
 ) -> PyResult<BoundPyArray2f64<'py>> {
     let _src_nodes: &[Vec3] = to_vec3s(src_nodes.as_slice()?);
     let _src_connectivity: &[[u32; 4]] = to_u32x4s(src_connectivity.as_slice()?);
-    let mut source; 
+    let mut source;
     let _src_vectors = if src_vector_type == 0 {
         source = octree::Source::CurrentDensity;
         SourceVectors::CurrentDensity(to_vec3s(src_vectors.as_slice()?))
-        
     } else {
         source = octree::Source::Magnetization;
         SourceVectors::Magnetization(to_vec3s(src_vectors.as_slice()?))
-        
     };
     let (x, y, z) = pyarray_to_3cols(targets);
 
@@ -143,7 +142,6 @@ fn calculate_fields<'py>(
     };
 
     if use_octree {
-        let batch_size: usize = 128;
         let jdensity = if src_vector_type == 0 {
             Some(to_vec3s(src_vectors.as_slice()?))
         } else {
@@ -162,10 +160,10 @@ fn calculate_fields<'py>(
             (&x, &y, &z),
             (&mut fx, &mut fy, &mut fz),
             fields,
-            source, 
+            source,
             method,
             theta,
-            batch_size,
+            batch_size as usize,
             n_threads_requested,
         );
     } else {
@@ -249,7 +247,6 @@ fn magnetization_solve<'py>(
         cols_to_pyarray(py, (hx, hy, hz)),
     ))
 }
-
 
 // ---
 // Mesh Operations

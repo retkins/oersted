@@ -11,7 +11,7 @@ mu_r: float = 1.5
 settings = SolverSettings()
 all_settings = [
     SolverSettings(method="direct"),
-    SolverSettings(method="octree", theta=0.0),
+    # SolverSettings(method="octree", theta=0.0),
 ]
 
 

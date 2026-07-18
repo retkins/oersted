@@ -1,7 +1,7 @@
 from oersted.testing import make_helmholtz
 
 import oersted
-from oersted import OctreeSolver
+from oersted import SolverSettings
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
@@ -19,10 +19,18 @@ def main(
     theta_vals = np.linspace(theta_min, theta_max, nthetas)
     errs = np.zeros(nthetas)
     mesh, jdensity = make_helmholtz(str(step_file), size)
-    bdirect = oersted.b_field(mesh, jdensity, mesh.centroids)
+    bdirect = oersted.b_field(
+        mesh,
+        mesh.centroids,
+        jdensity=jdensity,
+        settings=SolverSettings(method="direct"),
+    )
     for i, theta in enumerate(theta_vals):
         boctree = oersted.b_field(
-            mesh, jdensity, mesh.centroids, solver=OctreeSolver(theta=theta)
+            mesh,
+            mesh.centroids,
+            jdensity=jdensity,
+            settings=SolverSettings(method="octree", theta=theta),
         )
         bmag_direct = np.linalg.norm(bdirect, axis=1)
         bmag_octree = np.linalg.norm(boctree, axis=1)

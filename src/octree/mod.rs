@@ -123,7 +123,7 @@ impl Octree {
             &self.sources.elem_centroids,
             &self.sources.elem_extents,
             &self.topology,
-            true
+            true,
         );
 
         match vectors {
@@ -154,7 +154,7 @@ impl Octree {
         let mut stack: Vec<u32> = Vec::with_capacity(128);
         stack.push(0);
 
-        // Pop a node off of the stack and evaluate what to do 
+        // Pop a node off of the stack and evaluate what to do
         while let Some(_ni) = stack.pop() {
             let ni = _ni as usize;
 
@@ -174,9 +174,8 @@ impl Octree {
                     (out.0, out.1, out.2),
                 )
             } else {
-                // BH-test failed; open the leaf 
+                // BH-test failed; open the leaf
                 if self.topology.is_leaf[ni] {
-
                     // Evaluate leaves directly, using all source elements in the leaf
                     let (start, end) = self.topology.source_range[ni];
                     for e in start as usize..end as usize {

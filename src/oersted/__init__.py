@@ -8,6 +8,9 @@ from .biotsavart import a_field, b_field, h_field
 from .mesh import Mesh, CentroidMesh, mesh_step, plot_mesh
 from .testing import (
     make_helmholtz,
+    verr,
+    mean_verr,
+    max_verr,
     smape,
     bz_finite_length_solenoid,
     bz_loop_axis,
@@ -55,6 +58,9 @@ __all__ = [
     "lorentz_force_density",
     # Testing
     "make_helmholtz",
+    "verr",
+    "mean_verr",
+    "max_verr",
     "smape",
     "bz_loop_axis",
     "dbzdz_loop_axis",
