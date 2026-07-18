@@ -5,6 +5,7 @@ from typing import Literal, get_args
 
 Method = Literal["direct", "octree"]
 Integration = Literal["element", "point"]
+MultipoleOrder = Literal["monopole", "dipole"]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -15,14 +16,19 @@ class SolverSettings:
         method: use either "direct" O(N^2) or "octree" O(N log(N)) integration for
             Biot-Savart law integration
         integration: use either "element" for full integration (high
-            accuracy, slow) or "point" for a point-source approximation
+            accuracy, slow) or "point" for a point-source approximation (low accuracy 
+            near the source, but ~40x faster)
         n_threads: number of cpu threads to use for solution; default is 0 for all
             available
         theta: the Barnes-Hut angle-opening criteria (theta >= 0.0)
-        near_field_ratio: ratio of target distance to source element size; defines the
-            'mid-field' during a barnes-hut solve (alpha >= 0.0)
+        near_field_ratio: (deprecated) ratio of target distance to source element size; 
+            defines the 'mid-field' during a barnes-hut solve (alpha >= 0.0)
         max_leaf_size: defines the maximum leaf size before splitting in the octree
             (>=1)
+        batch_size: defines the number of target points to process at a time (for 
+            Barnes-Hut solves))
+        multipole_order: defines the multipole expansion order for Barnes-Hut solves;
+            currently supported are "monopole" and "dipole"
         max_iterations: maximum number of iterations before solution returns early
         atol: absolute tolerance for convergence criteria
         under_relaxation_factor: provides solution stability for fixed-point iteration
@@ -37,7 +43,8 @@ class SolverSettings:
     theta: float = 0.5
     near_field_ratio: float = 10.0
     max_leaf_size: int = 16
-    batch_size: int = 256
+    batch_size: int = 1
+    multipole_order: MultipoleOrder = "dipole"
 
     # Iterative solve settings
     max_iterations: int = 100
