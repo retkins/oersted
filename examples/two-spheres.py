@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 
 # Parameters
 mesh_size: float = 0.012  # (m)
-mu_r: float = 2.5
+mu_r: float = 1.5
 b_external_magnitude: float = 5.0  # (T)
 radius: float = 0.05  # (m)
 distance: float = 0.3  # (m)
@@ -34,10 +34,11 @@ material = oersted.LinearMaterial(mu_r)
 
 # Create a solver
 # solver = oersted.OctreeSolver(leaf_threshold=1, alpha=0.9, tol=1e0)
-solver = oersted.DirectSolver(alpha=0.5, tol=1e0)
+# solver = oersted.DirectSolver(alpha=0.5, tol=1e0)
+settings = oersted.SolverSettings(under_relaxation_factor=0.5, atol=1.0)
 
 # Demagnetization solve on both spheres
-M, _ = oersted.demag_solve(combined_mesh, material, h_external, solver)
+M, _ = oersted.demag_solve(combined_mesh, material, h_external, settings=settings)
 
 # Select only the magnetization field in the appropriate sphere
 M_lower = M[: lower_sphere.num_elems]
@@ -45,12 +46,13 @@ M_upper = M[lower_sphere.num_elems :]
 
 # Compute the total field acting on the nodes of both spheres,
 # using only the other sphere as a source
-h_field_nodes_upper = oersted.h_mag(
-    lower_sphere, M_lower, upper_sphere.nodes, solver=solver
+h_field_nodes_upper = oersted.h_field(
+    lower_sphere, upper_sphere.nodes, magnetization=M_lower, settings=settings
 )
-h_field_nodes_lower = oersted.h_mag(
-    upper_sphere, M_upper, lower_sphere.nodes, solver=solver
+h_field_nodes_lower = oersted.h_field(
+    upper_sphere, lower_sphere.nodes, magnetization=M_upper, settings=settings
 )
+
 h_field_nodes_upper[:, 2] += b_external_magnitude / MU0
 h_field_nodes_lower[:, 2] += b_external_magnitude / MU0
 
@@ -87,7 +89,7 @@ print(f"Analytical force: {F_analytical}")
 n = 1000
 targets = np.zeros((n, 3))
 targets[:, 2] = np.linspace(-0.2, 0.2, n)
-htargets = oersted.h_mag(combined_mesh, M, targets, solver)
+htargets = oersted.h_field(combined_mesh, targets, magnetization=M, settings=settings)
 fig, ax = plt.subplots()
 ax.plot(targets[:, 2], htargets[:, 2])
 ax.set_xlabel("Distance Along Z-Axis (m)")

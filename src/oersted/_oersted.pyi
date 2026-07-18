@@ -9,82 +9,36 @@ Float64Array: TypeAlias = NDArray[float64]
 U32Array: TypeAlias = NDArray[uint32]
 Vector3: TypeAlias = tuple[float, float, float]
 
-def h_current_point_direct(
-    src_pts: Float64Array,
-    src_vol: Float64Array,
-    src_jdensity: Float64Array,
-    tgt_pts: Float64Array,
-    nthreads_requested: int,
-) -> Float64Array: ...
-def h_current_point_octree(
-    src_pts: Float64Array,
-    src_vol: Float64Array,
-    src_jdensity: Float64Array,
-    tgt_pts: Float64Array,
-    theta: float,
-    leaf_threshold: int,
-    nthreads_requested: int,
-) -> Float64Array: ...
-def a_current(
+def calculate_fields(
     src_nodes: Float64Array,
     src_connectivity: U32Array,
-    src_jdensity: Float64Array,
+    src_vectors: Float64Array,
+    src_vector_type: int,
+    requested_field: int,
     targets: Float64Array,
-    exact_integration: bool,
-    nthreads_requested: uint32,
+    element_integration: bool,
+    n_threads_requested: int,
     use_octree: bool,
     theta: float,
+    near_field_ratio: float,
+    max_leaf_size: int,
+    batch_size: int,
 ) -> Float64Array: ...
-def h_current_tet4_direct(
+def magnetization_solve(
     nodes: Float64Array,
     connectivity: U32Array,
-    jdensity: Float64Array,
-    tgt_pts: Float64Array,
-    nthreads_requested: int,
-    edge: bool,
-) -> Float64Array: ...
-def h_current_tet4_octree(
-    nodes: Float64Array,
-    connectivity: U32Array,
-    jdensity: Float64Array,
-    tgt_pts: Float64Array,
-    theta: float,
-    leaf_threshold: uint32,
-    nthreads_requested: int,
-) -> Float64Array: ...
-def h_mag_point(
     centroids: Float64Array,
-    volumes: Float64Array,
-    mvectors: Float64Array,
-    targets: Float64Array,
-    theta: float,
-    leaf_threshold: uint32,
-    nthreads_requested: int,
-    use_octree: bool,
-) -> Float64Array: ...
-def h_mag_tet4(
-    nodes: Float64Array,
-    connectivity: U32Array,
-    mvectors: Float64Array,
-    targets: Float64Array,
-    theta: float,
-    leaf_threshold: uint32,
-    nthreads_requested: int,
-    use_octree: bool,
-    edge: bool,
-) -> Float64Array: ...
-def magnetization_tet4(
-    nodes: Float64Array,
-    connectivity: U32Array,
     chi: float,
-    hext: Float64Array,
-    tol: float,
+    h_ext: Float64Array,
+    element_integration: bool,
+    n_threads_requested: int,
+    atol: float,
     max_iterations: int,
+    under_relaxation_factor: float,
+    use_octree: bool,
     theta: float,
-    leaf_threshold: uint32,
-    alpha: float,
-    nthreads_requested: int,
-    edge: bool,
+    near_field_ratio: float,
+    leaf_threshold: int,
 ) -> tuple[Float64Array, Float64Array]: ...
 def mesh_volumes(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...
 def mesh_centroids(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...

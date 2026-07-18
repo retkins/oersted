@@ -1,4 +1,4 @@
-use oersted::biotsavart::h_mag_tet4_direct;
+use oersted::biotsavart::{IntegrationMethod, SourceVectors, h_field};
 use oersted::io::{CsvData, read_csv};
 use oersted::types::Vec3;
 
@@ -45,17 +45,16 @@ fn main() {
 
     let start = std::time::Instant::now();
     let n_iter = 5;
-    let edge: bool = false;
     for _ in 0..n_iter {
-        h_mag_tet4_direct(
+        h_field(
             &nodes,
             &connectivity,
-            &mvectors,
+            SourceVectors::CurrentDensity(&mvectors),
             (&targets.0, &targets.1, &targets.2),
             (&mut out.0, &mut out.1, &mut out.2),
-            edge,
-        )
-        .unwrap();
+            IntegrationMethod::Element,
+            0,
+        );
     }
     let interactions = n_elem * targets.0.len();
     let elapsed = start.elapsed();

@@ -16,7 +16,7 @@ import numpy as np
 
 
 def test_mag_ellipsoid(min_size: float = 0.15, max_size: float = 0.15):
-    solver = oersted.DirectSolver()
+    settings = oersted.SolverSettings(method="direct")
     # Mesh the part
     mesh: Mesh = oersted.mesh_step("tests/data/ellipsoid.stp", min_size, max_size)
 
@@ -41,7 +41,7 @@ def test_mag_ellipsoid(min_size: float = 0.15, max_size: float = 0.15):
     mat = oersted.materials.LinearMaterial(mu_r)
     h_external = np.zeros((mesh.num_elems, 3))
     h_external[:, 2] = h_ext
-    M, Htotal = oersted.demag_solve(mesh, mat, h_external, solver)
+    M, Htotal = oersted.demag_solve(mesh, mat, h_external, settings=settings)
     Btotal = oersted.MU0 * (Htotal + M)
     Bavg = np.average(Btotal, axis=0)
     print(f"avg B (element): {Bavg}")

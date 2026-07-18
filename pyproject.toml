@@ -39,7 +39,7 @@ build-backend = "maturin"
 python-source = "src"
 python-packages = ["oersted"]
 module-name = "oersted._oersted"
-features = ["python", "parallel"]
+features = ["python"]
 profile = "release"
 version = { source = "cargo" }
 include = [

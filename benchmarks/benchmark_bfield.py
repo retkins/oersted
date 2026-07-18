@@ -1,52 +1,70 @@
-"""Use the magnetized sphere example as a benchmark for magnetization calc"""
+"""Simple speed tests on a sphere with random current density vectors"""
 
 import oersted
+from oersted import SolverSettings
 import numpy as np
 from time import perf_counter
 import matplotlib.pyplot as plt
+import os
+import platform
+
+
+platform_info = (
+    f"Platform: {platform.system()}/{platform.machine()}/{os.cpu_count()} cores"
+)
 
 theta = 0.5
-leaf_threshold = 1
+max_leaf_size = 16
+batch_size = 1
 
-methods = ["point", "tet4"]
-solvers = ["direct", "octree"]
+solvers = [
+    SolverSettings(method="direct", integration="point"),
+    SolverSettings(method="direct", integration="element"),
+    SolverSettings(
+        method="octree",
+        integration="point",
+        theta=theta,
+        max_leaf_size=max_leaf_size,
+        batch_size=batch_size,
+    ),
+    SolverSettings(
+        method="octree",
+        integration="element",
+        theta=theta,
+        max_leaf_size=max_leaf_size,
+        batch_size=batch_size,
+    ),
+]
+
 mesh_sizes = [20e-3, 15e-3, 10e-3, 8e-3, 5e-3]
-mesh_sizes = np.linspace(4e-3, 20e-3, 10)
+mesh_sizes = np.linspace(5e-3, 20e-3, 10)
 
 results = {}
 
 for solver in solvers:
-    for method in methods:
-        timings = []
-        interactions = []
-        throughputs = []
+    timings = []
+    interactions = []
+    throughputs = []
 
-        for mesh_size in mesh_sizes:
-            mesh = oersted.Mesh.from_step("tests/data/sphere.stp", mesh_size)
-            start = perf_counter()
-            if method == "point":
-                mesh = mesh.to_centroid_mesh()
+    for mesh_size in mesh_sizes:
+        mesh = oersted.Mesh.from_step("tests/data/sphere.stp", mesh_size)
+        start = perf_counter()
 
-            use_solver = (
-                oersted.DirectSolver(edge=True)
-                if solver == "direct"
-                else oersted.OctreeSolver(theta=theta, leaf_threshold=leaf_threshold)
-            )
-            jdensity = np.random.random(mesh.centroids.shape)
-            start = perf_counter()
-            print(f"running with {solver} + {method} + {mesh_size}")
-            oersted.b_field(mesh, jdensity, mesh.centroids, solver=use_solver)
-            elapsed = perf_counter() - start
-            problem_size = mesh.num_elems**2
-            throughput = problem_size / elapsed
-            timings.append(elapsed)
-            interactions.append(problem_size)
-            throughputs.append(throughput)
-        results[solver + "-" + method] = {
-            "timings": timings,
-            "interactions": interactions,
-            "throughputs": throughputs,
-        }
+        jdensity = np.random.random(mesh.centroids.shape)
+        start = perf_counter()
+        print(f"running with {solver.method} + {solver.integration} + {mesh_size}")
+        oersted.b_field(mesh, mesh.centroids, jdensity=jdensity, settings=solver)
+        elapsed = perf_counter() - start
+        problem_size = mesh.num_elems**2
+        throughput = problem_size / elapsed
+        timings.append(elapsed)
+        interactions.append(problem_size)
+        throughputs.append(throughput)
+    results[solver.method + "-" + solver.integration] = {
+        "timings": timings,
+        "interactions": interactions,
+        "throughputs": throughputs,
+    }
 
 fig, ax = plt.subplots()
 for key in results:
@@ -56,7 +74,11 @@ for key in results:
 ax.legend()
 ax.set_xlabel("Interactions")
 ax.set_ylabel("Throughput(interactions/s)")
-ax.set_title("Bfield Benchmarks")
+ax.set_title(
+    "Bfield Benchmarks\n"
+    + platform_info
+    + f"\ntheta={theta:.1f}, batch_size={batch_size}, leaf_size={max_leaf_size}"
+)
 ax.set_xscale("log")
 ax.set_yscale("log")
 

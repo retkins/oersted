@@ -1,12 +1,15 @@
 """Use the helmholtz coil problem as a benchmarking example"""
 
 import oersted
-from oersted import OctreeSolver2Zone
+from oersted import SolverSettings
 import numpy as np
 import matplotlib.pyplot as plt
 from time import perf_counter
-
 import pathlib
+
+# Settings applied to all runs
+max_leaf_size = 16
+batch_size = 1
 
 step_file: pathlib.Path = pathlib.Path(__file__).parent / "../tests/data/ring.stp"
 
@@ -33,7 +36,7 @@ def main(
 
         if n < 50000:
             start = perf_counter()
-            _ = oersted.b_field(mesh.to_centroid_mesh(), jdensity, mesh.centroids)
+            _ = oersted.b_field(mesh, mesh.centroids, jdensity=jdensity)
             end = perf_counter()
             direct_times.append(end - start)
             est_direct_times = [end - start]
@@ -50,10 +53,15 @@ def main(
 
         start = perf_counter()
         _ = oersted.b_field(
-            mesh.to_centroid_mesh(),
-            jdensity,
+            mesh,
             mesh.centroids,
-            OctreeSolver2Zone(theta=theta),
+            jdensity=jdensity,
+            settings=SolverSettings(
+                theta=theta,
+                method="octree",
+                max_leaf_size=max_leaf_size,
+                batch_size=batch_size,
+            ),
         )
         end = perf_counter()
         octree_times[i] = end - start
@@ -110,4 +118,4 @@ def main(
 
 
 if __name__ == "__main__":
-    main(nbenches=10, theta=0.5, mesh_size_max=33.0e-3, mesh_size_min=10e-3)
+    main(nbenches=10, theta=0.5, mesh_size_max=33.0e-3, mesh_size_min=15e-3)

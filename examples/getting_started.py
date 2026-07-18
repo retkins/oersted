@@ -2,7 +2,7 @@
 results."""
 
 import oersted
-from oersted import Mesh
+from oersted import Mesh, SolverSettings
 import numpy as np
 import matplotlib.pyplot as plt
 from time import perf_counter
@@ -27,8 +27,8 @@ targets = np.vstack((X.flatten(), np.full((n,), 0.0), Z.flatten())).T
 
 # Solve for self-fields on the solenoid
 start = perf_counter()
-solver = oersted.OctreeSolver()
-b = oersted.b_field(mesh, j_density, mesh.centroids, solver=solver)
+settings = oersted.SolverSettings(method="octree")
+b = oersted.b_field(mesh, mesh.centroids, jdensity=j_density, settings=settings)
 elapsed = perf_counter() - start
 print(f"Elapsed time: {elapsed:.3f} sec")
 print(f"\t({mesh.num_elems**2 / elapsed:.2e} interactions/sec)")
@@ -45,7 +45,9 @@ bmag = np.linalg.norm(b, axis=1)
 
 # Solve for background fields on a cut-plane (XZ)
 start = perf_counter()
-b = oersted.b_field(mesh, j_density, targets, solver=oersted.OctreeSolver())
+b = oersted.b_field(
+    mesh, targets, jdensity=j_density, settings=SolverSettings(method="octree")
+)
 elapsed = perf_counter() - start
 print(f"Elapsed time: {elapsed:.3f} sec")
 print(f"\t({mesh.num_elems**2 / elapsed:.2e} interactions/sec)")

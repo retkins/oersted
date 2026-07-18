@@ -7,6 +7,43 @@ from .mesh import Mesh
 from .constants import MU0
 from pathlib import Path
 
+RTOL: float = 1e-8
+
+
+def verr(
+    measurement: NDArray[float64], baseline: NDArray[float64], eps: float = 1e-6
+) -> NDArray[float64]:
+    """Compute simple relative vector error, with the denominator bounded by `eps` to
+    prevent divide by zero issues
+
+    Returns:
+        element-wise error at each output point
+    """
+
+    return np.linalg.norm(measurement - baseline, axis=1) / (
+        np.linalg.norm(baseline, axis=1) + eps
+    )
+
+
+def mean_verr(
+    measurement: NDArray[float64], baseline: NDArray[float64], eps: float = 1e-6
+) -> float:
+    """Compute mean relative vector error, with the denominator bounded by `eps` to
+    prevent divide by zero issues
+    """
+
+    return float(np.mean(verr(measurement, baseline, eps)))
+
+
+def max_verr(
+    measurement: NDArray[float64], baseline: NDArray[float64], eps: float = 1e-6
+) -> float:
+    """Compute max relative vector error, with the denominator bounded by `eps` to
+    prevent divide by zero issues
+    """
+
+    return float(np.max(verr(measurement, baseline, eps)))
+
 
 def mean_squared_error(
     baseline: NDArray[float64], measurement: NDArray[float64]
@@ -83,6 +120,9 @@ def smape(baseline: NDArray[float64], measurement: NDArray[float64]) -> float:
 
     numerator = np.abs(measurement - baseline)
     denominator = np.abs(measurement) + np.abs(baseline)
+    if denominator.any() < RTOL:
+        raise ValueError("Both measurement and baseline are near zero.")
+
     return (2 / n) * np.sum(numerator / denominator)
 
 

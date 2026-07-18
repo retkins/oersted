@@ -31,6 +31,11 @@ impl Vec3 {
         self.dot(self).sqrt()
     }
 
+    // Square the components of a vector
+    pub fn pow2(&self) -> Vec3 {
+        Vec3([self[0] * self[0], self[1] * self[1], self[2] * self[2]])
+    }
+
     pub fn to_slice(&self) -> &[f64; 3] {
         &self.0
     }
@@ -144,6 +149,11 @@ impl Mat3 {
         Self::from_rows(&row0, &row1, &row2)
     }
 
+    /// Compute the outer product of two vectors, returning a new matrix
+    pub fn outer(a: Vec3, b: Vec3) -> Self {
+        Self::from_cols(&(a * b[0]), &(a * b[1]), &(a * b[2]))
+    }
+
     /// Multiply the matrix by a vector, returning a new vector
     pub fn mul_vec(&self, v: &Vec3) -> Vec3 {
         Vec3([self.0[0].dot(v), self.0[1].dot(v), self.0[2].dot(v)])
@@ -237,6 +247,17 @@ impl std::ops::MulAssign<f64> for Mat3 {
     }
 }
 
+impl std::ops::Add for Mat3 {
+    type Output = Mat3;
+    fn add(self, rhs: Self) -> Self::Output {
+        Self([
+            self.0[0] + rhs.0[0],
+            self.0[1] + rhs.0[1],
+            self.0[2] + rhs.0[2],
+        ])
+    }
+}
+
 /// Convert a flat array representing an (N,3) matrix of f64's in row-major form
 ///
 /// This function does not require a data copy.
@@ -327,6 +348,32 @@ mod tests {
                 assert_eq!(m.det(), expected.det());
             }
             None => assert!(false),
+        }
+    }
+
+    #[test]
+    fn test_add() {
+        let a = Mat3([
+            Vec3([1.0, 2.0, 3.0]),
+            Vec3([4.0, 5.0, 6.0]),
+            Vec3([7.0, 8.0, 9.0]),
+        ]);
+        let b = Mat3([
+            Vec3([10.0, 11.0, 12.0]),
+            Vec3([13.0, 14.0, 15.0]),
+            Vec3([16.0, 17.0, 18.0]),
+        ]);
+        let c_expected = Mat3([
+            Vec3([11.0, 13.0, 15.0]),
+            Vec3([17.0, 19.0, 21.0]),
+            Vec3([23.0, 25.0, 27.0]),
+        ]);
+
+        let c = a + b;
+        for i in 0..3 {
+            for j in 0..3 {
+                assert_eq!(c.0[i][j], c_expected.0[i][j]);
+            }
         }
     }
 }

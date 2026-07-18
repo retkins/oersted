@@ -4,273 +4,221 @@ from numpy import float64, uint32, ascontiguousarray
 from numpy.typing import NDArray
 
 # Create bindings for calculation engine written in Rust
-from ._oersted import (
-    h_current_point_direct,
-    h_current_point_octree,
-    a_current,
-    h_current_tet4_direct,
-    h_current_tet4_octree,
-    h_mag_tet4,
-    h_mag_point,
-    h_current_octree,
-)
+from ._oersted import calculate_fields
 
-from .mesh import Mesh, CentroidMesh
-from .solver import DirectSolver, OctreeSolver, OctreeSolver2Zone, DEFAULT_SOLVER
+from .mesh import Mesh
+from .solver import SolverSettings, DEFAULT_SETTINGS
 from .constants import MU0
+import warnings
+from enum import Enum
 
-# For typing; currently unused
-Nx3Array = NDArray[float64]
+
+class _RequestedField(Enum):
+    AFIELD = 0
+    HFIELD = 1
+
+
+class _SourceVectorType(Enum):
+    CURRENT_DENSITY = 0
+    MAGNETIZATION = 1
+
+
+def _check_inputs(
+    src_mesh: Mesh,
+    targets: NDArray[float64],
+    jdensity: NDArray[float64] | None,
+    magnetization: NDArray[float64] | None,
+):
+    """Ensure that the input arrays are the right shape, make then contiguous for
+    passing to Rust, and raise an exception if jdensity/magnetization are not
+    exclusively passed
+    """
+
+    src_vectors: NDArray[float64]
+    source_vector_type: _SourceVectorType
+
+    if jdensity is None and magnetization is None:
+        raise ValueError("No source jdensity or magnetization provided")
+    if jdensity is not None and magnetization is not None:
+        raise ValueError(
+            "Ambiguous request: both source jdensity and magnetization provided"
+        )
+    if jdensity is not None:
+        if jdensity.shape[0] != src_mesh.num_elems:
+            raise ValueError(
+                f"Array for jdensity has shape {jdensity.shape} but "
+                f"mesh centroids array has shape ({src_mesh.num_elems}, 3)"
+            )
+
+        src_vectors = ascontiguousarray(jdensity, dtype=float64)
+        source_vector_type = _SourceVectorType.CURRENT_DENSITY
+
+    if magnetization is not None:
+        if magnetization.shape[0] != src_mesh.num_elems:
+            raise ValueError(
+                f"Array for magnetization has shape "
+                f"{magnetization.shape} but mesh centroids array has shape"
+                f"({src_mesh.num_elems}, 3)"
+            )
+
+        src_vectors = ascontiguousarray(magnetization, dtype=float64)
+        source_vector_type = _SourceVectorType.MAGNETIZATION
+    if targets.ndim != 2 or targets.shape[1] != 3:
+        raise ValueError(f"Target array must be N x 3, received {targets.shape}")
+
+    return (
+        ascontiguousarray(src_mesh.nodes, dtype=float64),
+        ascontiguousarray(src_mesh.connectivity, dtype=uint32),
+        ascontiguousarray(targets, dtype=float64),
+        src_vectors,
+        source_vector_type,
+    )
+
+
+def _solver_args(settings: SolverSettings) -> tuple[bool, bool]:
+    element_integration: bool = settings.integration == "element"
+    use_octree: bool = settings.method == "octree"
+
+    return (element_integration, use_octree)
+
+
+def _evaluate_fields(
+    src_mesh: Mesh,
+    targets: NDArray[float64],
+    requested_field: _RequestedField,
+    *,  # Force remaining variables to be passed by name
+    jdensity: NDArray[float64] | None = None,
+    magnetization: NDArray[float64] | None = None,
+    settings: SolverSettings = DEFAULT_SETTINGS,
+) -> NDArray[float64]:
+
+    src_nodes, src_connectivity, targets, src_vectors, source_vector_type = (
+        _check_inputs(src_mesh, targets, jdensity, magnetization)
+    )
+    element_integration, use_octree = _solver_args(settings)
+
+    return calculate_fields(
+        src_nodes,
+        src_connectivity,
+        src_vectors,
+        source_vector_type.value,
+        requested_field.value,
+        targets,
+        element_integration,
+        settings.n_threads,
+        use_octree,
+        settings.theta,
+        settings.near_field_ratio,
+        settings.max_leaf_size,
+        settings.batch_size,
+    )
 
 
 def a_field(
-    source: Mesh,
-    j_density: NDArray[float64],
+    src_mesh: Mesh,
     targets: NDArray[float64],
-    solver: DirectSolver = DEFAULT_SOLVER,
+    *,  # Force remaining variables to be passed by name
+    jdensity: NDArray[float64] | None = None,
+    magnetization: NDArray[float64] | None = None,
+    settings: SolverSettings = DEFAULT_SETTINGS,
 ) -> NDArray[float64]:
-    """Compute the magnetic vector potential at a collection of target points"""
+    """Compute the magnetic vector potential (A field) at a collection of
+        target points
 
-    # TODO: make these variable based on selected solver
-    exact_integration: bool = True
-    n_threads: uint32 = uint32(solver.n_threads)
-    use_octree: bool = False
-    theta: float = 0.0
+    Args:
+        src_mesh: mesh to use as the field source
+        targets: (m) (N,3) array of target point positions in 3D space
+        jdensity: (A/m^2) (N,3) array of current density vectors at each of the
+            source element centroids
+        magnetization: (A/m) (N,3) array of magnetization vectors at each of the
+            source element centroids
+        settings: selects the solution settings
 
-    return a_current(
-        source.nodes,
-        source.connectivity,
-        j_density,
+    Returns:
+        (T-m) (N,3) array of magnetic vector potential (A) vectors at each
+            target position
+    """
+
+    return _evaluate_fields(
+        src_mesh,
         targets,
-        exact_integration,
-        n_threads,
-        use_octree,
-        theta,
+        _RequestedField.AFIELD,
+        jdensity=jdensity,
+        magnetization=magnetization,
+        settings=settings,
+    )
+
+
+def h_field(
+    src_mesh: Mesh,
+    targets: NDArray[float64],
+    *,  # Force remaining variables to be passed by name
+    jdensity: NDArray[float64] | None = None,
+    magnetization: NDArray[float64] | None = None,
+    settings: SolverSettings = DEFAULT_SETTINGS,
+) -> NDArray[float64]:
+    """Compute the magnetic field strength (H field) at a collection of target points
+
+    Args:
+        src_mesh: mesh to use as the field source
+        targets: (m) (N,3) array of target point positions in 3D space
+        jdensity: (A/m^2) (N,3) array of current density vectors at each of the
+            source element centroids
+        magnetization: (A/m) (N,3) array of magnetization vectors at each of the
+            source element centroids
+        settings: selects the solution settings
+
+    Returns:
+        (A/m) (N,3) array of magnetic field strength (H) vectors at each target position
+    """
+
+    return _evaluate_fields(
+        src_mesh,
+        targets,
+        _RequestedField.HFIELD,
+        jdensity=jdensity,
+        magnetization=magnetization,
+        settings=settings,
     )
 
 
 def b_field(
-    source: Mesh | CentroidMesh,
-    j_density: NDArray[float64],
+    src_mesh: Mesh,
     targets: NDArray[float64],
-    solver: DirectSolver | OctreeSolver | OctreeSolver2Zone | None = None,
+    *,  # Force remaining variables to be passed by name
+    jdensity: NDArray[float64] | None = None,
+    magnetization: NDArray[float64] | None = None,
+    settings: SolverSettings = DEFAULT_SETTINGS,
 ) -> NDArray[float64]:
-    """Compute the magnetic flux density at a collection of target points using the
-    specific source mesh and solver options, assuming the target points are in free
-    space
+    """Compute the magnetic flux density (B field) at a collection of target points,
+    assuming the target points are in free space
 
     Args:
-        source: mesh to use as the field source
-        j_density: (A/m^2) (N,3) array of current density vectors at each of the
-            element centroids
+        src_mesh: mesh to use as the field source
         targets: (m) (N,3) array of target point positions in 3D space
-        solver: selects the solution settings
+        jdensity: (A/m^2) (N,3) array of current density vectors at each of the
+            source element centroids
+        magnetization: (A/m) (N,3) array of magnetization vectors at each of the
+            source element centroids
+        settings: selects the solution settings
 
     Returns:
         (T) (N,3) array of magnetic flux density (B) vectors at each target position
     """
-    return MU0 * h_field(source, j_density, targets, solver)
 
-
-def h_field(
-    source: Mesh | CentroidMesh,
-    j_density: NDArray[float64],
-    targets: NDArray[float64],
-    solver: DirectSolver | OctreeSolver | OctreeSolver2Zone | None = None,
-    edge: bool = False,
-) -> NDArray[float64]:
-    """Compute the magnetic field strength at a collection of target points using
-    a current-carrying source mesh.
-
-    Args:
-        source: mesh to use as the field source
-        j_density: (A/m^2) (N,3) array of current density vectors at each of the
-            element centroids
-        targets: (m) (N,3) array of target point positions in 3D space
-        solver: selects the solution settings
-
-    Returns:
-        (T) (N,3) array of magnetic field strength (H) vectors at each target position
-    """
-
-    if solver is None:
-        solver = DirectSolver()
-
-    j_density: NDArray[float64] = ascontiguousarray(j_density, dtype=float64)
-    tgt_pts: NDArray[float64] = ascontiguousarray(targets, dtype=float64)
-
-    if isinstance(source, CentroidMesh):
-        src_pts = ascontiguousarray(source.centroids, dtype=float64)
-        src_vol = ascontiguousarray(source.volumes, dtype=float64)
-
-        if isinstance(solver, DirectSolver):
-            return h_current_point_direct(
-                src_pts, src_vol, j_density, tgt_pts, solver.n_threads
-            )
-
-        elif isinstance(solver, OctreeSolver2Zone):
-            return h_current_point_octree(
-                src_pts,
-                src_vol,
-                j_density,
-                tgt_pts,
-                solver.theta,
-                solver.leaf_threshold,
-                solver.n_threads,
-            )
-
-        else:
-            raise TypeError(
-                f"Unsupported source/solver combination: {type(source)}, {type(solver)}"
-            )
-
-    elif isinstance(source, Mesh):
-        src_nodes = ascontiguousarray(source.nodes, dtype=float64)
-        src_connectivity = ascontiguousarray(source.connectivity, dtype=uint32)
-        if isinstance(solver, DirectSolver):
-            return h_current_tet4_direct(
-                src_nodes, src_connectivity, j_density, tgt_pts, solver.n_threads, edge
-            )
-
-        elif isinstance(solver, OctreeSolver2Zone):
-            return h_current_tet4_octree(
-                src_nodes,
-                src_connectivity,
-                j_density,
-                tgt_pts,
-                solver.theta,
-                solver.leaf_threshold,
-                solver.n_threads,
-            )
-
-        elif isinstance(solver, OctreeSolver):
-            return h_current_octree(
-                src_nodes,
-                src_connectivity,
-                tgt_pts,
-                j_density,
-                uint32(solver.leaf_threshold),
-                solver.alpha,
-                solver.theta,
-                solver.n_threads,
-            )
-
-        else:
-            raise TypeError(
-                f"Unsupported source/solver combination: {type(source)}, {type(solver)}"
-            )
-
-    else:
-        raise TypeError(
-            f"Unsupported source/solver combination: {type(source)}, {type(solver)}"
+    if magnetization is not None:
+        warnings.warn(
+            "Computing magnetic flux density using a magnetized mesh as the source.\n"
+            "This calculation is only valid in free space. Ensure that target points "
+            "are in free space and not within a magnetized mesh.",
+            UserWarning,
+            stacklevel=2,
         )
 
-
-def h_mag(
-    source: Mesh | CentroidMesh,
-    m_field: NDArray[float64],
-    targets: NDArray[float64],
-    solver: DirectSolver | OctreeSolver | OctreeSolver2Zone | None = None,
-) -> NDArray[float64]:
-    """Compute the magnetic field strength using a magnetized mesh as the source
-
-    Args:
-        source: mesh to use as the field source
-        m_field: (A/m) (N,3) array of magnetization field vectors at each of the
-            element centroids
-        targets: (m) (N,3) array of target point positions in 3D space
-        solver: selects the solution settings
-
-    Returns:
-        (T) (N,3) array of magnetic field strength (H) vectors at each target position
-    """
-
-    if solver is None:
-        solver = DirectSolver()
-
-    m_field: NDArray[float64] = ascontiguousarray(m_field, dtype=float64)
-    targets: NDArray[float64] = ascontiguousarray(targets, dtype=float64)
-
-    if isinstance(source, CentroidMesh):
-        src_centroids = ascontiguousarray(source.centroids, dtype=float64)
-        src_volumes = ascontiguousarray(source.volumes, dtype=float64)
-
-        assert source.centroids.shape[0] == m_field.shape[0]
-
-        if isinstance(solver, DirectSolver):
-            theta = 0.0
-            leaf_threshold: uint32 = uint32(0)
-            use_octree = False
-
-            return h_mag_point(
-                src_centroids,
-                src_volumes,
-                m_field,
-                targets,
-                theta,
-                leaf_threshold,
-                solver.n_threads,
-                use_octree,
-            )
-
-        elif isinstance(solver, OctreeSolver2Zone):
-            use_octree = True
-            return h_mag_point(
-                src_centroids,
-                src_volumes,
-                m_field,
-                targets,
-                solver.theta,
-                solver.leaf_threshold,
-                solver.n_threads,
-                use_octree,
-            )
-        else:
-            raise TypeError(
-                f"Unsupported source/solver combination: {type(source)}, {type(solver)}"
-            )
-
-    elif isinstance(source, Mesh):
-        src_nodes = ascontiguousarray(source.nodes, dtype=float64)
-        src_connectivity = ascontiguousarray(source.connectivity, dtype=uint32)
-
-        assert src_connectivity.shape[0] == m_field.shape[0]
-        if isinstance(solver, DirectSolver):
-            theta = 0.0
-            leaf_threshold: uint32 = uint32(0)
-            use_octree = False
-            return h_mag_tet4(
-                src_nodes,
-                src_connectivity,
-                m_field,
-                targets,
-                theta,
-                leaf_threshold,
-                solver.n_threads,
-                use_octree,
-                solver.edge,
-            )
-
-        elif isinstance(solver, OctreeSolver2Zone):
-            use_octree = True
-            return h_mag_tet4(
-                src_nodes,
-                src_connectivity,
-                m_field,
-                targets,
-                solver.theta,
-                solver.leaf_threshold,
-                solver.n_threads,
-                use_octree,
-                solver.edge,
-            )
-
-        else:
-            raise TypeError(
-                f"Unsupported source/solver combination: {type(source)}, {type(solver)}"
-            )
-
-    else:
-        raise TypeError(
-            f"Unsupported source/solver combination: {type(source)}, {type(solver)}"
-        )
+    return MU0 * h_field(
+        src_mesh,
+        targets,
+        jdensity=jdensity,
+        magnetization=magnetization,
+        settings=settings,
+    )

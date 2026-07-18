@@ -417,7 +417,7 @@ impl<S: HFieldSolver + std::marker::Sync> Octree<S> {
         nthreads_requested: u32,
     ) -> Result<(), ()> {
         let n: usize = targets.0.len();
-        let nthreads: usize = crate::biotsavart_parallel::get_nthreads(nthreads_requested);
+        let nthreads: usize = crate::get_nthreads(nthreads_requested);
         let chunk_size: usize = (n / nthreads).max(1);
 
         // chunk the inputs

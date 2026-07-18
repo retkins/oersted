@@ -15,6 +15,12 @@ pub fn node_coords(nodes: &[f64], idx: usize) -> Vec3 {
     Vec3([nodes[3 * idx], nodes[3 * idx + 1], nodes[3 * idx + 2]])
 }
 
+/// Compute the centroid of a 4-node tetrahedral element
+#[inline]
+pub fn centroid(nodes: &[Vec3; 4]) -> Vec3 {
+    (nodes[0] + nodes[1] + nodes[2] + nodes[3]) * 0.25
+}
+
 /// Compute the centroids of the elements in a mesh containing
 /// 4-node linear tetrahedral elements by taking the mean position
 /// of all 4 nodes
@@ -28,16 +34,25 @@ pub fn centroids(nodes: &[Vec3], connectivity: &[[u32; 4]], out: &mut [Vec3]) {
     assert_eq!(connectivity.len(), out.len());
 
     for (i, elem) in connectivity.iter().enumerate() {
-        // Node numbers
-        let [n0, n1, n2, n3] = [
-            elem[0] as usize,
-            elem[1] as usize,
-            elem[2] as usize,
-            elem[3] as usize,
+        let elem_nodes = [
+            nodes[elem[0] as usize],
+            nodes[elem[1] as usize],
+            nodes[elem[2] as usize],
+            nodes[elem[3] as usize],
         ];
-
-        out[i] = (nodes[n0] + nodes[n1] + nodes[n2] + nodes[n3]) * 0.25;
+        out[i] = centroid(&elem_nodes);
     }
+}
+
+/// Compute the volume of a linear 4-node tetrahedral element
+#[inline]
+pub fn volume(nodes: &[Vec3; 4]) -> f64 {
+    // Edge vectors
+    let a: Vec3 = nodes[1] - nodes[0];
+    let b: Vec3 = nodes[2] - nodes[0];
+    let c: Vec3 = nodes[3] - nodes[0];
+
+    (1.0 / 6.0) * (a.dot(&b.cross(&c))).abs()
 }
 
 /// Compute the volumes of the elements in a mesh containing
@@ -61,22 +76,14 @@ pub fn volumes(nodes: &[Vec3], connectivity: &[[u32; 4]], out: &mut [f64]) {
 
     for (i, elem) in connectivity.iter().enumerate() {
         // Node numbers
-        let [n0, n1, n2, n3] = [
-            elem[0] as usize,
-            elem[1] as usize,
-            elem[2] as usize,
-            elem[3] as usize,
+        let elem_nodes = [
+            nodes[elem[0] as usize],
+            nodes[elem[1] as usize],
+            nodes[elem[2] as usize],
+            nodes[elem[3] as usize],
         ];
 
-        // Vertices
-        let [v0, v1, v2, v3] = [nodes[n0], nodes[n1], nodes[n2], nodes[n3]];
-
-        // Edge vectors
-        let a = v1 - v0;
-        let b = v2 - v0;
-        let c = v3 - v0;
-
-        out[i] = (1.0 / 6.0) * (a.dot(&b.cross(&c))).abs();
+        out[i] = volume(&elem_nodes);
     }
 }
 

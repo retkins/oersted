@@ -76,8 +76,4 @@ impl BoundingBox {
     pub fn min_corner(&self) -> (f64, f64, f64) {
         (self.xbounds.0, self.ybounds.0, self.zbounds.0)
     }
-
-    pub fn centroid(&self) -> Vec3 {
-        Vec3([self.xc, self.yc, self.zc])
-    }
 }

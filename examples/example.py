@@ -1,5 +1,5 @@
 from oersted.testing import make_helmholtz
-from oersted import b_field, OctreeSolver2Zone
+from oersted import b_field, SolverSettings
 from time import perf_counter
 
 size = 0.015
@@ -7,7 +7,7 @@ theta = 0.5
 nthreads = 0
 mesh, jdensity = make_helmholtz("tests/data/ring.stp", size)
 
-solver = OctreeSolver2Zone(theta=theta, n_threads=nthreads)
+settings = SolverSettings(method="octree", theta=theta, n_threads=nthreads)
 
 
 print("Oersted Example - Helmholtz Problem")
@@ -16,7 +16,7 @@ print(f"n = {n:.3e} ({n * n:.3e} interactions)")
 
 
 start = perf_counter()
-b = b_field(mesh.to_centroid_mesh(), jdensity, mesh.centroids, solver=solver)
+b = b_field(mesh, mesh.centroids, jdensity=jdensity, settings=settings)
 end = perf_counter()
 elapsed = end - start
 

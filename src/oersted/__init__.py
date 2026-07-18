@@ -1,13 +1,16 @@
 """Python bindings for oersted"""
 
 from .materials import MU0, FreeSpace, LinearMaterial, NonlinearMaterial, BHCurve
-from .solver import Solver, DirectSolver, OctreeSolver, OctreeSolver2Zone
+from .solver import SolverSettings
 
-from .biotsavart import a_field, b_field, h_field, h_mag
+from .biotsavart import a_field, b_field, h_field
 
 from .mesh import Mesh, CentroidMesh, mesh_step, plot_mesh
 from .testing import (
     make_helmholtz,
+    verr,
+    mean_verr,
+    max_verr,
     smape,
     bz_finite_length_solenoid,
     bz_loop_axis,
@@ -24,7 +27,7 @@ from .results import (
     lorentz_force_density,
 )
 
-from ._oersted import interaction_lists, h_current_octree, atan2
+from ._oersted import atan2
 
 __all__ = [
     # Constants and material properties
@@ -42,13 +45,11 @@ __all__ = [
     "a_field",
     "b_field",
     "h_field",
-    "h_mag",
     "demag_solve",
     # Solver settings
-    "Solver",
-    "DirectSolver",
-    "OctreeSolver",
-    "OctreeSolver2Zone",
+    "SolverSettings",
+    "OctreeSettings",
+    "IterationSettings",
     # Results
     "maxwell_forces",
     "kelvin_forces",
@@ -57,15 +58,15 @@ __all__ = [
     "lorentz_force_density",
     # Testing
     "make_helmholtz",
+    "verr",
+    "mean_verr",
+    "max_verr",
     "smape",
     "bz_loop_axis",
     "dbzdz_loop_axis",
     "bz_finite_length_solenoid",
     "uniform_3d_grid",
     "curl",
-    # Octree (interaction lists)
-    "interaction_lists",
-    "h_current_octree",
     # Math
     "atan2",
 ]

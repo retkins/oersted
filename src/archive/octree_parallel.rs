@@ -57,7 +57,7 @@ pub fn bfield_octree_parallel(
     leaf_threshold: u32,
     nthreads_requested: u32,
 ) -> Result<(), ()> {
-    use crate::biotsavart_parallel::get_nthreads;
+    use crate::get_nthreads;
     use rayon::prelude::*;
 
     // TODO: length checks
