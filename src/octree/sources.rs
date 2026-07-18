@@ -9,6 +9,22 @@ use crate::{
     types::Vec3,
 };
 
+use std::ops::{Index, IndexMut};
+
+
+// /// Represents a source index in a sorted array 
+// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+// #[repr(transparent)]
+// pub struct SourceId(pub u32);
+
+// impl Index for SourceId {
+//     type Output = usize;
+//     fn index(&self) -> &Self::Output {
+//         self.0 as usize
+//     }
+// }
+
+
 /// Information about the individual sources the octree represents
 ///
 /// All of the data must be owned by this object to allow for in-place sorting

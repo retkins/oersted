@@ -4,7 +4,9 @@ Lightning-fast magnetic fields calculations
 
 [Documentation](https://retkins.github.io/oersted) | [Rust API](https://docs.rs/oersted/latest/oersted/)
 
-![Timing Results](docs/figs/benchmarks.svg)
+This library contains highly-optimised routines for solving magnetic fields calculations using both exact and approximate volume integral methods. Included is a Barnes-Hut solver with multipole expansion at octree nodes, which dramatically reduces solver speed at acceptable error levels:
+
+![Timing Results](benchmarks/figs/octree_benchmarks.svg)
 
 ## Installation
 
