@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 # Problem parameters
 thetas = np.linspace(0.05, 0.5, 10)
 max_leaf_size = 16
-batch_size = 1
 mesh_size: float = 15.0  # (m)
 jmag: float = 1e8  # (A/m^2)
 MAX_ERR_PCT: float = 5e-3
@@ -74,7 +73,6 @@ def run():
                     theta=theta,
                     method="octree",
                     max_leaf_size=max_leaf_size,
-                    batch_size=batch_size,
                 ),
             )
 

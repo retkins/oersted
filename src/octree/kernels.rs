@@ -8,6 +8,23 @@ use crate::{
     types::{Mat3, Vec3},
 };
 
+#[derive(Clone, Copy, Debug)]
+pub enum MultipoleOrder {
+    Monopole,
+    Dipole,
+    Octupole,
+}
+
+impl MultipoleOrder {
+    pub fn from_int(order: u32) -> Self {
+        match order {
+            1 => Self::Dipole,
+            2 => Self::Octupole,
+            _ => Self::Monopole,
+        }
+    }
+}
+
 // Node centroid, monopole, dipole, targets, out
 pub type FarKernel =
     fn(&Vec3, &Vec3, &Mat3, (&[f64], &[f64], &[f64]), (&mut [f64], &mut [f64], &mut [f64]));
@@ -25,7 +42,7 @@ pub fn select_near_kernel(
     select_kernel(field, &src_vectors, method)
 }
 
-pub fn select_far_kernel(field: RequestedField, source: Source) -> FarKernel {
+pub fn select_far_kernel(field: RequestedField, source: Source, _: MultipoleOrder) -> FarKernel {
     match (field, source) {
         (RequestedField::AField, Source::CurrentDensity) => a_current_node,
         (RequestedField::HField, Source::CurrentDensity) => h_current_node,

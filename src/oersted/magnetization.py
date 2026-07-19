@@ -49,6 +49,6 @@ def demag_solve(
         settings.under_relaxation_factor,
         use_octree,
         settings.theta,
-        settings.near_field_ratio,
+        settings.expansion_order(),
         settings.max_leaf_size,
     )

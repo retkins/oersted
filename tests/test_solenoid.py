@@ -39,14 +39,12 @@ all_settings = [
         integration="element",
         max_leaf_size=max_leaf_size,
         theta=theta,
-        batch_size=batch_size,
     ),
     SolverSettings(
         method="octree",
         integration="point",
         max_leaf_size=max_leaf_size,
         theta=theta,
-        batch_size=batch_size,
     ),
 ]
 

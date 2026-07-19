@@ -108,9 +108,8 @@ def _evaluate_fields(
         settings.n_threads,
         use_octree,
         settings.theta,
-        settings.near_field_ratio,
+        settings.expansion_order(),
         settings.max_leaf_size,
-        settings.batch_size,
     )
 
 

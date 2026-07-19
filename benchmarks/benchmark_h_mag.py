@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 
 theta = 0.5
 max_leaf_size = 16
-batch_size = 1
 mesh_sizes = [20e-3, 15e-3, 10e-3, 8e-3, 5e-3]
 mesh_sizes = np.linspace(4e-3, 20e-3, 10)
 
@@ -20,14 +19,12 @@ all_settings = [
         integration="point",
         theta=theta,
         max_leaf_size=max_leaf_size,
-        batch_size=batch_size,
     ),
     SolverSettings(
         method="octree",
         integration="element",
         theta=theta,
         max_leaf_size=max_leaf_size,
-        batch_size=batch_size,
     ),
 ]
 

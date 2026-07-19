@@ -70,7 +70,7 @@ def run_test_a_field(settings):
 def test_a_field():
     all_settings = [
         oersted.SolverSettings(method="direct"),
-        oersted.SolverSettings(method="octree", theta=theta, batch_size=1),
+        oersted.SolverSettings(method="octree", theta=theta),
     ]
     for settings in all_settings:
         print(settings)
@@ -80,7 +80,6 @@ def test_a_field():
 
 def test_bh_vs_direct():
     theta = 1.0
-    batch_size = 1
     n = 10000
     targets = np.zeros((n, 3))
     targets = np.random.rand(n, 3) * 100
@@ -93,7 +92,8 @@ def test_bh_vs_direct():
         targets,
         jdensity=jdensity,
         settings=oersted.SolverSettings(
-            method="octree", theta=theta, batch_size=batch_size
+            method="octree",
+            theta=theta,
         ),
     )
 
@@ -107,9 +107,7 @@ def test_bh_vs_direct():
         mesh,
         targets,
         jdensity=jdensity,
-        settings=oersted.SolverSettings(
-            method="octree", theta=theta, batch_size=batch_size
-        ),
+        settings=oersted.SolverSettings(method="octree", theta=theta),
     )
 
     err = verr(b_bh, b_direct)

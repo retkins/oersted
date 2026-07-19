@@ -52,7 +52,6 @@ def bench_error(axs):
                     integration="element",
                     theta=theta,
                     max_leaf_size=max_leaf_size,
-                    batch_size=batch_size,
                 ),
             )
         elapsed = (perf_counter() - start) / n_iterations
@@ -93,12 +92,16 @@ def bench_scaling(axs, mesh_sizes):
                         integration="element",
                         theta=theta,
                         max_leaf_size=max_leaf_size,
-                        batch_size=batch_size,
                     ),
                 )
             elapsed = (perf_counter() - start) / n_iterations
             timing.append(elapsed)
-            speedup.append(direct_elapsed / elapsed)
+            _speedup = direct_elapsed / elapsed
+            print(
+                f"size = {mesh.centroids.shape[0]}, theta={theta:.1f}, \
+                    time = {elapsed:.6f} sec, speedup = {_speedup:.2f}x"
+            )
+            speedup.append(_speedup)
         all_speedup.append(speedup)
 
     all_speedup = np.array(all_speedup)

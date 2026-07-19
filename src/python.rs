@@ -13,7 +13,8 @@ use crate::{
     biotsavart::{self, IntegrationMethod, RequestedField, SourceVectors},
     check_lengths, magnetization,
     math::gradient,
-    mesh, octree,
+    mesh,
+    octree::{self, OctreeSettings},
     types::{Vec3, to_u32x4s, to_vec3s, to_vec3s_mut},
 };
 
@@ -110,9 +111,8 @@ fn calculate_fields<'py>(
     n_threads_requested: u32,
     use_octree: bool,
     theta: f64,
-    near_field_ratio: f64,
+    multipole_order: u32,
     max_leaf_size: u32,
-    batch_size: u32,
 ) -> PyResult<BoundPyArray2f64<'py>> {
     let _src_nodes: &[Vec3] = to_vec3s(src_nodes.as_slice()?);
     let _src_connectivity: &[[u32; 4]] = to_u32x4s(src_connectivity.as_slice()?);
@@ -148,13 +148,15 @@ fn calculate_fields<'py>(
             panic!("Octree not available yet for magnetization solves.")
         };
 
-        let octree: octree::Octree = octree::Octree::new(
-            &_src_nodes,
-            &_src_connectivity,
-            jdensity,
-            None,
+        let order = octree::MultipoleOrder::from_int(multipole_order);
+        let settings = octree::OctreeSettings {
+            theta,
             max_leaf_size,
-        );
+            multipole_order: order,
+        };
+
+        let octree: octree::Octree =
+            octree::Octree::new(&_src_nodes, &_src_connectivity, jdensity, None, settings);
 
         octree.compute_fields(
             (&x, &y, &z),
@@ -162,8 +164,6 @@ fn calculate_fields<'py>(
             fields,
             source,
             method,
-            theta,
-            batch_size as usize,
             n_threads_requested,
         );
     } else {
@@ -197,7 +197,7 @@ fn magnetization_solve<'py>(
     under_relaxation_factor: f64,
     use_octree: bool,
     theta: f64,
-    near_field_ratio: f64,
+    multipole_order: u32,
     max_leaf_size: u32,
 ) -> PyResult<(Bound<'py, PyArray2<f64>>, Bound<'py, PyArray2<f64>>)> {
     let n_centroids = connectivity.shape()[0];
@@ -210,8 +210,8 @@ fn magnetization_solve<'py>(
     let octree_settings = if use_octree {
         Some(octree::OctreeSettings {
             theta,
-            near_field_ratio,
             max_leaf_size,
+            multipole_order: octree::MultipoleOrder::from_int(multipole_order),
         })
     } else {
         None

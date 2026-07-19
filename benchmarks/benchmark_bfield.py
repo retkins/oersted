@@ -15,7 +15,6 @@ platform_info = (
 
 theta = 0.5
 max_leaf_size = 16
-batch_size = 1
 
 solvers = [
     SolverSettings(method="direct", integration="point"),
@@ -25,14 +24,12 @@ solvers = [
         integration="point",
         theta=theta,
         max_leaf_size=max_leaf_size,
-        batch_size=batch_size,
     ),
     SolverSettings(
         method="octree",
         integration="element",
         theta=theta,
         max_leaf_size=max_leaf_size,
-        batch_size=batch_size,
     ),
 ]
 
@@ -77,7 +74,7 @@ ax.set_ylabel("Throughput(interactions/s)")
 ax.set_title(
     "Bfield Benchmarks\n"
     + platform_info
-    + f"\ntheta={theta:.1f}, batch_size={batch_size}, leaf_size={max_leaf_size}"
+    + f"\ntheta={theta:.1f}, leaf_size={max_leaf_size}"
 )
 ax.set_xscale("log")
 ax.set_yscale("log")

@@ -130,3 +130,5 @@ for direct solves, and unified the function signatures
 
 ### [#26]
 * Added comprehensive octree benchmarks
+* Replaced 'batch' octree traversal with interaction lists using a sparse storage
+method (3x faster)

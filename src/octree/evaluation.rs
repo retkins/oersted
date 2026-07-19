@@ -2,9 +2,18 @@
 
 use crate::{
     math::sort_by_indices,
-    octree::{BoundingBox, node::encode_cols},
+    octree::{
+        BoundingBox, Sources, Topology, TreeMoments,
+        node::{INVALID_NODE, encode_cols},
+    },
     types::Vec3,
 };
+
+pub struct InteractionList {
+    pub data: Vec<u32>,
+    pub offsets: Vec<u32>,
+    pub buf_len: usize,
+}
 
 // Sort targets into morton order
 //
@@ -46,24 +55,126 @@ pub fn unsort_fields(
     }
 }
 
-/// Compute the centroid and bounding radius of a collection of target points
-pub fn target_bounds(targets: (&[f64], &[f64], &[f64])) -> (Vec3, f64) {
-    let mut centroid: Vec3 = Vec3::default();
-    let mut bounding_radius: f64 = 0.0;
+// Traverse the tree and return (near, far) interaction lists
+pub fn traverse_tree(
+    topology: &Topology,
+    sources: &Sources,
+    tree_moments: &TreeMoments,
+    targets: (&[f64], &[f64], &[f64]),
+    theta: f64,
+) -> (InteractionList, InteractionList) {
     let (x, y, z) = targets;
-    let n: usize = x.len();
+    let n_targets = x.len();
+    let n_sources = sources.len();
+    let n_nodes = topology.len();
 
-    for i in 0..n {
-        centroid[0] += x[i];
-        centroid[1] += y[i];
-        centroid[2] += z[i];
+    let mut near_counts = vec![0u32; n_sources];
+    let mut far_counts = vec![0u32; n_nodes];
+
+    // Tree source nodes
+    let mut stack: Vec<u32> = Vec::with_capacity(128);
+
+    // Count first
+    for ti in 0..n_targets {
+        stack.push(0); // start at root 
+
+        while let Some(ni) = stack.pop() {
+            let ni = ni as usize;
+
+            let c = tree_moments.centers[ni];
+            let t = Vec3([x[ti], y[ti], z[ti]]);
+            let d = (t - c).mag();
+
+            if tree_moments.bmax[ni] < theta * d {
+                // Branch node accepted
+                far_counts[ni] += 1;
+            } else if topology.is_leaf[ni] {
+                let (start, end) = topology.source_range[ni];
+                for e in start as usize..end as usize {
+                    near_counts[e] += 1;
+                }
+            } else {
+                // Add the child nodes to the stack
+                for child in topology.children[ni] {
+                    if child == INVALID_NODE {
+                        continue;
+                    } else {
+                        stack.push(child)
+                    }
+                }
+            }
+        }
+        stack.clear();
     }
 
-    centroid /= n as f64;
-    for i in 0..n {
-        let target = Vec3([x[i], y[i], z[i]]);
-        bounding_radius = bounding_radius.max((target - centroid).mag());
+    // Create offsets
+    let mut near_offsets = vec![0u32; n_sources + 1];
+    let mut far_offsets = vec![0u32; n_nodes + 1];
+
+    let mut running = 0u32;
+    for e in 0..n_sources {
+        near_offsets[e] = running;
+        running += near_counts[e];
+    }
+    near_offsets[n_sources] = running;
+    let mut near_data = vec![0u32; running as usize];
+
+    running = 0u32;
+    for ni in 0..n_nodes {
+        far_offsets[ni] = running;
+        running += far_counts[ni];
+    }
+    far_offsets[n_nodes] = running;
+    let mut far_data = vec![0u32; running as usize];
+
+    // Fill interaction list data by re-traversal
+    let mut near_cursor = near_offsets.clone();
+    let mut far_cursor = far_offsets.clone();
+
+    stack.clear();
+    for ti in 0..n_targets {
+        stack.push(0u32);
+        while let Some(ni) = stack.pop() {
+            let ni = ni as usize;
+
+            let c = tree_moments.centers[ni];
+            let t = Vec3([x[ti], y[ti], z[ti]]);
+            let d = (t - c).mag();
+
+            if tree_moments.bmax[ni] < theta * d {
+                // Branch node accepted
+                far_data[far_cursor[ni] as usize] = ti as u32;
+                far_cursor[ni] += 1;
+            } else if topology.is_leaf[ni] {
+                let (start, end) = topology.source_range[ni];
+                for e in start as usize..end as usize {
+                    near_data[near_cursor[e] as usize] = ti as u32;
+                    near_cursor[e] += 1;
+                }
+            } else {
+                // Add the child nodes to the stack
+                for child in topology.children[ni] {
+                    if child == INVALID_NODE {
+                        continue;
+                    } else {
+                        stack.push(child)
+                    }
+                }
+            }
+        }
+        stack.clear();
     }
 
-    (centroid, bounding_radius)
+    (
+        InteractionList {
+            data: near_data,
+            offsets: near_offsets,
+            buf_len: *near_counts.iter().max().unwrap() as usize,
+        },
+        InteractionList {
+            data: far_data,
+            offsets: far_offsets,
+            buf_len: *far_counts.iter().max().unwrap() as usize,
+        },
+    )
 }

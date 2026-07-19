@@ -11,8 +11,7 @@ use crate::{
 
 use std::ops::{Index, IndexMut};
 
-
-// /// Represents a source index in a sorted array 
+// /// Represents a source index in a sorted array
 // #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 // #[repr(transparent)]
 // pub struct SourceId(pub u32);
@@ -23,7 +22,6 @@ use std::ops::{Index, IndexMut};
 //         self.0 as usize
 //     }
 // }
-
 
 /// Information about the individual sources the octree represents
 ///
