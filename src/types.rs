@@ -350,7 +350,6 @@ mod tests {
                         assert!((m[i][j] - expected[i][j]).abs() < 1e-6);
                     }
                 }
-                
             }
             None => assert!(false),
         }

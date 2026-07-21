@@ -128,8 +128,9 @@ for direct solves, and unified the function signatures
 * Combined all solver settings into a `SolverSettings` class 
 * Unified all Python bindings for field calcs to `a_field()`, `h_field()`, and `b_field()`
 
-### [#26]
+### [#26](https://github.com/retkins/oersted/pull/33)
 * Added comprehensive octree benchmarks
 * Replaced 'batch' octree traversal with interaction lists using a sparse storage
 method (3x faster than simple batch traversal)
 * Enable monopole/dipole expansions to be selected by the user
+* Various bugfixes and corrections of minor errors

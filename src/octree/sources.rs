@@ -1,4 +1,3 @@
-
 use crate::{
     math::{sort_by_indices, sphere_radius},
     mesh,
@@ -28,7 +27,6 @@ pub struct Sources {
 }
 
 impl Sources {
-
     pub fn len(&self) -> usize {
         self.elem_connectivity.len()
     }

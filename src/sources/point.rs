@@ -60,10 +60,10 @@ pub fn a_current_point(
     for i in 0..n_targets {
         let target = Vec3([x[i], y[i], z[i]]);
         let rmag: f64 = (target - centroid).mag();
-        let scale: f64 = if radius > rmag {
-            rmag/radius
+        let scale: f64 = if radius >= rmag {
+            rmag / radius
         } else {
-            1.0/rmag
+            1.0 / rmag
         };
         let a: Vec3 = jmoment * MU0_4PI * scale;
         ax[i] += a[0];
@@ -92,9 +92,9 @@ pub fn a_mag_point(
         let target: Vec3 = Vec3([x[i], y[i], z[i]]);
         let rp: Vec3 = target - centroid;
         let r2: f64 = rp.dot(&rp);
-        let inv_r: f64 = 1.0/r2.sqrt();
+        let inv_r: f64 = 1.0 / r2.sqrt();
         let rhat: Vec3 = rp * inv_r;
-        let inv_r2: f64 = inv_r*inv_r;
+        let inv_r2: f64 = inv_r * inv_r;
 
         let a: Vec3 = moment.cross(&rhat) * (MU0_4PI * inv_r2);
         ax[i] += a[0];

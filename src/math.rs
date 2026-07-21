@@ -23,7 +23,6 @@ pub fn cross(a: &[f64; 3], b: &[f64; 3], c: &mut [f64; 3]) {
 /// # Returns:
 /// `(min, max)`: the maximum and minimum values in the slice
 pub fn min_and_max(arr: &[f64]) -> Option<(f64, f64)> {
-
     if arr.is_empty() {
         return None;
     }

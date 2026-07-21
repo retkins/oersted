@@ -159,7 +159,8 @@ def check_j_accuracy():
     for settings in all_settings:
         err_tol = 5e-2 if settings.integration == "octree" else 12e-2
         print(
-            f"method = {settings.method}, integration = {settings.integration}, expansion = {settings.multipole_order}"
+            f"method = {settings.method}, integration = {settings.integration}, \
+            expansion = {settings.multipole_order}"
         )
         print("bfield")
         b = oersted.b_field(mesh, targets, jdensity=jdensity, settings=settings)

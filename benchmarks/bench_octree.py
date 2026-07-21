@@ -77,8 +77,9 @@ def bench_scaling(axs, mesh_sizes):
         mesh, jdensity = oersted.make_helmholtz("tests/data/ring.stp", mesh_size)
         problem_size.append(mesh.centroids.shape[0])
         start = perf_counter()
-        _ = oersted.b_field(mesh, mesh.centroids, jdensity=jdensity)
-        direct_elapsed = perf_counter() - start
+        for _ in range(n_iterations):
+            _ = oersted.b_field(mesh, mesh.centroids, jdensity=jdensity)
+        direct_elapsed = (perf_counter() - start) / n_iterations
 
         for theta in thetas:
             start = perf_counter()

@@ -133,9 +133,11 @@ fn calculate_fields<'py>(
             None
         };
 
-        let mvectors: Option<&[Vec3]> = if src_vector_type == 0 {
+        let mvectors: Option<&[Vec3]> = if src_vector_type == 1 {
             Some(to_vec3s(src_vectors.as_slice()?))
-        } else { None};
+        } else {
+            None
+        };
 
         let order = octree::MultipoleOrder::from_int(multipole_order);
         let settings = octree::OctreeSettings {
@@ -147,8 +149,13 @@ fn calculate_fields<'py>(
             batch_size: batch_size as usize,
         };
 
-        let octree: octree::Octree =
-            octree::Octree::new(&_src_nodes, &_src_connectivity, jdensity, mvectors, settings);
+        let octree: octree::Octree = octree::Octree::new(
+            &_src_nodes,
+            &_src_connectivity,
+            jdensity,
+            mvectors,
+            settings,
+        );
 
         octree.compute_fields((&x, &y, &z), (&mut fx, &mut fy, &mut fz), fields, source);
     } else {
@@ -185,7 +192,7 @@ fn magnetization_solve<'py>(
     multipole_order: u32,
     max_leaf_size: u32,
     batch_size: u32,
-    verbose: bool
+    verbose: bool,
 ) -> PyResult<(Bound<'py, PyArray2<f64>>, Bound<'py, PyArray2<f64>>)> {
     let n_centroids = connectivity.shape()[0];
 
@@ -230,7 +237,7 @@ fn magnetization_solve<'py>(
         max_iterations,
         under_relaxation_factor,
         octree_settings,
-        verbose
+        verbose,
     );
 
     Ok((

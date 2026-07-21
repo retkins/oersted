@@ -67,6 +67,7 @@ pub fn select_far_kernel(
 ) -> FarKernel {
     match (field, source, order) {
         (RequestedField::AField, Source::CurrentDensity, MultipoleOrder::Monopole) => {
+            // The monopole order does not provide enough accuracy to be usable
             a_current_node_dipole
         }
         (RequestedField::AField, Source::CurrentDensity, MultipoleOrder::Dipole) => {
@@ -88,10 +89,7 @@ pub fn select_far_kernel(
             h_mag_node_monopole
         }
         (RequestedField::HField, Source::Magnetization, MultipoleOrder::Dipole) => {
-            println!(
-                r#"Warning. Dipole order expansion not yet defined for H from M sources.
-                Defaulting to monopole expansion."#
-            );
+            // Default to monopole expansion until this multipole order is derived
             h_mag_node_monopole
         }
     }

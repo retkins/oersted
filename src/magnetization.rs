@@ -46,7 +46,7 @@ pub fn magnetization_solve(
     max_iterations: u32,
     under_relaxation_factor: f64,
     octree_settings: Option<OctreeSettings>,
-    verbose: bool
+    verbose: bool,
 ) {
     let n_centroids: usize = centroids.0.len();
 
@@ -108,7 +108,7 @@ pub fn magnetization_solve(
         if verbose {
             println!("Iteration: {}; max change: {:.3e}", it, max_change);
         }
-        
+
         if max_change <= atol {
             break;
         } else if it < max_iterations - 1 {
