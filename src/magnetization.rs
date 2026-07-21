@@ -8,7 +8,7 @@
 
 use crate::{
     biotsavart::{IntegrationMethod, RequestedField, SourceVectors, calculate_fields},
-    octree::OctreeSettings,
+    octree::{Octree, OctreeSettings, Source},
     types::Vec3,
 };
 
@@ -47,10 +47,6 @@ pub fn magnetization_solve(
     under_relaxation_factor: f64,
     octree_settings: Option<OctreeSettings>,
 ) {
-    if octree_settings.is_some() {
-        return;
-    }
-
     let n_centroids: usize = centroids.0.len();
 
     // Initialize memory for results
@@ -63,18 +59,31 @@ pub fn magnetization_solve(
         *mvector = Vec3([h_ext.0[i], h_ext.1[i], h_ext.2[i]]) * chi;
     }
 
+    let mut octree =
+        octree_settings.map(|s| Octree::new(nodes, connectivity, None, Some(mvectors), s));
+
     for it in 0..max_iterations {
         // Dispatch over solver method to compute the current iteration of the demag field
-        calculate_fields(
-            nodes,
-            connectivity,
-            SourceVectors::Magnetization(mvectors),
-            RequestedField::HField,
-            centroids,
-            (hx, hy, hz),
-            method,
-            n_threads_requested,
-        );
+        if let Some(oc) = &mut octree {
+            oc.update_magnetization(mvectors);
+            oc.compute_fields(
+                centroids,
+                (hx, hy, hz),
+                RequestedField::HField,
+                Source::Magnetization,
+            );
+        } else {
+            calculate_fields(
+                nodes,
+                connectivity,
+                SourceVectors::Magnetization(mvectors),
+                RequestedField::HField,
+                centroids,
+                (hx, hy, hz),
+                method,
+                n_threads_requested,
+            );
+        }
 
         let mut max_change = 0.0;
         for i in 0..n_centroids {

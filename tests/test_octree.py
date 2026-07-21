@@ -127,10 +127,60 @@ def check_large_model():
     )
 
 
+def check_j_accuracy():
+
+    theta = 0.1
+    ERR_TOL = 10e-2
+    direct = SolverSettings(method="direct", integration="element")
+    all_settings = [
+        SolverSettings(
+            method="octree",
+            integration="element",
+            theta=theta,
+            multipole_order="monopole",
+        ),
+        SolverSettings(
+            method="octree",
+            integration="element",
+            theta=theta,
+            multipole_order="dipole",
+        ),
+        SolverSettings(
+            method="octree",
+            integration="point",
+            theta=theta,
+            multipole_order="monopole",
+        ),
+        SolverSettings(
+            method="octree", integration="point", theta=theta, multipole_order="dipole"
+        ),
+    ]
+
+    mesh_size = 10e-3
+    mesh, jdensity = oersted.make_ring(mesh_size=mesh_size)
+
+    n = 1000
+    vals = np.random.uniform(low=-1.0, high=1.0, size=n)
+    targets = np.column_stack((vals, vals, vals))
+    b_direct = oersted.b_field(mesh, targets, jdensity=jdensity, settings=direct)
+    a_direct = oersted.a_field(mesh, targets, jdensity=jdensity, settings=direct)
+
+    for settings in all_settings:
+        print(f"method = {settings.method}, integration = {settings.integration}")
+        print("bfield")
+        b = oersted.b_field(mesh, targets, jdensity=jdensity, settings=settings)
+        assert oersted.mean_verr(b, b_direct) < ERR_TOL
+
+        print("afield")
+        a = oersted.a_field(mesh, targets, jdensity=jdensity, settings=settings)
+        assert oersted.mean_verr(a, a_direct) < ERR_TOL
+
+
 def test_octree():
     run()
 
 
 if __name__ == "__main__":
     run()
+    check_j_accuracy()
     # check_large_model()

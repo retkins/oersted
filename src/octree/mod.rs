@@ -36,6 +36,9 @@ pub struct OctreeSettings {
     pub theta: f64,
     pub max_leaf_size: u32,
     pub multipole_order: MultipoleOrder,
+    pub near_field_method: IntegrationMethod,
+    pub n_threads_requested: u32,
+    pub batch_size: usize,
 }
 
 impl Default for OctreeSettings {
@@ -44,6 +47,9 @@ impl Default for OctreeSettings {
             theta: 0.5,
             max_leaf_size: 16,
             multipole_order: MultipoleOrder::Dipole,
+            near_field_method: IntegrationMethod::Element,
+            n_threads_requested: 0u32,
+            batch_size: 10_000usize,
         }
     }
 }
@@ -289,28 +295,25 @@ impl Octree {
         out: (&mut [f64], &mut [f64], &mut [f64]),
         field: RequestedField,
         source: Source,
-        near_field_method: IntegrationMethod,
-        n_threads_requested: u32,
-        batch_size: usize,
     ) {
         let (x, y, z) = targets;
         let (fx, fy, fz) = out;
         let n_targets: usize = check_lengths!(x, y, z, fx, fy, fz);
-        let n_threads: usize = get_nthreads(n_threads_requested);
+        let n_threads: usize = get_nthreads(self.settings.n_threads_requested);
         let chunk_size: usize = n_targets.div_ceil(n_threads);
         let chunks = par_chunks(x, y, z, fx, fy, fz, chunk_size);
 
         thread::scope(|s| {
             for (xc, yc, zc, fxc, fyc, fzc) in chunks {
                 s.spawn(move || {
-                    let batches = par_chunks(xc, yc, zc, fxc, fyc, fzc, batch_size);
+                    let batches = par_chunks(xc, yc, zc, fxc, fyc, fzc, self.settings.batch_size);
                     for (xb, yb, zb, fxb, fyb, fzb) in batches {
                         self.compute_fields_scalar(
                             (xb, yb, zb),
                             (fxb, fyb, fzb),
                             field,
                             source,
-                            near_field_method,
+                            self.settings.near_field_method,
                         );
                     }
                 });

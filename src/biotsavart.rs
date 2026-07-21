@@ -11,7 +11,7 @@ use crate::{
 };
 use std::thread;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum IntegrationMethod {
     Element,
     Point,

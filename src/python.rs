@@ -154,20 +154,15 @@ fn calculate_fields<'py>(
             theta,
             max_leaf_size,
             multipole_order: order,
+            near_field_method: method,
+            n_threads_requested,
+            batch_size: batch_size as usize,
         };
 
         let octree: octree::Octree =
             octree::Octree::new(&_src_nodes, &_src_connectivity, jdensity, None, settings);
 
-        octree.compute_fields(
-            (&x, &y, &z),
-            (&mut fx, &mut fy, &mut fz),
-            fields,
-            source,
-            method,
-            n_threads_requested,
-            batch_size as usize,
-        );
+        octree.compute_fields((&x, &y, &z), (&mut fx, &mut fy, &mut fz), fields, source);
     } else {
         biotsavart::calculate_fields(
             _src_nodes,
@@ -201,6 +196,7 @@ fn magnetization_solve<'py>(
     theta: f64,
     multipole_order: u32,
     max_leaf_size: u32,
+    batch_size: u32,
 ) -> PyResult<(Bound<'py, PyArray2<f64>>, Bound<'py, PyArray2<f64>>)> {
     let n_centroids = connectivity.shape()[0];
 
@@ -209,20 +205,23 @@ fn magnetization_solve<'py>(
     let (h_extx, h_exty, h_extz) = pyarray_to_3cols(h_ext);
     let (cx, cy, cz) = pyarray_to_3cols(centroids);
 
+    let method = if element_integration {
+        IntegrationMethod::Element
+    } else {
+        IntegrationMethod::Point
+    };
+
     let octree_settings = if use_octree {
         Some(octree::OctreeSettings {
             theta,
             max_leaf_size,
             multipole_order: octree::MultipoleOrder::from_int(multipole_order),
+            near_field_method: method,
+            n_threads_requested,
+            batch_size: batch_size as usize,
         })
     } else {
         None
-    };
-
-    let method = if element_integration {
-        IntegrationMethod::Element
-    } else {
-        IntegrationMethod::Point
     };
 
     let mut m_out = vec![Vec3::default(); n_centroids];
