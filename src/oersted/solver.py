@@ -43,6 +43,7 @@ class SolverSettings:
     theta: float = 0.5
     max_leaf_size: int = 16
     multipole_order: MultipoleOrder = "dipole"
+    batch_size: int = 10_000
 
     # Iterative solve settings
     max_iterations: int = 100

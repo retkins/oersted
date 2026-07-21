@@ -22,6 +22,7 @@ def calculate_fields(
     theta: float,
     multipole_order: int,
     max_leaf_size: int,
+    batch_size: int,
 ) -> Float64Array: ...
 def magnetization_solve(
     nodes: Float64Array,

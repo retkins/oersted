@@ -113,6 +113,7 @@ fn calculate_fields<'py>(
     theta: f64,
     multipole_order: u32,
     max_leaf_size: u32,
+    batch_size: u32,
 ) -> PyResult<BoundPyArray2f64<'py>> {
     let _src_nodes: &[Vec3] = to_vec3s(src_nodes.as_slice()?);
     let _src_connectivity: &[[u32; 4]] = to_u32x4s(src_connectivity.as_slice()?);
@@ -165,6 +166,7 @@ fn calculate_fields<'py>(
             source,
             method,
             n_threads_requested,
+            batch_size as usize,
         );
     } else {
         biotsavart::calculate_fields(

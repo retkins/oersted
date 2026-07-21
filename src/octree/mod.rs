@@ -1,11 +1,4 @@
 //! Interaction-list implementation of the Barnes-Hut algorithm
-//!
-//! Notable new features:
-//! 1. Completely removes recursion (replaced with stack-based traversal)
-//! 2. Separation of concerns between the octree (geometry) and the physics kernels
-//! 3. Splits the interactions into near (tet4), mid (point) and far-field (node)
-//!    interactions
-//!
 
 use crate::{
     biotsavart::{
@@ -14,6 +7,7 @@ use crate::{
     },
     check_lengths, get_nthreads,
     math::sort_by_indices,
+    octree::kernels::MultipoleExpansion,
     par_chunks,
     types::Vec3,
 };
@@ -36,6 +30,7 @@ use kernels::{FarKernel, select_far_kernel, select_near_kernel};
 
 use std::thread;
 
+/// Define properties for octree construction and evaluation
 #[derive(Clone, Copy, Debug)]
 pub struct OctreeSettings {
     pub theta: f64,
@@ -152,9 +147,6 @@ impl Octree {
     }
 
     /// Compute requested fields at the target location and accumulate into `out`
-    ///
-    /// WARNING: this function currently only computes H-fields from current-carrying
-    /// meshes, as the kernels are being completed
     fn compute_fields_scalar(
         &self,
         targets: (&[f64], &[f64], &[f64]),
@@ -242,7 +234,6 @@ impl Octree {
         }
 
         // Process far sources
-        // Process near sources first
         for ni in 0..self.topology.len() {
             let start = far.offsets[ni] as usize;
             let end = far.offsets[ni + 1] as usize;
@@ -264,10 +255,14 @@ impl Octree {
             fyb[..len].fill(0.0);
             fzb[..len].fill(0.0);
 
+            let expansion = MultipoleExpansion {
+                c: &tree_moments.centers[ni],
+                p: &tree_moments.monopole[ni],
+                D: &tree_moments.dipole[ni],
+            };
+
             far_kernel(
-                &tree_moments.centers[ni],
-                &tree_moments.monopole[ni],
-                &tree_moments.dipole[ni],
+                expansion,
                 (&xb[..len], &yb[..len], &zb[..len]),
                 (&mut fxb[..len], &mut fyb[..len], &mut fzb[..len]),
             );
@@ -296,24 +291,28 @@ impl Octree {
         source: Source,
         near_field_method: IntegrationMethod,
         n_threads_requested: u32,
+        batch_size: usize,
     ) {
         let (x, y, z) = targets;
         let (fx, fy, fz) = out;
-        let n_targets = check_lengths!(x, y, z, fx, fy, fz);
-        let n_threads = get_nthreads(n_threads_requested);
-        let chunk_size = n_targets.div_ceil(n_threads);
+        let n_targets: usize = check_lengths!(x, y, z, fx, fy, fz);
+        let n_threads: usize = get_nthreads(n_threads_requested);
+        let chunk_size: usize = n_targets.div_ceil(n_threads);
         let chunks = par_chunks(x, y, z, fx, fy, fz, chunk_size);
 
         thread::scope(|s| {
             for (xc, yc, zc, fxc, fyc, fzc) in chunks {
                 s.spawn(move || {
-                    self.compute_fields_scalar(
-                        (xc, yc, zc),
-                        (fxc, fyc, fzc),
-                        field,
-                        source,
-                        near_field_method,
-                    );
+                    let batches = par_chunks(xc, yc, zc, fxc, fyc, fzc, batch_size);
+                    for (xb, yb, zb, fxb, fyb, fzb) in batches {
+                        self.compute_fields_scalar(
+                            (xb, yb, zb),
+                            (fxb, fyb, fzb),
+                            field,
+                            source,
+                            near_field_method,
+                        );
+                    }
                 });
             }
         })

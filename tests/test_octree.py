@@ -109,9 +109,28 @@ def run():
     fig.savefig("tests/fig/octree_speedup.svg")
 
 
+def check_large_model():
+    """Test that large models don't run out of memory due to overly large interaction
+    list allocations
+    Note: this function basically tests gmsh, so its not run as part of CI
+    """
+    mesh_size = 1e-3
+    mesh, jdensity = oersted.make_ring(mesh_size)
+
+    print(f"Size: {mesh.num_elems}")
+    settings = oersted.SolverSettings(method="octree", theta=0.5)
+    start = perf_counter()
+    _ = oersted.b_field(mesh, mesh.centroids, jdensity=jdensity, settings=settings)
+    end = perf_counter()
+    print(
+        f"Solved {mesh.num_elems} element self-fields problem in {end - start:.3f} sec"
+    )
+
+
 def test_octree():
     run()
 
 
 if __name__ == "__main__":
     run()
+    # check_large_model()
