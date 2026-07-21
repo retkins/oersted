@@ -1,27 +1,11 @@
-#![allow(unused)]
 
 use crate::{
-    check_lengths, check_optional_lengths,
     math::{sort_by_indices, sphere_radius},
     mesh,
     octree::bbox::BoundingBox,
     octree::node::encode,
     types::Vec3,
 };
-
-use std::ops::{Index, IndexMut};
-
-// /// Represents a source index in a sorted array
-// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-// #[repr(transparent)]
-// pub struct SourceId(pub u32);
-
-// impl Index for SourceId {
-//     type Output = usize;
-//     fn index(&self) -> &Self::Output {
-//         self.0 as usize
-//     }
-// }
 
 /// Information about the individual sources the octree represents
 ///
@@ -32,7 +16,6 @@ pub struct Sources {
     pub elem_connectivity: Vec<[u32; 4]>,
     pub elem_centroids: Vec<Vec3>,
     pub elem_volumes: Vec<f64>,
-    pub elem_radii: Vec<f64>, // TODO: perhaps remove?
     pub elem_extents: Vec<f64>,
 
     // Mesh nodes are not morton sorted, as connectivity stores indices into this array
@@ -45,33 +28,6 @@ pub struct Sources {
 }
 
 impl Sources {
-    fn new(
-        elem_connectivity: Vec<[u32; 4]>,
-        elem_centroids: Vec<Vec3>,
-        elem_volumes: Vec<f64>,
-        elem_radii: Vec<f64>,
-        elem_extents: Vec<f64>,
-        elem_nodes: Vec<Vec3>,
-        jdensity: Option<Vec<Vec3>>,
-        mvectors: Option<Vec<Vec3>>,
-        sorted_to_unsorted: Vec<usize>,
-    ) -> Self {
-        // Defensive length checks
-        let n_sources: usize = check_lengths!(elem_connectivity, elem_centroids, elem_volumes);
-        check_optional_lengths!(n_sources, &jdensity, &mvectors);
-
-        Self {
-            elem_connectivity,
-            elem_centroids,
-            elem_volumes,
-            elem_radii,
-            elem_extents,
-            elem_nodes,
-            jdensity,
-            mvectors,
-            sorted_to_unsorted,
-        }
-    }
 
     pub fn len(&self) -> usize {
         self.elem_connectivity.len()
@@ -177,7 +133,6 @@ pub fn sort_sources(
         elem_connectivity: connectivity_sorted,
         elem_centroids: centroids,
         elem_volumes: volumes,
-        elem_radii: radii,
         elem_extents,
         elem_nodes: nodes.to_vec(), // Perhaps we can avoid a copy and just keep a reference?
         jdensity: jdensity_sorted,

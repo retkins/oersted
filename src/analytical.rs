@@ -27,6 +27,8 @@ mod tests {
         let z = 0.2;
         let i = 10e6;
         let r = 1.0;
-        println!("Bfield on axis: {:.3} T", bfield_loop_axis(z, i, r));
+        let b = bfield_loop_axis(z, i, r);
+        println!("Bfield on axis: {:.8} T", b);
+        assert!((b - 5.92420201).abs() < 1e-6);
     }
 }

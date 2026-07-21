@@ -131,4 +131,5 @@ for direct solves, and unified the function signatures
 ### [#26]
 * Added comprehensive octree benchmarks
 * Replaced 'batch' octree traversal with interaction lists using a sparse storage
-method (3x faster)
+method (3x faster than simple batch traversal)
+* Enable monopole/dipole expansions to be selected by the user

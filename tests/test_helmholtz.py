@@ -81,7 +81,7 @@ def test_centroid():
 
     for settings in all_settings:
         b = oersted.b_field(mesh, target_center, jdensity=jdensity, settings=settings)
-        assert (b[0, 2] - bz_analytical) / bz_analytical < MAX_ERR
+        assert np.abs((b[0, 2] - bz_analytical) / bz_analytical) < MAX_ERR
 
 
 if __name__ == "__main__":

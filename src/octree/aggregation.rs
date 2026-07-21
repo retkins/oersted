@@ -23,7 +23,7 @@
 //!   concept to a mass centroid. The magnitude of the source vector is used to
 //!   weight the centroid. If the elements in the node all have zero moment, then the
 //!   volume of the elements is used to weight the centroids instead.
-//! * monopole moment ("point source") (p): vector, p = sum_e [s_e * s_e], the
+//! * monopole moment ("point source") (p): vector, p = sum_e [s_e * v_e], the
 //!   first-order approximation of the field source, defined at an octree node. This is
 //!   a simple summation of the source vector multiplied by the volume of every element
 //! * dipole moment (D): 3x3 tensor, D[i,j] = sum_e [v_e * s_e[i] * (r_e[j] - c[j])]

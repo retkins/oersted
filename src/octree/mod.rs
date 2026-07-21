@@ -362,7 +362,7 @@ mod tests {
 
         let mut tree = Octree::new(
             &elem_nodes,
-            *&&connectivity,
+            &connectivity,
             None,
             None,
             OctreeSettings::default(),

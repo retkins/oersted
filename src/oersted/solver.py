@@ -49,6 +49,7 @@ class SolverSettings:
     max_iterations: int = 100
     atol: float = 1e-6
     under_relaxation_factor: float = 0.5
+    verbose: bool = False
 
     def __post_init__(self):
         if self.method not in get_args(Method):

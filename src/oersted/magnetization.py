@@ -52,4 +52,5 @@ def demag_solve(
         settings.expansion_order(),
         settings.max_leaf_size,
         settings.batch_size,
+        settings.verbose,
     )
