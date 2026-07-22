@@ -15,7 +15,6 @@ import matplotlib.pyplot as plt
 # Problem parameters
 thetas = np.linspace(0.05, 0.5, 10)
 max_leaf_size = 16
-batch_size = 1
 mesh_size: float = 15.0  # (m)
 jmag: float = 1e8  # (A/m^2)
 MAX_ERR_PCT: float = 5e-3
@@ -74,7 +73,6 @@ def run():
                     theta=theta,
                     method="octree",
                     max_leaf_size=max_leaf_size,
-                    batch_size=batch_size,
                 ),
             )
 
@@ -111,9 +109,78 @@ def run():
     fig.savefig("tests/fig/octree_speedup.svg")
 
 
+def check_large_model():
+    """Test that large models don't run out of memory due to overly large interaction
+    list allocations
+    Note: this function basically tests gmsh, so its not run as part of CI
+    """
+    mesh_size = 1e-3
+    mesh, jdensity = oersted.make_ring(mesh_size)
+
+    print(f"Size: {mesh.num_elems}")
+    settings = oersted.SolverSettings(method="octree", theta=0.5)
+    start = perf_counter()
+    _ = oersted.b_field(mesh, mesh.centroids, jdensity=jdensity, settings=settings)
+    end = perf_counter()
+    print(
+        f"Solved {mesh.num_elems} element self-fields problem in {end - start:.3f} sec"
+    )
+
+
+def check_j_accuracy():
+
+    theta = 0.5
+    direct = SolverSettings(method="direct", integration="element")
+    all_settings = [
+        SolverSettings(
+            method="octree",
+            integration="element",
+            theta=theta,
+            multipole_order="monopole",
+        ),
+        SolverSettings(
+            method="octree",
+            integration="element",
+            theta=theta,
+            multipole_order="dipole",
+        ),
+    ]
+
+    mesh_size = 10e-3
+    mesh, jdensity = oersted.make_ring(mesh_size=mesh_size)
+    # Make test off origin to catch symmetry issues
+    shift = 10.0
+    mesh = oersted.Mesh(mesh.nodes - shift, mesh.connectivity)
+
+    targets = mesh.centroids
+    b_direct = oersted.b_field(mesh, targets, jdensity=jdensity, settings=direct)
+    a_direct = oersted.a_field(mesh, targets, jdensity=jdensity, settings=direct)
+
+    for settings in all_settings:
+        err_tol = 5e-2 if settings.integration == "octree" else 12e-2
+        print(
+            f"method = {settings.method}, integration = {settings.integration}, \
+            expansion = {settings.multipole_order}"
+        )
+        print("bfield")
+        b = oersted.b_field(mesh, targets, jdensity=jdensity, settings=settings)
+        err = oersted.mean_verr(b, b_direct)
+        print(f"Mean err: {100.0 * err:.3f} %")
+        assert err < err_tol
+
+        print("afield")
+        a = oersted.a_field(mesh, targets, jdensity=jdensity, settings=settings)
+        err = oersted.mean_verr(a, a_direct)
+        print(f"Mean err: {100.0 * err:.3f} %")
+        assert err < err_tol
+
+
 def test_octree():
     run()
+    check_j_accuracy()
 
 
 if __name__ == "__main__":
     run()
+    check_j_accuracy()
+    # check_large_model()

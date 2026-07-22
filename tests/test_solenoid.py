@@ -39,14 +39,12 @@ all_settings = [
         integration="element",
         max_leaf_size=max_leaf_size,
         theta=theta,
-        batch_size=batch_size,
     ),
     SolverSettings(
         method="octree",
         integration="point",
         max_leaf_size=max_leaf_size,
         theta=theta,
-        batch_size=batch_size,
     ),
 ]
 
@@ -96,7 +94,7 @@ def test_centroid():
     for settings in all_settings:
         bz = oersted.b_field(mesh, target, jdensity=jdensity, settings=settings)[0, 2]
 
-        assert (bz - bz_analytical) / bz_analytical < MAX_ERR
+        assert np.abs((bz - bz_analytical) / bz_analytical) < MAX_ERR
 
 
 def test_self_fields():

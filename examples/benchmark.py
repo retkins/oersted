@@ -60,7 +60,6 @@ def main(
                 theta=theta,
                 method="octree",
                 max_leaf_size=max_leaf_size,
-                batch_size=batch_size,
             ),
         )
         end = perf_counter()

@@ -1,11 +1,4 @@
 //! Interaction-list implementation of the Barnes-Hut algorithm
-//!
-//! Notable new features:
-//! 1. Completely removes recursion (replaced with stack-based traversal)
-//! 2. Separation of concerns between the octree (geometry) and the physics kernels
-//! 3. Splits the interactions into near (tet4), mid (point) and far-field (node)
-//!    interactions
-//!
 
 use crate::{
     biotsavart::{
@@ -14,6 +7,7 @@ use crate::{
     },
     check_lengths, get_nthreads,
     math::sort_by_indices,
+    octree::kernels::MultipoleExpansion,
     par_chunks,
     types::Vec3,
 };
@@ -29,17 +23,35 @@ use sources::{Sources, sort_sources};
 pub mod aggregation;
 use aggregation::TreeMoments;
 mod evaluation;
-use evaluation::{sort_targets, unsort_fields};
+use evaluation::{sort_targets, traverse_tree, unsort_fields};
 mod kernels;
+pub use kernels::MultipoleOrder;
 use kernels::{FarKernel, select_far_kernel, select_near_kernel};
 
 use std::thread;
 
-#[derive(Clone, Copy)]
+/// Define properties for octree construction and evaluation
+#[derive(Clone, Copy, Debug)]
 pub struct OctreeSettings {
     pub theta: f64,
-    pub near_field_ratio: f64,
     pub max_leaf_size: u32,
+    pub multipole_order: MultipoleOrder,
+    pub near_field_method: IntegrationMethod,
+    pub n_threads_requested: u32,
+    pub batch_size: usize,
+}
+
+impl Default for OctreeSettings {
+    fn default() -> Self {
+        Self {
+            theta: 0.5,
+            max_leaf_size: 16,
+            multipole_order: MultipoleOrder::Dipole,
+            near_field_method: IntegrationMethod::Element,
+            n_threads_requested: 0u32,
+            batch_size: 10_000usize,
+        }
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -58,6 +70,7 @@ pub struct Octree {
     sources: Sources,
     j_moments: Option<TreeMoments>,
     m_moments: Option<TreeMoments>,
+    settings: OctreeSettings,
 }
 
 impl Octree {
@@ -67,20 +80,21 @@ impl Octree {
         connectivity: &[[u32; 4]],
         jdensity: Option<&[Vec3]>,
         mvectors: Option<&[Vec3]>,
-        leaf_threshold: u32,
+        settings: OctreeSettings,
     ) -> Self {
         let max_depth: u8 = 21;
 
         let (codes, bbox, sources) =
             sort_sources(nodes, connectivity, jdensity, mvectors, max_depth);
 
-        let topology: Topology = build_topology(&codes, &bbox, max_depth, leaf_threshold);
+        let topology: Topology = build_topology(&codes, &bbox, max_depth, settings.max_leaf_size);
 
         let mut octree: Octree = Octree {
             topology,
             j_moments: None,
             m_moments: None,
             sources,
+            settings,
         };
 
         if let Some(j) = jdensity {
@@ -138,72 +152,7 @@ impl Octree {
         }
     }
 
-    fn traverse_tree(
-        &self,
-        target_centroid: &Vec3,
-        target_radius: f64,
-        targets: (&[f64], &[f64], &[f64]),
-        out: (&mut [f64], &mut [f64], &mut [f64]),
-        theta: f64,
-        near_kernel: Kernel,
-        far_kernel: FarKernel,
-        tree_moments: &TreeMoments,
-        source_vectors: &[Vec3],
-    ) {
-        // Create a stack of tree source nodes and start at root
-        let mut stack: Vec<u32> = Vec::with_capacity(128);
-        stack.push(0);
-
-        // Pop a node off of the stack and evaluate what to do
-        while let Some(_ni) = stack.pop() {
-            let ni = _ni as usize;
-
-            // Node centroid, distance from node to target, and size of node
-            // let c: Vec3 = self.topology.centroids[ni];
-            let c = tree_moments.centers[ni];
-            let d: f64 = (*target_centroid - c).mag();
-
-            // Barnes-Hut acceptance test
-            if tree_moments.bmax[ni] < theta * (d - target_radius) {
-                // Branch node accepted
-                far_kernel(
-                    &c,
-                    &tree_moments.monopole[ni],
-                    &tree_moments.dipole[ni],
-                    (targets.0, targets.1, targets.2),
-                    (out.0, out.1, out.2),
-                )
-            } else {
-                // BH-test failed; open the leaf
-                if self.topology.is_leaf[ni] {
-                    // Evaluate leaves directly, using all source elements in the leaf
-                    let (start, end) = self.topology.source_range[ni];
-                    for e in start as usize..end as usize {
-                        near_kernel(
-                            &self.sources.elem_node_coords(e),
-                            &source_vectors[e],
-                            (targets.0, targets.1, targets.2),
-                            (out.0, out.1, out.2),
-                        )
-                    }
-                } else {
-                    // Add the child nodes to the stack
-                    for child in self.topology.children[ni] {
-                        if child == INVALID_NODE {
-                            continue;
-                        } else {
-                            stack.push(child)
-                        }
-                    }
-                }
-            }
-        }
-    }
-
     /// Compute requested fields at the target location and accumulate into `out`
-    ///
-    /// WARNING: this function currently only computes H-fields from current-carrying
-    /// meshes, as the kernels are being completed
     fn compute_fields_scalar(
         &self,
         targets: (&[f64], &[f64], &[f64]),
@@ -211,8 +160,6 @@ impl Octree {
         field: RequestedField,
         source: Source,
         near_field_method: IntegrationMethod,
-        theta: f64,
-        batch_size: usize,
     ) {
         // Copy and sort targets; store index mapping for output arrays
         let ((x, y, z), indices) = sort_targets((targets.0, targets.1, targets.2));
@@ -226,7 +173,7 @@ impl Octree {
 
         // Select near and far field kernels (requested field, source type, integration method)
         let near_kernel: Kernel = select_near_kernel(field, source, near_field_method);
-        let far_kernel: FarKernel = select_far_kernel(field, source);
+        let far_kernel: FarKernel = select_far_kernel(field, source, self.settings.multipole_order);
 
         let (tree_moments, source_vectors) = match source {
             // TODO: return an error if the moments are not available
@@ -240,29 +187,103 @@ impl Octree {
             ),
         };
 
-        // Batch targets
-        for (xb, yb, zb, fxb, fyb, fzb) in
-            par_chunks(&x, &y, &z, &mut fx, &mut fy, &mut fz, batch_size)
-        {
-            let (target_centroid, target_radius) = evaluation::target_bounds((xb, yb, zb));
+        let (near, far) = traverse_tree(
+            &self.topology,
+            &self.sources,
+            tree_moments,
+            (&x, &y, &z),
+            self.settings.theta,
+        );
+        let buf_len = near.buf_len.max(far.buf_len);
+        let (mut xb, mut yb, mut zb) = (vec![0.0; buf_len], vec![0.0; buf_len], vec![0.0; buf_len]);
+        let (mut fxb, mut fyb, mut fzb) =
+            (vec![0.0; buf_len], vec![0.0; buf_len], vec![0.0; buf_len]);
 
-            // Traverse the tree
-            // 1. Compute distance from nearest target to node centroid
-            // 2. Decide to accept node or to open
-            //  If accept -> compute field using far-field kernel
-            //  If open and leaf -> compute field using direct kernel
-            self.traverse_tree(
-                &target_centroid,
-                target_radius,
-                (xb, yb, zb),
-                (fxb, fyb, fzb),
-                theta,
-                near_kernel,
-                far_kernel,
-                tree_moments,
-                source_vectors,
+        // Process near sources first
+        for e in 0..self.sources.len() {
+            let start = near.offsets[e] as usize;
+            let end = near.offsets[e + 1] as usize;
+            if start == end {
+                continue;
+            } // No targets for this source 
+            let nodes = &self.sources.elem_node_coords(e);
+
+            // Fill target buffers
+            let mut i = 0usize;
+            for &ti in &near.data[start..end] {
+                let ti = ti as usize;
+                xb[i] = x[ti];
+                yb[i] = y[ti];
+                zb[i] = z[ti];
+                i += 1;
+            }
+            let len = end - start;
+            fxb[..len].fill(0.0);
+            fyb[..len].fill(0.0);
+            fzb[..len].fill(0.0);
+            near_kernel(
+                nodes,
+                &source_vectors[e],
+                (&xb[..len], &yb[..len], &zb[..len]),
+                (&mut fxb[..len], &mut fyb[..len], &mut fzb[..len]),
             );
+
+            // Clear and return buffers
+            i = 0;
+            for &ti in &near.data[start..end] {
+                let ti = ti as usize;
+                fx[ti] += fxb[i];
+                fy[ti] += fyb[i];
+                fz[ti] += fzb[i];
+                i += 1;
+            }
         }
+
+        // Process far sources
+        for ni in 0..self.topology.len() {
+            let start = far.offsets[ni] as usize;
+            let end = far.offsets[ni + 1] as usize;
+            if start == end {
+                continue;
+            } // No targets for this source 
+
+            // Fill target buffers
+            let mut i = 0usize;
+            for &ti in &far.data[start..end] {
+                let ti = ti as usize;
+                xb[i] = x[ti];
+                yb[i] = y[ti];
+                zb[i] = z[ti];
+                i += 1;
+            }
+            let len = end - start;
+            fxb[..len].fill(0.0);
+            fyb[..len].fill(0.0);
+            fzb[..len].fill(0.0);
+
+            let expansion = MultipoleExpansion {
+                c: &tree_moments.centers[ni],
+                p: &tree_moments.monopole[ni],
+                D: &tree_moments.dipole[ni],
+            };
+
+            far_kernel(
+                expansion,
+                (&xb[..len], &yb[..len], &zb[..len]),
+                (&mut fxb[..len], &mut fyb[..len], &mut fzb[..len]),
+            );
+
+            // Clear and return buffers
+            i = 0;
+            for &ti in &far.data[start..end] {
+                let ti = ti as usize;
+                fx[ti] += fxb[i];
+                fy[ti] += fyb[i];
+                fz[ti] += fzb[i];
+                i += 1;
+            }
+        }
+
         // Sort results back to output indices
         unsort_fields((&fx, &fy, &fz), (out.0, out.1, out.2), &indices);
     }
@@ -274,30 +295,27 @@ impl Octree {
         out: (&mut [f64], &mut [f64], &mut [f64]),
         field: RequestedField,
         source: Source,
-        near_field_method: IntegrationMethod,
-        theta: f64,
-        batch_size: usize,
-        n_threads_requested: u32,
     ) {
         let (x, y, z) = targets;
         let (fx, fy, fz) = out;
-        let n_targets = check_lengths!(x, y, z, fx, fy, fz);
-        let n_threads = get_nthreads(n_threads_requested);
-        let chunk_size = n_targets.div_ceil(n_threads);
+        let n_targets: usize = check_lengths!(x, y, z, fx, fy, fz);
+        let n_threads: usize = get_nthreads(self.settings.n_threads_requested);
+        let chunk_size: usize = n_targets.div_ceil(n_threads);
         let chunks = par_chunks(x, y, z, fx, fy, fz, chunk_size);
 
         thread::scope(|s| {
             for (xc, yc, zc, fxc, fyc, fzc) in chunks {
                 s.spawn(move || {
-                    self.compute_fields_scalar(
-                        (xc, yc, zc),
-                        (fxc, fyc, fzc),
-                        field,
-                        source,
-                        near_field_method,
-                        theta,
-                        batch_size,
-                    );
+                    let batches = par_chunks(xc, yc, zc, fxc, fyc, fzc, self.settings.batch_size);
+                    for (xb, yb, zb, fxb, fyb, fzb) in batches {
+                        self.compute_fields_scalar(
+                            (xb, yb, zb),
+                            (fxb, fyb, fzb),
+                            field,
+                            source,
+                            self.settings.near_field_method,
+                        );
+                    }
                 });
             }
         })
@@ -342,7 +360,13 @@ mod tests {
             elem_nodes.push(c + Vec3([0.0, 1.0, 1.0 / (2.0f64).sqrt()]) * scale);
         }
 
-        let mut tree = Octree::new(&elem_nodes, *&&connectivity, None, None, 16);
+        let mut tree = Octree::new(
+            &elem_nodes,
+            &connectivity,
+            None,
+            None,
+            OctreeSettings::default(),
+        );
         println!("{:?}", tree.topology);
 
         let mut targets: (Vec<f64>, Vec<f64>, Vec<f64>) = (Vec::new(), Vec::new(), Vec::new());

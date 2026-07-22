@@ -5,9 +5,10 @@ from .solver import SolverSettings
 
 from .biotsavart import a_field, b_field, h_field
 
-from .mesh import Mesh, CentroidMesh, mesh_step, plot_mesh
+from .mesh import Mesh, mesh_step, plot_mesh
 from .testing import (
     make_helmholtz,
+    make_ring,
     verr,
     mean_verr,
     max_verr,
@@ -38,7 +39,6 @@ __all__ = [
     "BHCurve",
     # Meshing
     "Mesh",
-    "CentroidMesh",
     "mesh_step",
     "plot_mesh",
     # Fields calculations
@@ -48,8 +48,6 @@ __all__ = [
     "demag_solve",
     # Solver settings
     "SolverSettings",
-    "OctreeSettings",
-    "IterationSettings",
     # Results
     "maxwell_forces",
     "kelvin_forces",
@@ -58,6 +56,7 @@ __all__ = [
     "lorentz_force_density",
     # Testing
     "make_helmholtz",
+    "make_ring",
     "verr",
     "mean_verr",
     "max_verr",

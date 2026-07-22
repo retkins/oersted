@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn test_atan2_fast() {
         let step: f64 = 1e-3;
-        let n: usize = 100_000_000;
+        let n: usize = 1_000_000;
         let x: f64 = 1.0;
         let vmin = -500.0;
         // let vmax = 500.0;

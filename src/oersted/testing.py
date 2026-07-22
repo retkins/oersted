@@ -177,6 +177,20 @@ def make_helmholtz(
     return (helmholtz_mesh, jdensity)
 
 
+def make_ring(
+    mesh_size: float = 15e-3, jmag: float = 1e8
+) -> tuple[Mesh, NDArray[float64]]:
+    """Make a mesh of a current-carrying ring for testing"""
+
+    mesh = Mesh.from_step("tests/data/ring.stp", mesh_size)
+    phi = np.atan2(mesh.centroids[:, 1], mesh.centroids[:, 0])
+    jdensity = np.zeros_like(mesh.centroids)
+    jdensity[:, 0] = -jmag * np.sin(phi)
+    jdensity[:, 1] = jmag * np.cos(phi)
+
+    return mesh, jdensity
+
+
 def bz_finite_length_solenoid(
     jmag: float, length: float, r: float, dr: float, z: float
 ) -> float:

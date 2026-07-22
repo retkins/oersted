@@ -1,6 +1,6 @@
 """Post-processing routines and results containers"""
 
-from .mesh import SurfaceMesh, Mesh, CentroidMesh
+from .mesh import SurfaceMesh, Mesh
 from numpy.typing import NDArray
 from numpy import float64, newaxis, ascontiguousarray, cross, sum
 from ._oersted import mesh_surface_forces, mesh_kelvin_force_density
@@ -93,7 +93,7 @@ def kelvin_force_density(
 
 
 def lorentz_forces(
-    mesh: Mesh | CentroidMesh,
+    mesh: Mesh,
     j_density: NDArray[float64],
     b_field: NDArray[float64],
     total: bool = False,

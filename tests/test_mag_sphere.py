@@ -8,10 +8,24 @@ infile: str = "tests/data/sphere.stp"
 mesh_size: float = 15e-3  # (m)
 b_ext_mag: float = 1.0  # (T)
 mu_r: float = 1.5
+
+theta = 0.5
 settings = SolverSettings()
 all_settings = [
-    SolverSettings(method="direct"),
-    # SolverSettings(method="octree", theta=0.0),
+    SolverSettings(method="direct", integration="element"),
+    SolverSettings(method="direct", integration="point"),
+    SolverSettings(
+        method="octree", integration="element", theta=theta, multipole_order="monopole"
+    ),
+    SolverSettings(
+        method="octree", integration="element", theta=theta, multipole_order="dipole"
+    ),
+    SolverSettings(
+        method="octree", integration="point", theta=theta, multipole_order="monopole"
+    ),
+    SolverSettings(
+        method="octree", integration="point", theta=theta, multipole_order="dipole"
+    ),
 ]
 
 
@@ -78,6 +92,7 @@ def check_mag_sphere(mesh: Mesh, settings: SolverSettings):
 def test_magnetized_sphere():
 
     for settings in all_settings:
+        print(f"Method: {settings.method}, integration: {settings.integration}")
         mesh: Mesh = oersted.Mesh.from_step(infile, mesh_size)
         check_mag_sphere(mesh, settings)
 

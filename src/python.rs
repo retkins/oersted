@@ -1,23 +1,20 @@
 //! Python bindings for oersted
 
-#![allow(unused)]
-
 use numpy::{
     Element, PyArray1, PyArray2, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2,
-    PyReadwriteArray1, PyUntypedArrayMethods,
+    PyUntypedArrayMethods,
 };
-use pyo3::exceptions::PyNotImplementedError;
 use pyo3::prelude::*;
 
 use crate::{
     biotsavart::{self, IntegrationMethod, RequestedField, SourceVectors},
     check_lengths, magnetization,
     math::gradient,
-    mesh, octree,
+    mesh,
+    octree::{self},
     types::{Vec3, to_u32x4s, to_vec3s, to_vec3s_mut},
 };
 
-type BoundPyArray1f64<'py> = Bound<'py, PyArray1<f64>>;
 type BoundPyArray2f64<'py> = Bound<'py, PyArray2<f64>>;
 
 // ---
@@ -85,18 +82,6 @@ fn col_buffer(n: usize) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
     (vec![0.0; n], vec![0.0; n], vec![0.0; n])
 }
 
-// Create a centroid mesh from a tet4 mesh
-fn to_centroid_mesh(src_nodes: &[Vec3], src_connectivity: &[[u32; 4]]) -> (Vec<Vec3>, Vec<f64>) {
-    let n_src: usize = src_connectivity.len();
-    let mut src_centroids: Vec<Vec3> = vec![Vec3::default(); n_src];
-    let mut src_volumes: Vec<f64> = vec![0.0; n_src];
-
-    mesh::centroids(src_nodes, src_connectivity, &mut src_centroids);
-    mesh::volumes(src_nodes, src_connectivity, &mut src_volumes);
-
-    (src_centroids, src_volumes)
-}
-
 #[pyfunction]
 fn calculate_fields<'py>(
     py: Python<'py>,
@@ -110,13 +95,13 @@ fn calculate_fields<'py>(
     n_threads_requested: u32,
     use_octree: bool,
     theta: f64,
-    near_field_ratio: f64,
+    multipole_order: u32,
     max_leaf_size: u32,
     batch_size: u32,
 ) -> PyResult<BoundPyArray2f64<'py>> {
     let _src_nodes: &[Vec3] = to_vec3s(src_nodes.as_slice()?);
     let _src_connectivity: &[[u32; 4]] = to_u32x4s(src_connectivity.as_slice()?);
-    let mut source;
+    let source: octree::Source;
     let _src_vectors = if src_vector_type == 0 {
         source = octree::Source::CurrentDensity;
         SourceVectors::CurrentDensity(to_vec3s(src_vectors.as_slice()?))
@@ -142,30 +127,37 @@ fn calculate_fields<'py>(
     };
 
     if use_octree {
-        let jdensity = if src_vector_type == 0 {
+        let jdensity: Option<&[Vec3]> = if src_vector_type == 0 {
             Some(to_vec3s(src_vectors.as_slice()?))
         } else {
-            panic!("Octree not available yet for magnetization solves.")
+            None
+        };
+
+        let mvectors: Option<&[Vec3]> = if src_vector_type == 1 {
+            Some(to_vec3s(src_vectors.as_slice()?))
+        } else {
+            None
+        };
+
+        let order = octree::MultipoleOrder::from_int(multipole_order);
+        let settings = octree::OctreeSettings {
+            theta,
+            max_leaf_size,
+            multipole_order: order,
+            near_field_method: method,
+            n_threads_requested,
+            batch_size: batch_size as usize,
         };
 
         let octree: octree::Octree = octree::Octree::new(
             &_src_nodes,
             &_src_connectivity,
             jdensity,
-            None,
-            max_leaf_size,
+            mvectors,
+            settings,
         );
 
-        octree.compute_fields(
-            (&x, &y, &z),
-            (&mut fx, &mut fy, &mut fz),
-            fields,
-            source,
-            method,
-            theta,
-            batch_size as usize,
-            n_threads_requested,
-        );
+        octree.compute_fields((&x, &y, &z), (&mut fx, &mut fy, &mut fz), fields, source);
     } else {
         biotsavart::calculate_fields(
             _src_nodes,
@@ -197,8 +189,10 @@ fn magnetization_solve<'py>(
     under_relaxation_factor: f64,
     use_octree: bool,
     theta: f64,
-    near_field_ratio: f64,
+    multipole_order: u32,
     max_leaf_size: u32,
+    batch_size: u32,
+    verbose: bool,
 ) -> PyResult<(Bound<'py, PyArray2<f64>>, Bound<'py, PyArray2<f64>>)> {
     let n_centroids = connectivity.shape()[0];
 
@@ -207,20 +201,23 @@ fn magnetization_solve<'py>(
     let (h_extx, h_exty, h_extz) = pyarray_to_3cols(h_ext);
     let (cx, cy, cz) = pyarray_to_3cols(centroids);
 
-    let octree_settings = if use_octree {
-        Some(octree::OctreeSettings {
-            theta,
-            near_field_ratio,
-            max_leaf_size,
-        })
-    } else {
-        None
-    };
-
     let method = if element_integration {
         IntegrationMethod::Element
     } else {
         IntegrationMethod::Point
+    };
+
+    let octree_settings = if use_octree {
+        Some(octree::OctreeSettings {
+            theta,
+            max_leaf_size,
+            multipole_order: octree::MultipoleOrder::from_int(multipole_order),
+            near_field_method: method,
+            n_threads_requested,
+            batch_size: batch_size as usize,
+        })
+    } else {
+        None
     };
 
     let mut m_out = vec![Vec3::default(); n_centroids];
@@ -240,6 +237,7 @@ fn magnetization_solve<'py>(
         max_iterations,
         under_relaxation_factor,
         octree_settings,
+        verbose,
     );
 
     Ok((
@@ -402,7 +400,6 @@ fn _mesh_surface_tets<'py>(
         centroids.as_slice()?,
         normals.as_slice()?,
     );
-    let n_faces = connectivity_out.len() / 4;
     Ok((
         PyArray1::from_vec(py, nodes_out),        //.reshape([n_faces, 3])?,
         PyArray1::from_vec(py, connectivity_out), //.reshape([n_faces, 3])?,
@@ -414,7 +411,7 @@ fn atan2<'py>(
     py: Python<'py>,
     yvals: PyReadonlyArray1<f64>,
     xvals: PyReadonlyArray1<f64>,
-) -> PyResult<(Bound<'py, PyArray1<f64>>)> {
+) -> PyResult<Bound<'py, PyArray1<f64>>> {
     let _yvals = yvals.as_slice()?;
     let _xvals = xvals.as_slice()?;
     check_lengths!(_yvals, _xvals);

@@ -345,7 +345,11 @@ mod tests {
 
         match a.inverse() {
             Some(m) => {
-                assert_eq!(m.det(), expected.det());
+                for i in 0..3 {
+                    for j in 0..3 {
+                        assert!((m[i][j] - expected[i][j]).abs() < 1e-6);
+                    }
+                }
             }
             None => assert!(false),
         }

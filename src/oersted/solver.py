@@ -41,15 +41,15 @@ class SolverSettings:
 
     # Octree settings
     theta: float = 0.5
-    near_field_ratio: float = 10.0
     max_leaf_size: int = 16
-    batch_size: int = 1
     multipole_order: MultipoleOrder = "dipole"
+    batch_size: int = 10_000
 
     # Iterative solve settings
     max_iterations: int = 100
     atol: float = 1e-6
     under_relaxation_factor: float = 0.5
+    verbose: bool = False
 
     def __post_init__(self):
         if self.method not in get_args(Method):
@@ -68,8 +68,6 @@ class SolverSettings:
             )
         if self.theta < 0.0:
             raise ValueError(f"theta must be > 0, got {self.theta}")
-        if self.near_field_ratio < 0.0:
-            raise ValueError(f"alpha must be > 0, got {self.near_field_ratio}")
         if self.max_leaf_size < 1:
             raise ValueError(f"Max leaf size must be >= 1, got {self.max_leaf_size}")
         if self.max_iterations < 1:
@@ -83,6 +81,14 @@ class SolverSettings:
                 f"Under relaxation factor must be in range [0,1], got \
                     `{self.under_relaxation_factor}"
             )
+
+    def expansion_order(self) -> int:
+        if self.multipole_order == "dipole":
+            return 1
+        elif self.multipole_order == "octupole":
+            return 2
+        else:
+            return 0
 
 
 DEFAULT_SETTINGS = SolverSettings()

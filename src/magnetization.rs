@@ -8,7 +8,7 @@
 
 use crate::{
     biotsavart::{IntegrationMethod, RequestedField, SourceVectors, calculate_fields},
-    octree::OctreeSettings,
+    octree::{Octree, OctreeSettings, Source},
     types::Vec3,
 };
 
@@ -46,11 +46,8 @@ pub fn magnetization_solve(
     max_iterations: u32,
     under_relaxation_factor: f64,
     octree_settings: Option<OctreeSettings>,
+    verbose: bool,
 ) {
-    if octree_settings.is_some() {
-        return;
-    }
-
     let n_centroids: usize = centroids.0.len();
 
     // Initialize memory for results
@@ -63,39 +60,43 @@ pub fn magnetization_solve(
         *mvector = Vec3([h_ext.0[i], h_ext.1[i], h_ext.2[i]]) * chi;
     }
 
+    let mut octree =
+        octree_settings.map(|s| Octree::new(nodes, connectivity, None, Some(mvectors), s));
+
     for it in 0..max_iterations {
         // Dispatch over solver method to compute the current iteration of the demag field
-        calculate_fields(
-            nodes,
-            connectivity,
-            SourceVectors::Magnetization(mvectors),
-            RequestedField::HField,
-            centroids,
-            (hx, hy, hz),
-            method,
-            n_threads_requested,
-        );
+        if let Some(oc) = &mut octree {
+            oc.update_magnetization(mvectors);
+            oc.compute_fields(
+                centroids,
+                (hx, hy, hz),
+                RequestedField::HField,
+                Source::Magnetization,
+            );
+        } else {
+            calculate_fields(
+                nodes,
+                connectivity,
+                SourceVectors::Magnetization(mvectors),
+                RequestedField::HField,
+                centroids,
+                (hx, hy, hz),
+                method,
+                n_threads_requested,
+            );
+        }
 
-        let mut max_change = 0.0;
+        let mut max_change: f64 = 0.0;
         for i in 0..n_centroids {
             let mx_new: f64 = chi * (hx[i] + h_ext.0[i]);
             let my_new: f64 = chi * (hy[i] + h_ext.1[i]);
             let mz_new: f64 = chi * (hz[i] + h_ext.2[i]);
 
-            let mx_change = (mvectors[i][0] - mx_new).abs();
-            let my_change = (mvectors[i][1] - my_new).abs();
-            let mz_change = (mvectors[i][2] - mz_new).abs();
+            let mx_change: f64 = (mvectors[i][0] - mx_new).abs();
+            let my_change: f64 = (mvectors[i][1] - my_new).abs();
+            let mz_change: f64 = (mvectors[i][2] - mz_new).abs();
 
-            // TODO: make this branchless with .max()
-            if mx_change > max_change {
-                max_change = mx_change;
-            }
-            if my_change > max_change {
-                max_change = my_change;
-            }
-            if mz_change > max_change {
-                max_change = mz_change;
-            }
+            max_change = max_change.max(mx_change).max(my_change).max(mz_change);
 
             // Use under-relaxation to improve convergence for higher mu_r materials
             let alpha: f64 = under_relaxation_factor;
@@ -104,12 +105,15 @@ pub fn magnetization_solve(
             mvectors[i][2] = alpha * mz_new + (1.0 - alpha) * mvectors[i][2];
         }
 
-        println!("Iteration: {}; max change: {:.3e}", it, max_change);
+        if verbose {
+            println!("Iteration: {}; max change: {:.3e}", it, max_change);
+        }
 
         if max_change <= atol {
             break;
-        } else {
+        } else if it < max_iterations - 1 {
             // zero the results vector between calls
+            // Do not zero on the last iteration
             hx.fill(0.0);
             hy.fill(0.0);
             hz.fill(0.0);

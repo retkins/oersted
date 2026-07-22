@@ -30,9 +30,7 @@ mesh_size: float = 0.033  # ~10M interactions; set to 33 for 1e6 interactions
 ntargets_axis: int = 100  # Along the axis
 nthreads = 0
 max_leaf_size = 16
-near_field_ratio = 10
 axis_halfdistance = 0.01
-batch_size = 1
 MAX_ERR = 1e-2
 
 direct_element = SolverSettings(
@@ -45,9 +43,7 @@ all_settings = [
         integration="element",
         theta=theta,
         max_leaf_size=max_leaf_size,
-        near_field_ratio=near_field_ratio,
         n_threads=nthreads,
-        batch_size=batch_size,
     ),
     SolverSettings(method="direct", integration="point", n_threads=nthreads),
     SolverSettings(
@@ -55,9 +51,7 @@ all_settings = [
         integration="point",
         theta=theta,
         max_leaf_size=max_leaf_size,
-        near_field_ratio=near_field_ratio,
         n_threads=nthreads,
-        batch_size=batch_size,
     ),
 ]
 
@@ -87,7 +81,7 @@ def test_centroid():
 
     for settings in all_settings:
         b = oersted.b_field(mesh, target_center, jdensity=jdensity, settings=settings)
-        assert (b[0, 2] - bz_analytical) / bz_analytical < MAX_ERR
+        assert np.abs((b[0, 2] - bz_analytical) / bz_analytical) < MAX_ERR
 
 
 if __name__ == "__main__":

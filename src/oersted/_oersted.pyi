@@ -20,7 +20,7 @@ def calculate_fields(
     n_threads_requested: int,
     use_octree: bool,
     theta: float,
-    near_field_ratio: float,
+    multipole_order: int,
     max_leaf_size: int,
     batch_size: int,
 ) -> Float64Array: ...
@@ -37,8 +37,10 @@ def magnetization_solve(
     under_relaxation_factor: float,
     use_octree: bool,
     theta: float,
-    near_field_ratio: float,
-    leaf_threshold: int,
+    multipole_order: int,
+    max_leaf_size: int,
+    batch_size: int,
+    verbose: bool,
 ) -> tuple[Float64Array, Float64Array]: ...
 def mesh_volumes(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...
 def mesh_centroids(nodes: Float64Array, connectivity: U32Array) -> Float64Array: ...

@@ -13,37 +13,6 @@ from ._oersted import (
 from pathlib import Path
 
 
-class CentroidMesh:
-    """A finite element mesh represented solely by the centroidal values of the elements
-
-    This is used in the `point source` calculations. It is an approximation, but
-    extremely fast and accurate for far field or force calculations.
-    """
-
-    # Topology data
-    _centroids: NDArray[float64]
-    _volumes: NDArray[float64]
-
-    def __init__(self, centroids: NDArray[float64], volumes: NDArray[float64]):
-        self._centroids = centroids
-        self._volumes = volumes
-
-    @property
-    def num_elems(self) -> int:
-        """Return the number of elements in the mesh"""
-        return self._centroids.shape[0]
-
-    @property
-    def centroids(self) -> NDArray[float64]:
-        """Return an (N,3) array of the centroid position of each element in the mesh"""
-        return self._centroids
-
-    @property
-    def volumes(self) -> NDArray[float64]:
-        """Return an (N,) array of the volume of each element"""
-        return self._volumes
-
-
 class SurfaceMesh:
     """The surface (triangle) mesh of a 3D volumetric mesh consisting solely of
     4-node tetrahedral elements. This is primarily meant to be used for surface
@@ -158,6 +127,11 @@ class Mesh:
         """Returns an (N,3) array of nodal coordinates in the mesh"""
         return self._nodes
 
+    @nodes.setter
+    def nodes(self, new_nodes: NDArray[float64]):
+        assert self._nodes.shape == new_nodes.shape
+        self._nodes = new_nodes
+
     @property
     def connectivity(self) -> NDArray[uint32]:
         """Returns an (N,4) array of the node numbers associated with each element
@@ -175,10 +149,6 @@ class Mesh:
     def num_elems(self) -> int:
         """Returns the number of elements in the model"""
         return self._connectivity.shape[0]
-
-    def to_centroid_mesh(self) -> CentroidMesh:
-        """Create a centroid mesh from a tet4 mesh"""
-        return CentroidMesh(self.centroids, self.volumes)
 
     @property
     def edges(self):  # -> NDArray[uint32]:

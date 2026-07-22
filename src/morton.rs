@@ -96,6 +96,6 @@ mod tests {
         let point: (f64, f64, f64) = (0.75, 0.75, 0.75);
         let code: u64 = encode(point, scale, side_length, min_corner);
         println!("Code = {}", code);
-        // assert_eq!()
+        assert_eq!(9223372036854775807, code);
     }
 }

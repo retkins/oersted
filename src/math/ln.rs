@@ -78,7 +78,7 @@ pub fn ln(x: f64) -> f64 {
     // // Third level
     // let poly = p23.mul_add(v8, p01);
 
-    // ln(x) = ln(m) + e*ln(2) = 2 atanh(m) + e*ln(2)
+    // ln(x) = ln(m) + e*ln(2) = 2v atanh(v)/v + e*ln(2)
     (2.0 * v * poly) + (e * LN_2)
 }
 
