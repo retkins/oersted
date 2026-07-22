@@ -8,6 +8,11 @@ This library contains highly-optimised routines for solving magnetic fields calc
 
 ![Timing Results](benchmarks/figs/octree_benchmarks.svg)
 
+The Barnes-Hut solver exhibits excellent scaling performance, solving a 4.6M 
+element (21.2e12 interaction) problem in ~20 seconds on a consumer-grade workstation:
+
+![Octree times](benchmarks/figs/octree_times.svg)
+
 ## Installation
 
 `oersted` can be installed via `pypi`:
