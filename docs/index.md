@@ -2,7 +2,7 @@
 
 Lightning-fast magnetic field calculations using octrees and the Barnes-Hut algorithm
 
-![throughput](figs/benchmarks.svg)
+![Octree Benchmarks](../benchmarks/figs/octree_benchmarks.svg)
 
 ## Installation
 
@@ -17,18 +17,19 @@ See [Development Notes](#development-notes) below.
 ```python
 import oersted 
 
-# Assume the following NumPy arrays are already defined: 
-# centroids: Nx3 element centroid locations
-# vol: N-length, volume of each element 
-# jdensity: Nx3 elemental current-density vectors 
-# targets: Nx3 target point locations in 3D space 
+# Mesh the part 
+mesh_size = 10e-3 # (m)
+mesh = oersted.Mesh.from_step("my_part.stp", mesh_size)
 
-theta = 0.25        # B-H accuracy parameter
+# Compute the current density on the part 
+jdensity: NDArray[float64] = ... 
 
-# Compute the magnetic flux density at each target
-b = oersted.bfield_octree(
-    centroids, vol, jdensity, targets, theta=theta
-)
+# Compute self-fields using the 'fast' solver
+settings = oersted.SolverSettings(method="octree", theta=0.5)
+B = oersted.b_field(mesh, mesh.centroids, jdensity=jdensity, settings=settings)
+
+# Compute forces from self-fields 
+F = oersted.lorentz_forces(mesh, jdensity, B)
 ```
 
 ## Background

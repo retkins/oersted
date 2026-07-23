@@ -120,5 +120,4 @@ magnetization primarily acts on the surface:
 ![Two spheres magnetization field](../figs/two-spheres-hfield.svg)
 
 The upper sphere spans the space from z = [0.1,0.2] m, and the lower sphere spans the 
-space from z = [-0.1, -0.2] m. Due to the very sharp increase in field at the surfaces 
-and the curvature of the geometry, the solver has trouble computing a truly symmetric field. 
+space from z = [-0.1, -0.2] m.
