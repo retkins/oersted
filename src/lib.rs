@@ -35,6 +35,7 @@ pub mod morton;
 pub mod octree;
 pub mod sources;
 pub mod types;
+pub mod transient;
 
 #[cfg(feature = "python")]
 pub mod python;

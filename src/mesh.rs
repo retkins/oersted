@@ -7,6 +7,21 @@ use std::collections::HashMap;
 
 const INV_MU0: f64 = 1.0 / MU0;
 
+pub struct Mesh {
+    pub nodes: Vec<Vec3>, 
+    pub connectivity: Vec<[u32; 4]>
+}
+
+impl Mesh {
+    pub fn n_elems(&self) -> usize {
+        self.connectivity.len()
+    }
+
+    pub fn n_nodes(&self) -> usize {
+        self.nodes.len()
+    }
+}
+
 /// Return the coordinates of a node with number `idx`
 ///
 /// `nodes` is a flat array representing an Nx3 table of nodal coordinates

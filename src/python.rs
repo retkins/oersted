@@ -1,8 +1,7 @@
 //! Python bindings for oersted
 
 use numpy::{
-    Element, PyArray1, PyArray2, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2,
-    PyUntypedArrayMethods,
+    Element, PyArray1, PyArray2, PyArray3, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2, PyReadonlyArray3, PyUntypedArrayMethods,
 };
 use pyo3::prelude::*;
 
@@ -423,6 +422,36 @@ fn atan2<'py>(
     Ok(PyArray1::from_vec(py, result))
 }
 
+// --- 
+// Transient Solver 
+// --- 
+
+#[pyfunction]
+fn transient_solve<'py>(
+    py: Python<'py>, 
+    nodes: PyReadonlyArray2<f64>, 
+    connectivity: PyReadonlyArray2<u32>, 
+    rho: f64, 
+    nt: usize, 
+    tmax: f64, 
+    a_ext: PyReadonlyArray3<f64>,
+    b_ext: PyReadonlyArray3<f64>
+) -> PyResult<Bound<'py, PyArray1<f64>, PyArray3<f64>, PyArray3<f64>, PyArray3<f64>>> {
+
+    let mesh = mesh::Mesh {
+        nodes: to_vec3s(nodes.as_slice()?).to_vec(), 
+        connectivity: to_u32x4s(connectivity.as_slice()?).to_vec()
+    };
+
+    let a = a_ext.as_array().to_owned();
+    let b = b_ext.as_array().to_owned();
+
+    crate::transient::solve(mesh, rho, nt, tmax, &a, &b);
+
+    Ok(())
+    
+}
+
 #[pymodule]
 fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
     // Field calculations
@@ -440,6 +469,9 @@ fn _oersted<'py>(_py: Python, m: Bound<'py, PyModule>) -> PyResult<()> {
 
     // Math
     m.add_function(wrap_pyfunction!(atan2, m.clone())?)?;
+
+    // Transient solver 
+    m.add_function(wrap_pyfunction!(transient_solve, m.clone())?)?;
 
     Ok(())
 }
