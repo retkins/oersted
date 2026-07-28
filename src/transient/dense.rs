@@ -35,6 +35,8 @@ pub fn solve(
 }
 
 // Assembly the constraint-gradient matrix G
+//
+//
 fn assemble_g(mesh: &Mesh) -> Mat<f64> {
 
     let mut g = Mat::with_capacity(3*mesh.n_elems(), mesh.n_nodes()); 
