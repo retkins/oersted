@@ -343,6 +343,18 @@ mod tests {
 
         assert_eq!(a.det(), 20.0);
 
+        let inv: Option<Mat3> = a.inverse();
+
+        match inv {
+            Some(mut m) => {
+                m *= 2.0;
+            },
+            None => {
+                println!("Matrix was singular!");
+                assert!(false);
+            }
+        }
+
         match a.inverse() {
             Some(m) => {
                 for i in 0..3 {

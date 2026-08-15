@@ -219,7 +219,7 @@ fn magnetization_solve<'py>(
         None
     };
 
-    let mut m_out = vec![Vec3::default(); n_centroids];
+    let mut m_out: Vec<Vec3> = vec![Vec3::default(); n_centroids];
     let (mut hx, mut hy, mut hz) = col_buffer(n_centroids);
 
     magnetization::magnetization_solve(
@@ -436,19 +436,19 @@ fn transient_solve<'py>(
     tmax: f64, 
     a_ext: PyReadonlyArray3<f64>,
     b_ext: PyReadonlyArray3<f64>
-) -> PyResult<Bound<'py, PyArray1<f64>, PyArray3<f64>, PyArray3<f64>, PyArray3<f64>>> {
+) -> PyResult<(Bound<'py, PyArray1<f64>>, Bound<'py,PyArray3<f64>>, Bound<'py,PyArray3<f64>>, Bound<'py,PyArray3<f64>>)> {
 
-    let mesh = mesh::Mesh {
-        nodes: to_vec3s(nodes.as_slice()?).to_vec(), 
-        connectivity: to_u32x4s(connectivity.as_slice()?).to_vec()
-    };
+    let mesh = mesh::Mesh::new(
+        to_vec3s(nodes.as_slice()?), 
+        to_u32x4s(connectivity.as_slice()?)
+    );
 
     let a = a_ext.as_array().to_owned();
     let b = b_ext.as_array().to_owned();
 
-    crate::transient::solve(mesh, rho, nt, tmax, &a, &b);
+    let (t, j_total, a_total, b_total) = crate::transient::solve(&mesh, rho, nt, tmax, &a, &b);
 
-    Ok(())
+    Ok((PyArray1::from_owned_array(py, t), PyArray3::from_owned_array(py, j_total), PyArray3::from_owned_array(py, a_total), PyArray3::from_owned_array(py, b_total)))
     
 }
 

@@ -9,16 +9,31 @@ const INV_MU0: f64 = 1.0 / MU0;
 
 pub struct Mesh {
     pub nodes: Vec<Vec3>, 
-    pub connectivity: Vec<[u32; 4]>
+    pub connectivity: Vec<[u32; 4]>,
+    pub volumes: Vec<f64>
 }
 
 impl Mesh {
+
+    pub fn new(nodes: &[Vec3], connectivity: &[[u32; 4]]) -> Self {
+        let mut vols: Vec<f64> = vec![0.0; connectivity.len()];
+        volumes(&nodes, &connectivity, &mut vols);
+        Self {
+            nodes: nodes.to_owned(), 
+            connectivity: connectivity.to_owned(), 
+            volumes: vols
+        }
+    }
     pub fn n_elems(&self) -> usize {
         self.connectivity.len()
     }
 
     pub fn n_nodes(&self) -> usize {
         self.nodes.len()
+    }
+
+    pub fn volumes(&self) -> &[f64] {
+        &self.volumes
     }
 }
 

@@ -5,13 +5,13 @@
 //! 
 
 use ndarray::{Array1,Array3};
-use faer::mat::Mat;
+use faer::{mat::{Mat}, diag::{Diag}};
 
 use crate::mesh::{Mesh, volumes};
 
 /// Solve a transient problem
 pub fn solve(
-    mesh: Mesh, 
+    mesh: &Mesh, 
     rho: f64, 
     nt: usize, 
     tmax: f64, 
@@ -21,12 +21,19 @@ pub fn solve(
 
     let n_elem: usize = mesh.connectivity.len();
 
+    // Allocate memory for the time steps and the results data
+    // a and b are the TOTAL value at element centroids, including the external
+    // sources. Overwriting the external source arrays would save memory, but it
+    // may not be what the caller wants to do.
     let mut time: Array1<f64> = Array1::zeros(nt);
     let mut j: Array3<f64> = Array3::zeros((nt, n_elem,3));
     let mut a: Array3<f64> = Array3::zeros((nt, n_elem,3));
     let mut b: Array3<f64> = Array3::zeros((nt, n_elem,3));
 
+    // 
+
     // Assembly 
+    let r = assemble_r(rho, mesh);
     let g = assemble_g(&mesh);
 
 
@@ -34,16 +41,21 @@ pub fn solve(
 
 }
 
-// Assembly the constraint-gradient matrix G
+// Assemble the constraint-gradient matrix G
 //
 //
 fn assemble_g(mesh: &Mesh) -> Mat<f64> {
 
     let mut g = Mat::with_capacity(3*mesh.n_elems(), mesh.n_nodes()); 
 
-    let mut vols: Vec<f64> = vec![0.0; mesh.n_elems()];
-    volumes(&mesh.nodes,&mesh.connectivity, &mut vols);
-
-
     g
+}
+
+// Assemble the resistance diagonal matrix R 
+fn assemble_r(rho: f64, mesh: &Mesh) -> Diag<f64> {
+    let mut r = Diag::zeros(mesh.n_elems());
+    for i in 0..mesh.n_elems() {
+        r[i] = rho*mesh.volumes[i];
+    }
+    r
 }
