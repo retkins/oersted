@@ -43,7 +43,8 @@ pub fn solve(
 
 // Assemble the constraint-gradient matrix G
 //
-//
+// This matrix is 3*num_elems x num_nodes. The first num_elems rows are for the
+// x-dof, second num_elems (second third) rows are for y-dof, etc.
 fn assemble_g(mesh: &Mesh) -> Mat<f64> {
 
     let mut g = Mat::with_capacity(3*mesh.n_elems(), mesh.n_nodes()); 

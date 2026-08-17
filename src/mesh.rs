@@ -35,6 +35,26 @@ impl Mesh {
     pub fn volumes(&self) -> &[f64] {
         &self.volumes
     }
+
+    /// Compute the gradients of the hat function at a specified element
+    pub fn hat_gradients(&self, i_elem: usize) -> [Vec3;4] {
+        // TODO: convert this to a return error instead of panic if `i_elem` 
+        // is out of bounds
+        let elem = self.connectivity[i_elem];
+        let elem_nodes: [Vec3; 4] = [
+            self.nodes[elem[0] as usize],
+            self.nodes[elem[1] as usize],
+            self.nodes[elem[2] as usize],
+            self.nodes[elem[3] as usize],
+        ];
+
+        let g1 = elem_nodes[2].cross(&elem_nodes[3]);
+        let g2 = elem_nodes[3].cross(&elem_nodes[1]);
+        let g3 = elem_nodes[1].cross(&elem_nodes[2]);
+        let g0 = - (g1 + g2 + g3);
+
+        [g0, g1, g2, g3]
+    }
 }
 
 /// Return the coordinates of a node with number `idx`
@@ -64,7 +84,7 @@ pub fn centroids(nodes: &[Vec3], connectivity: &[[u32; 4]], out: &mut [Vec3]) {
     assert_eq!(connectivity.len(), out.len());
 
     for (i, elem) in connectivity.iter().enumerate() {
-        let elem_nodes = [
+        let elem_nodes: [Vec3; 4] = [
             nodes[elem[0] as usize],
             nodes[elem[1] as usize],
             nodes[elem[2] as usize],
