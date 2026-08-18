@@ -18,7 +18,7 @@ pub struct Mesh {
 impl Mesh {
     pub fn new(nodes: &[Vec3], connectivity: &[[u32; 4]]) -> Self {
         let mut vols: Vec<f64> = vec![0.0; connectivity.len()];
-        volumes(&nodes, &connectivity, &mut vols);
+        volumes(nodes, connectivity, &mut vols);
         let mut elem_centroids: Vec<Vec3> = vec![Vec3::default(); connectivity.len()];
         centroids(nodes, connectivity, &mut elem_centroids);
         Self {

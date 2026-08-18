@@ -3,8 +3,9 @@
 //! This solve forms a fully dense interaction matrix and therefore should only be used
 //! for relatively small systems (<10k elements)
 //!
+#![allow(unused)]
 
-use faer::{diag::Diag, mat::Mat, sparse::SparseColMat};
+use faer::{Scale, diag::Diag, mat::Mat, sparse::SparseColMat};
 use ndarray::{Array1, Array3};
 
 use crate::{
@@ -12,6 +13,8 @@ use crate::{
     mesh::Mesh,
     types::{Vec3, vec3_to_3vec},
 };
+
+type Triplets = Vec<(usize, usize, f64)>;
 
 /// Solve a transient problem
 pub fn solve(
@@ -50,9 +53,9 @@ pub fn solve(
 //
 // To save on memory, G is saved as COO triplets (sparse) and never formed into its own
 // array. Instead, it is scattered into the KKT system directly.
-fn assemble_g(mesh: &Mesh) -> Vec<(usize, usize, f64)> {
+fn assemble_g(mesh: &Mesh) -> Triplets {
     // let mut g = Mat::<f64>::zeros(3*mesh.n_elems(), mesh.n_nodes());
-    let mut triplets: Vec<(usize, usize, f64)> = Vec::with_capacity(12 * mesh.n_elems());
+    let mut triplets: Triplets = Vec::with_capacity(12 * mesh.n_elems());
 
     for e in 0..mesh.n_elems() {
         let vg_e: [Vec3; 4] = mesh.hat_gradients(e);
@@ -117,16 +120,61 @@ fn assemble_m(mesh: &Mesh) -> (Mat<f64>, f64) {
     }
 
     // Compute asymmetry properties of M
-    let asym: f64 = (&m - &m.transpose()).norm_l2() / m.norm_l2();
+    let asym: f64 = (&m - m.transpose()).norm_l2() / m.norm_l2();
 
-    (0.5 * (&m + &m.transpose()), asym)
+    (0.5 * (&m + m.transpose()), asym)
 }
 
 // Ground nodes by identifying separated bodies and returning one node index per body
 //
-// TODO: this version assumes the mesh represents a single body and therefore just 
+// TODO: this version assumes the mesh represents a single body and therefore just
 // grounds the first node
 fn ground_nodes(mesh: &Mesh) -> Vec<usize> {
-    let grounded = vec![0;1];
+    let grounded: Vec<usize> = vec![0; 1];
     grounded
+}
+
+// Assemble the KKT system as a dense square matrix
+fn assemble_kkt(
+    mesh: &Mesh,
+    m: &Mat<f64>,
+    g: &Triplets,
+    r: &Diag<f64>,
+    dt: f64,
+    grounded: &[usize],
+) -> Mat<f64> {
+    let n_el: usize = mesh.n_elems();
+    let size: usize = 3 * n_el + mesh.n_nodes();
+    let mut k = Mat::<f64>::zeros(size, size);
+
+    // Upper left: R + M/dt, but in 3x blocks since R and M are scalar
+    let mut a = Scale(1.0 / dt) * m.as_ref();
+    for e in 0..n_el {
+        a[(e, e)] += r[e];
+    }
+
+    // Insert R + M/dt
+    for comp in 0..3 {
+        let start = comp * mesh.n_elems();
+        let stride = mesh.n_elems();
+        k.submatrix_mut(start, start, stride, stride).copy_from(&a);
+    }
+
+    // Insert G and G^T
+    for &(row, col, val) in g.iter() {
+        k[(row, col + 3 * n_el)] = val;
+        k[(col + 3 * n_el, row)] = val;
+    }
+
+    // Pin grounded nodes
+    for &p in grounded {
+        let i = p + 3 * n_el;
+        for j in 0..size {
+            k[(i, j)] = 0.0;
+            k[(j, i)] = 0.0;
+        }
+        k[(i, i)] = 1.0;
+    }
+
+    k
 }
