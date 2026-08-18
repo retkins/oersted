@@ -312,6 +312,19 @@ pub fn to_u32x4s(flat: &[u32]) -> &[[u32; 4]] {
     unsafe { from_raw_parts(flat.as_ptr() as *const [u32; 4], n_vecs) }
 }
 
+/// Convert a slice of Vec3's into 3 Vec's
+pub fn vec3_to_3vec(flat: &[Vec3]) -> (Vec<f64>, Vec<f64>, Vec<f64>) {
+    let n = flat.len();
+    let (mut x, mut y, mut z) = (vec![0.0; n], vec![0.0; n], vec![0.0; n]);
+    for i in 0..n {
+        x[i] = flat[i][0];
+        y[i] = flat[i][1];
+        z[i] = flat[i][2];
+    }
+
+    (x, y, z)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -348,7 +361,7 @@ mod tests {
         match inv {
             Some(mut m) => {
                 m *= 2.0;
-            },
+            }
             None => {
                 println!("Matrix was singular!");
                 assert!(false);
