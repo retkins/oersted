@@ -90,7 +90,7 @@ def transient_solve(
     nodes: NDArray[float64],
     connectivity: NDArray[uint32],
     rho: float,
-    dt: float,
+    nt: float,
     tmax: float,
     a_ext: NDArray[float64],
     b_ext: NDArray[float64],

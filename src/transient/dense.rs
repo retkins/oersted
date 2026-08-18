@@ -5,7 +5,13 @@
 //!
 #![allow(unused)]
 
-use faer::{Scale, diag::Diag, mat::Mat, sparse::SparseColMat};
+use faer::{
+    Col, Scale,
+    diag::Diag,
+    linalg::solvers::{PartialPivLu, Solve},
+    mat::Mat,
+    sparse::SparseColMat,
+};
 use ndarray::{Array1, Array3};
 
 use crate::{
@@ -25,7 +31,11 @@ pub fn solve(
     a_ext: &Array3<f64>,
     b_ext: &Array3<f64>,
 ) -> (Array1<f64>, Array3<f64>, Array3<f64>, Array3<f64>) {
-    let n_elem: usize = mesh.connectivity.len();
+    let n_elem: usize = mesh.n_elems();
+    let size = 3 * n_elem + mesh.n_nodes();
+    let vols = mesh.volumes();
+
+    let dt: f64 = tmax / (nt - 1) as f64;
 
     // Allocate memory for the time steps and the results data
     // a and b are the TOTAL value at element centroids, including the external
@@ -36,12 +46,61 @@ pub fn solve(
     let mut a: Array3<f64> = Array3::zeros((nt, n_elem, 3));
     let mut b: Array3<f64> = Array3::zeros((nt, n_elem, 3));
 
-    //
-
     // Assembly
+    println!("Assembling matrices");
     let r = assemble_r(rho, mesh);
-    let g = assemble_g(mesh);
+    let g: Triplets = assemble_g(mesh);
     let (m, asym_m) = assemble_m(mesh);
+    let grounded: Vec<usize> = ground_nodes(mesh);
+    let k = assemble_kkt(mesh, &m, &g, &r, dt, &grounded);
+
+    // Factorize the KKT system
+    println!("Factorizing KKT system");
+    let lu: PartialPivLu<f64> = k.partial_piv_lu();
+
+    // Buffers reused at every step: rhs, J^k, (M/dt)*J^k
+    // These are stored component-major: i.e. all x's, all y's, then all z's
+    let mut rhs = Col::<f64>::zeros(size);
+    let mut j_prev = Mat::<f64>::zeros(n_elem, 3);
+    let mut mj = Mat::<f64>::zeros(n_elem, 3);
+
+    // Initial conditions at time = 0.0
+    for e in 0..n_elem {
+        for c in 0..3 {
+            a[[0, e, c]] = a_ext[[0, e, c]];
+            b[[0, e, c]] = b_ext[[0, e, c]];
+        }
+    }
+
+    for t in 1..nt {
+        time[t] = t as f64 * dt;
+        println!("Solving timestep {} of {}", t, nt);
+
+        // Compute the rhs of the system
+        // Momentum block: (M/dt)*J^k - V_e * da_ext/dt
+        mj = m.as_ref() * j_prev.as_ref();
+
+        for c in 0..3 {
+            for e in 0..n_elem {
+                let dadt = (a_ext[[t, e, c]] - a_ext[[t - 1, e, c]]) / dt;
+                rhs[c * n_elem + e] = mj[(e, c)] / dt - vols[e] * dadt;
+            }
+        }
+
+        // Solve the system
+        let x = lu.solve(&rhs);
+
+        // Store J from this time step
+        for c in 0..3 {
+            for e in 0..n_elem {
+                let j_kp1 = x[c * n_elem + e];
+                j[[t, e, c]] = j_kp1;
+                j_prev[(e, c)] = j_kp1;
+            }
+        }
+
+        // TODO: compute self a/b fields and store
+    }
 
     (time, j, a, b)
 }

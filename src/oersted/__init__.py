@@ -30,6 +30,8 @@ from .results import (
 
 from ._oersted import atan2
 
+from .transient import transient_solve, TransientResults
+
 __all__ = [
     # Constants and material properties
     "MU0",
@@ -68,4 +70,7 @@ __all__ = [
     "curl",
     # Math
     "atan2",
+    # Transient eddy current solver
+    "transient_solve",
+    "TransientResults",
 ]
