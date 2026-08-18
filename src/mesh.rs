@@ -5,7 +5,9 @@ use crate::math::mag3;
 use crate::types::{Mat3, Vec3};
 use std::collections::HashMap;
 
+
 const INV_MU0: f64 = 1.0 / MU0;
+const ONE_SIXTH: f64 = 1.0/6.0;
 
 pub struct Mesh {
     pub nodes: Vec<Vec3>, 
@@ -36,22 +38,38 @@ impl Mesh {
         &self.volumes
     }
 
-    /// Compute the gradients of the hat function at a specified element
-    pub fn hat_gradients(&self, i_elem: usize) -> [Vec3;4] {
+    /// Return the node coordinates associated with a given element index
+    pub fn elem_nodes(&self, i_elem: usize) -> [Vec3; 4] {
         // TODO: convert this to a return error instead of panic if `i_elem` 
         // is out of bounds
-        let elem = self.connectivity[i_elem];
+        let elem: [u32; 4] = self.connectivity[i_elem];
         let elem_nodes: [Vec3; 4] = [
             self.nodes[elem[0] as usize],
             self.nodes[elem[1] as usize],
             self.nodes[elem[2] as usize],
             self.nodes[elem[3] as usize],
         ];
+        elem_nodes
+    }
 
-        let g1 = elem_nodes[2].cross(&elem_nodes[3]);
-        let g2 = elem_nodes[3].cross(&elem_nodes[1]);
-        let g3 = elem_nodes[1].cross(&elem_nodes[2]);
-        let g0 = - (g1 + g2 + g3);
+    /// Compute the gradients of the hat function at a specified element, 
+    /// weighted by the volume of the element:
+    /// V_e * grad(N)_e
+    pub fn hat_gradients(&self, i_elem: usize) -> [Vec3; 4] {
+        
+        let elem_nodes: [Vec3; 4] = self.elem_nodes(i_elem);
+
+        // Edge vectors, from the first node to the other three
+        let e1: Vec3 = elem_nodes[1] - elem_nodes[0];
+        let e2: Vec3 = elem_nodes[2] - elem_nodes[0];
+        let e3: Vec3 = elem_nodes[3] - elem_nodes[0];
+
+        debug_assert!(e1.dot(&e2.cross(&e3)) > 0.0, "Element {i_elem} inverted or degenerate.");
+
+        let g1: Vec3 = e2.cross(&e3) * ONE_SIXTH;
+        let g2: Vec3 = e3.cross(&e1) * ONE_SIXTH;
+        let g3: Vec3 = e1.cross(&e2) * ONE_SIXTH;
+        let g0: Vec3 = - (g1 + g2 + g3);
 
         [g0, g1, g2, g3]
     }

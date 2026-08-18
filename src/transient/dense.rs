@@ -7,7 +7,10 @@
 use ndarray::{Array1,Array3};
 use faer::{mat::{Mat}, diag::{Diag}};
 
-use crate::mesh::{Mesh, volumes};
+use crate::{
+    mesh::{Mesh},
+    types::{Vec3}
+};
 
 /// Solve a transient problem
 pub fn solve(
@@ -47,12 +50,25 @@ pub fn solve(
 // x-dof, second num_elems (second third) rows are for y-dof, etc.
 fn assemble_g(mesh: &Mesh) -> Mat<f64> {
 
-    let mut g = Mat::with_capacity(3*mesh.n_elems(), mesh.n_nodes()); 
+    let mut g = Mat::<f64>::zeros(3*mesh.n_elems(), mesh.n_nodes()); 
 
+    for e in 0..mesh.n_elems() {
+        let vg_e: [Vec3; 4] = mesh.hat_gradients(e);
+
+        for ni in 0..4usize {
+            for k in 0..3usize {
+                let n: usize = mesh.connectivity[e][ni] as usize;
+                g[(mesh.n_elems()*k + e, n)] = vg_e[ni][k];
+            }
+        }
+        
+    }
     g
 }
 
 // Assemble the resistance diagonal matrix R 
+//
+// This matrix has length `n_elems`, each of which are rho*vol[e]
 fn assemble_r(rho: f64, mesh: &Mesh) -> Diag<f64> {
     let mut r = Diag::zeros(mesh.n_elems());
     for i in 0..mesh.n_elems() {
