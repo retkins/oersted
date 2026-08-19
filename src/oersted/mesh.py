@@ -325,7 +325,7 @@ def plot_mesh(
 
 
 def mesh_step(
-    infile: str, max_size: float, min_size: float = 0.0, scale: float = 1e-3
+    infile: Path | str, max_size: float, min_size: float = 0.0, scale: float = 1e-3
 ) -> Mesh:
     """Mesh a step file using gmsh
 
@@ -342,6 +342,7 @@ def mesh_step(
         a tet4 (volumetric) mesh of the component
     """
 
+    infile = str(infile)
     mshfile = infile.split(".")[0] + ".msh"
     nodes: NDArray[float64]
     connectivity: NDArray[uint32]

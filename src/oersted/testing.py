@@ -191,6 +191,44 @@ def make_ring(
     return mesh, jdensity
 
 
+def make_torus(
+    major_radius: float,
+    minor_radius: float,
+    wall_thickness: float,
+    mesh_size: float,
+    out_file: Path | None = None,
+) -> Mesh:
+    """Create a mesh of a thin-walled torus"""
+
+    import gmsh
+
+    gmsh.initialize()
+    gmsh.model.add("torus")
+
+    # Create two toruses and subtract them to get a thin-walled torus
+    wt_half = 0.5 * wall_thickness
+    outer = gmsh.model.occ.addTorus(0.0, 0.0, 0.0, major_radius, minor_radius + wt_half)
+    inner = gmsh.model.occ.addTorus(0.0, 0.0, 0.0, major_radius, minor_radius - wt_half)
+    shell, _ = gmsh.model.occ.cut([(3, outer)], [(3, inner)])
+    gmsh.model.occ.synchronize()
+
+    gmsh.option.setNumber("Mesh.MeshSizeMin", mesh_size)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
+    gmsh.model.mesh.generate(3)
+
+    if out_file is not None:
+        gmsh.write(str(Path))
+
+    # Get the mesh nodes for the entity (dim, tag) as a flat array:
+    # nodeTags, nodeCoords, nodeParams = gmsh.model.mesh.getNodes(dim, tag)
+    _, node_coords, _ = gmsh.model.mesh.getNodes()
+    nodes = node_coords.reshape([-1, 3])
+    _, _, node_tags = gmsh.model.mesh.getElements(3)
+    connectivity = node_tags[0].reshape([-1, 4]).astype(np.uint32) - 1  # 0-indexed
+
+    return Mesh(nodes, connectivity)
+
+
 def bz_finite_length_solenoid(
     jmag: float, length: float, r: float, dr: float, z: float
 ) -> float:
