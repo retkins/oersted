@@ -178,16 +178,48 @@ def make_helmholtz(
 
 
 def make_ring(
-    mesh_size: float = 15e-3, jmag: float = 1e8
+    r: float = 0.2,
+    z: float = 0.0,
+    b: float = 0.02,
+    h: float = 0.02,
+    mesh_size: float = 15e-3,
+    jmag: float = 1e8,
+    out_file: Path | None = None,
 ) -> tuple[Mesh, NDArray[float64]]:
-    """Make a mesh of a current-carrying ring for testing"""
+    """Make a mesh of a current-carrying ring"""
 
-    mesh = Mesh.from_step("tests/data/ring.stp", mesh_size)
+    import gmsh
+
+    gmsh.initialize()
+    gmsh.model.add("ring")
+
+    # Create two cylinders and subtract one from the other
+    outer = gmsh.model.occ.addCylinder(0.0, 0.0, z - h / 2.0, 0.0, 0.0, h, r + b / 2.0)
+    inner = gmsh.model.occ.addCylinder(0.0, 0.0, z - h / 2.0, 0.0, 0.0, h, r - b / 2.0)
+    cylinder, _ = gmsh.model.occ.cut([(3, outer)], [(3, inner)])
+    gmsh.model.occ.synchronize()
+
+    gmsh.option.setNumber("Mesh.MeshSizeMin", mesh_size)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", mesh_size)
+    gmsh.model.mesh.generate(3)
+
+    if out_file is not None:
+        gmsh.write(str(Path))
+
+    # Get the mesh nodes for the entity (dim, tag) as a flat array:
+    # nodeTags, nodeCoords, nodeParams = gmsh.model.mesh.getNodes(dim, tag)
+    _, node_coords, _ = gmsh.model.mesh.getNodes()
+    nodes = node_coords.reshape([-1, 3])
+    _, _, node_tags = gmsh.model.mesh.getElements(3)
+    connectivity = node_tags[0].reshape([-1, 4]).astype(np.uint32) - 1  # 0-indexed
+
+    mesh = Mesh(nodes, connectivity)
     phi = np.atan2(mesh.centroids[:, 1], mesh.centroids[:, 0])
     jdensity = np.zeros_like(mesh.centroids)
     jdensity[:, 0] = -jmag * np.sin(phi)
     jdensity[:, 1] = jmag * np.cos(phi)
 
+    gmsh.finalize()
     return mesh, jdensity
 
 
@@ -198,7 +230,7 @@ def make_torus(
     mesh_size: float,
     out_file: Path | None = None,
 ) -> Mesh:
-    """Create a mesh of a thin-walled torus"""
+    """Create a mesh of a thin-walled torus, centered around the origin"""
 
     import gmsh
 
@@ -226,6 +258,7 @@ def make_torus(
     _, _, node_tags = gmsh.model.mesh.getElements(3)
     connectivity = node_tags[0].reshape([-1, 4]).astype(np.uint32) - 1  # 0-indexed
 
+    gmsh.finalize()
     return Mesh(nodes, connectivity)
 
 
