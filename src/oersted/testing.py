@@ -191,6 +191,7 @@ def make_ring(
     import gmsh
 
     gmsh.initialize()
+    gmsh.option.setNumber("General.Terminal", 0)  # suppress output
     gmsh.model.add("ring")
 
     # Create two cylinders and subtract one from the other
@@ -235,6 +236,7 @@ def make_torus(
     import gmsh
 
     gmsh.initialize()
+    gmsh.option.setNumber("General.Terminal", 0)  # suppress output
     gmsh.model.add("torus")
 
     # Create two toruses and subtract them to get a thin-walled torus
