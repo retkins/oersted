@@ -36,7 +36,7 @@ jobs:
     - name: Install
       run: |
         sudo apt update
-        uv sync --locked --extra mesh --group dev ${{ matrix.sync-args }}
+        uv sync --extra mesh --group dev ${{ matrix.sync-args }}
       # sudo apt install -y gmsh
 
     - name: Format
