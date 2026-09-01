@@ -31,8 +31,8 @@ def test_transient():
         major_radius, 0.0, b, h, b, jmag=ring_jmag
     )
 
-    mesh = torus.append(ring)
-    oersted.mesh.plot_mesh(mesh, transparency=True, filename="docs/figs/torus_mesh.svg")
+    # mesh = torus.append(ring)
+    # oersted.mesh.plot_mesh(mesh, transparency=True, filename="docs/figs/torus_mesh.svg")
 
     # Time properties
     nt = 50
@@ -65,14 +65,14 @@ def test_transient():
 
     # Compute results
 
-    oersted.mesh.plot_mesh(
-        torus,
-        "docs/figs/torus-currents.svg",
-        centroids=torus.centroids,
-        vectors=results.j[25, :, :],
-        vector_scale=mesh_size / 2,
-        transparency=True,
-    )
+    # oersted.mesh.plot_mesh(
+    #     torus,
+    #     "docs/figs/torus-currents.svg",
+    #     centroids=torus.centroids,
+    #     vectors=results.j[25, :, :],
+    #     vector_scale=mesh_size / 2,
+    #     transparency=True,
+    # )
 
     # Torque about centroid of torus, which is the origin
     f = np.cross(results.j, cross_field) * torus.volumes[None, :, None]
