@@ -36,6 +36,7 @@ jobs:
     - name: Install
       run: |
         sudo apt update
+        sudo apt install -y libglu1-mesa libxrender1 libxcursor1 libxft2 libxinerama1
         uv sync --extra mesh --group dev ${{ matrix.sync-args }}
       # sudo apt install -y gmsh
 
