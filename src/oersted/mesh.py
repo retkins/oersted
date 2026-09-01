@@ -254,7 +254,7 @@ class Mesh:
 
 def plot_mesh(
     mesh: Mesh,
-    filename: str | None = None,
+    filename: Path | str | None = None,
     scalars: NDArray[float64] | None = None,
     centroids: NDArray[float64] | None = None,
     vectors: NDArray[float64] | None = None,
@@ -281,47 +281,44 @@ def plot_mesh(
 
     try:
         import pyvista as pv
-
-        cells = np.hstack(
-            [np.full((mesh.num_elems, 1), 4, dtype=np.int64), mesh.connectivity]
-        )
-        celltypes = np.full(mesh.num_elems, pv.CellType.TETRA)
-        pv_mesh = pv.UnstructuredGrid(cells.ravel(), celltypes, mesh.nodes)
-
-        pl = pv.Plotter(off_screen=filename is not None)
-        if transparency:
-            pl.add_mesh(pv_mesh, style="wireframe", color="black", line_width=0.5)
-        else:
-            pl.add_mesh(
-                pv_mesh,
-                scalars=scalars,
-                show_edges=True,
-                line_width=0.5,
-                scalar_bar_args={"title": "magnitude", "vertical": True},
-            )
-
-        factor = 1.0
-        if vector_scale is not None:
-            factor = vector_scale
-
-        if centroids is not None and vectors is not None:
-            assert centroids.shape == vectors.shape
-            arrow_mesh = pv.PolyData(centroids)
-            arrow_mesh["vectors"] = vectors
-            arrow_mesh["magnitude"] = np.linalg.norm(vectors, axis=1)
-            arrows = arrow_mesh.glyph(orient="vectors", scale=False, factor=factor)
-            pl.add_mesh(
-                arrows, scalars="magnitude", cmap="viridis", show_scalar_bar=False
-            )
-
-        if filename is not None:
-            pl.save_graphic(filename)
-        else:
-            pl.show()
-
     except ImportError:
         print("`pyvista` is not installed.")
-        print("Please install before continuing: `pip install pyvista")
+        print("Please install before continuing: `pip install pyvista`")
+
+    cells = np.hstack(
+        [np.full((mesh.num_elems, 1), 4, dtype=np.int64), mesh.connectivity]
+    )
+    celltypes = np.full(mesh.num_elems, pv.CellType.TETRA)
+    pv_mesh = pv.UnstructuredGrid(cells.ravel(), celltypes, mesh.nodes)
+
+    pl = pv.Plotter(off_screen=filename is not None)
+    if transparency:
+        pl.add_mesh(pv_mesh, style="wireframe", color="black", line_width=0.5)
+    else:
+        pl.add_mesh(
+            pv_mesh,
+            scalars=scalars,
+            show_edges=True,
+            line_width=0.5,
+            scalar_bar_args={"title": "magnitude", "vertical": True},
+        )
+
+    factor = 1.0
+    if vector_scale is not None:
+        factor = vector_scale
+
+    if centroids is not None and vectors is not None:
+        assert centroids.shape == vectors.shape
+        arrow_mesh = pv.PolyData(centroids)
+        arrow_mesh["vectors"] = vectors
+        arrow_mesh["magnitude"] = np.linalg.norm(vectors, axis=1)
+        arrows = arrow_mesh.glyph(orient="vectors", scale=False, factor=factor)
+        pl.add_mesh(arrows, scalars="magnitude", cmap="viridis", show_scalar_bar=False)
+
+    if filename is not None:
+        pl.save_graphic(filename)
+    else:
+        pl.show()
 
 
 def mesh_step(

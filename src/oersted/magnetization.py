@@ -26,7 +26,7 @@ def demag_solve(
         mesh: finite element mesh on which to evaluate the demagnetizing field
         material: linear or nonlinear magnetic maaterial properties
         h_external: (A/m) an (Ne,3) array of external field at each element centroid
-        solver: solution parameters for the problem, including iteration method
+        settings: solution parameters for the problem, including iteration method
 
     Returns:
         (M, Htotal): each (Ne, 3), magnetization field M(Htotal) and total H field

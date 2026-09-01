@@ -79,7 +79,7 @@ ax.set_title(
 ax.set_xscale("log")
 ax.set_yscale("log")
 
-fig.savefig("benchmarks/figs/b_field_benchmarks.svg")
+fig.savefig("docs/figs/benchmarks/b_field_benchmarks.svg")
 
 # Print benchmarking results to command line as well
 print("Benchmarking Results - Current Sources")

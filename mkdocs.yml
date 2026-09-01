@@ -18,6 +18,7 @@ nav:
   - "Examples": 
     - "Force on a Magnetized Sphere": examples/magnetized-sphere.md
     - "Two Magnetized Spheres": examples/two-spheres.md
+    - "Eddy Currents in a Torus": examples/transient-torus.md
   - "Theory Reference": theory-reference.md
   - "Python API": python-api.md
   - "Rust API": "https://docs.rs/oersted/latest/oersted/"

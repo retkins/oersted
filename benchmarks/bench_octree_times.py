@@ -55,4 +55,4 @@ ax.set_title(
 ax.set_xscale("log")
 ax.set_yscale("log")
 ax.legend()
-fig.savefig("benchmarks/figs/octree_times.svg")
+fig.savefig("docs/figs/benchmarks/octree_times.svg")

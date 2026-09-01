@@ -164,4 +164,4 @@ if __name__ == "__main__":
     fig.suptitle("oersted Barnes-Hut Solver Benchmarks")
     bench_error(axs)
     bench_scaling(axs, np.linspace(min_mesh_size, max_mesh_size, n_meshes))
-    fig.savefig("benchmarks/figs/octree_benchmarks.svg")
+    fig.savefig("docs/figs/benchmarks/octree_benchmarks.svg")
