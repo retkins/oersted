@@ -101,7 +101,7 @@ pub fn calculate_fields(
         for (xc, yc, zc, fxc, fyc, fzc) in chunks {
             s.spawn(move || {
                 for (i, elem) in src_connectivity.iter().enumerate() {
-                    let elem_nodes = [
+                    let elem_nodes: [Vec3; 4] = [
                         src_nodes[elem[0] as usize],
                         src_nodes[elem[1] as usize],
                         src_nodes[elem[2] as usize],

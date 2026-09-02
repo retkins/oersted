@@ -6,6 +6,82 @@ use crate::types::{Mat3, Vec3};
 use std::collections::HashMap;
 
 const INV_MU0: f64 = 1.0 / MU0;
+const ONE_SIXTH: f64 = 1.0 / 6.0;
+
+pub struct Mesh {
+    pub nodes: Vec<Vec3>,
+    pub connectivity: Vec<[u32; 4]>,
+    pub volumes: Vec<f64>,
+    pub centroids: Vec<Vec3>,
+}
+
+impl Mesh {
+    pub fn new(nodes: &[Vec3], connectivity: &[[u32; 4]]) -> Self {
+        let mut vols: Vec<f64> = vec![0.0; connectivity.len()];
+        volumes(nodes, connectivity, &mut vols);
+        let mut elem_centroids: Vec<Vec3> = vec![Vec3::default(); connectivity.len()];
+        centroids(nodes, connectivity, &mut elem_centroids);
+        Self {
+            nodes: nodes.to_owned(),
+            connectivity: connectivity.to_owned(),
+            volumes: vols,
+            centroids: elem_centroids,
+        }
+    }
+    pub fn n_elems(&self) -> usize {
+        self.connectivity.len()
+    }
+
+    pub fn n_nodes(&self) -> usize {
+        self.nodes.len()
+    }
+
+    pub fn volumes(&self) -> &[f64] {
+        &self.volumes
+    }
+
+    pub fn centroids(&self) -> &[Vec3] {
+        &self.centroids
+    }
+
+    /// Return the node coordinates associated with a given element index
+    pub fn elem_nodes(&self, i_elem: usize) -> [Vec3; 4] {
+        // TODO: convert this to a return error instead of panic if `i_elem`
+        // is out of bounds
+        let elem: [u32; 4] = self.connectivity[i_elem];
+        let elem_nodes: [Vec3; 4] = [
+            self.nodes[elem[0] as usize],
+            self.nodes[elem[1] as usize],
+            self.nodes[elem[2] as usize],
+            self.nodes[elem[3] as usize],
+        ];
+        elem_nodes
+    }
+
+    /// Compute the gradients of the hat function at a specified element, weighted by
+    /// the volume of the element:
+    /// V_e * grad(N)_e
+    pub fn hat_gradients(&self, i_elem: usize) -> [Vec3; 4] {
+        let elem_nodes: [Vec3; 4] = self.elem_nodes(i_elem);
+
+        // Edge vectors, from the first node to the other three
+        let e1: Vec3 = elem_nodes[1] - elem_nodes[0];
+        let e2: Vec3 = elem_nodes[2] - elem_nodes[0];
+        let e3: Vec3 = elem_nodes[3] - elem_nodes[0];
+
+        debug_assert!(
+            e1.dot(&e2.cross(&e3)) > 0.0,
+            "Element {i_elem} inverted or degenerate."
+        );
+
+        let g1: Vec3 = e2.cross(&e3) * ONE_SIXTH;
+        let g2: Vec3 = e3.cross(&e1) * ONE_SIXTH;
+        let g3: Vec3 = e1.cross(&e2) * ONE_SIXTH;
+        let g0: Vec3 = -(g1 + g2 + g3);
+
+        [g0, g1, g2, g3]
+    }
+}
 
 /// Return the coordinates of a node with number `idx`
 ///
@@ -34,7 +110,7 @@ pub fn centroids(nodes: &[Vec3], connectivity: &[[u32; 4]], out: &mut [Vec3]) {
     assert_eq!(connectivity.len(), out.len());
 
     for (i, elem) in connectivity.iter().enumerate() {
-        let elem_nodes = [
+        let elem_nodes: [Vec3; 4] = [
             nodes[elem[0] as usize],
             nodes[elem[1] as usize],
             nodes[elem[2] as usize],

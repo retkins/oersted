@@ -84,3 +84,14 @@ def atan2(
     yvals: Float64Array,
     xvals: Float64Array,
 ) -> Float64Array: ...
+
+# Transient solver
+def transient_solve(
+    nodes: NDArray[float64],
+    connectivity: NDArray[uint32],
+    rho: float,
+    nt: float,
+    tmax: float,
+    a_ext: NDArray[float64],
+    b_ext: NDArray[float64],
+) -> tuple[NDArray[float64], NDArray[float64], NDArray[float64], NDArray[float64]]: ...

@@ -7,11 +7,11 @@ use crate::{
     types::Vec3,
 };
 
-// Topology information for traversing the octree
+/// Topology information for traversing the octree
 #[derive(Debug)]
 pub struct Topology {
     // Each vector has length Nnodes
-    pub children: Vec<[u32; 8]>, // provides indices into these arrrays (tree connectivity)
+    pub children: Vec<[u32; 8]>, // provides indices into these arrays (tree connectivity)
     pub centroids: Vec<Vec3>,
     pub sizes: Vec<f64>,
     pub source_range: Vec<(u32, u32)>,

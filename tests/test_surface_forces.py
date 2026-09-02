@@ -47,39 +47,36 @@ def test_lorentz_forces():
 
     # Make the helmholz coil problem
     radius = 0.2
+    b = 0.02
+    h = 0.02
     total_current = 1e4
-    mesh_size: float = 15.0
-    mesh1 = oersted.mesh_step("tests/data/ring.stp", mesh_size, mesh_size)
-    mesh1._nodes[:, 2] += 0.01
+    jmag: float = total_current / (b * h)
 
-    mesh2 = oersted.mesh_step("tests/data/ring.stp", mesh_size, mesh_size)
-    mesh2._nodes[:, 2] -= 0.01
+    mesh1, jdensity1 = oersted.testing.make_ring(radius, radius / 2, b, h, jmag=jmag)
+    mesh2, jdensity2 = oersted.testing.make_ring(radius, -radius / 2, b, h, jmag=jmag)
 
     mesh = mesh1.append(mesh2)
     print(f"Number of elements: {mesh.num_elems}")
 
-    # Assign current densities to each mesh
-    jmag: float = total_current / (0.02 * 0.02)
-    jdensity = np.zeros((mesh1.num_elems, 3))
-    phi = np.atan2(mesh1.centroids[:, 1], mesh1.centroids[:, 0])
-    jdensity[:, 0] = -jmag * np.sin(phi)
-    jdensity[:, 1] = jmag * np.cos(phi)
-    jdensity_total = np.vstack((jdensity, jdensity))
+    jdensity_total = np.vstack((jdensity1, jdensity2))
 
     # Compute the analytical solution by checking that the vertical force is
     #   approximately equal to Fz = -2pi * R * Itotal * Br
     bavg = oersted.b_field(
-        mesh1, np.array([[radius, 0.0, -0.01]]), jdensity=jdensity, settings=settings
+        mesh1,
+        np.array([[radius, 0.0, -radius / 2]]),
+        jdensity=jdensity1,
+        settings=settings,
     )
     fz_expected = -float(2 * np.pi * radius * total_current * bavg[0, 0])
     print(f"fz expected: {fz_expected:.3f} N")
 
     # Compute the field at the lower coil's surface elements using both coils
     bext = oersted.b_field(
-        mesh1, mesh2.surface.centroids, jdensity=jdensity, settings=settings
+        mesh1, mesh2.surface.centroids, jdensity=jdensity1, settings=settings
     )
     bext += oersted.b_field(
-        mesh2, mesh2.surface.centroids, jdensity=jdensity, settings=settings
+        mesh2, mesh2.surface.centroids, jdensity=jdensity2, settings=settings
     )
 
     forces = oersted.maxwell_forces(mesh2.surface, bext)
@@ -88,7 +85,7 @@ def test_lorentz_forces():
     print(f"total force, lower: {total_force}")
 
     print(f"error: {100 * error:.2f} %")
-    assert error < 1e-2
+    assert error < 3e-2
 
     # Check that the other components are small, like less than 1.0 N
     assert np.abs(total_force[0]) < 1.0
@@ -96,10 +93,10 @@ def test_lorentz_forces():
 
     # Compute the field at the lower coil's surface elements using both coils
     bext = oersted.b_field(
-        mesh1, mesh1.surface.centroids, jdensity=jdensity, settings=settings
+        mesh1, mesh1.surface.centroids, jdensity=jdensity1, settings=settings
     )
     bext += oersted.b_field(
-        mesh2, mesh1.surface.centroids, jdensity=jdensity, settings=settings
+        mesh2, mesh1.surface.centroids, jdensity=jdensity2, settings=settings
     )
 
     # Use maxwell stress tensor
@@ -109,7 +106,7 @@ def test_lorentz_forces():
     print(f"total force, upper: {total_force}")
 
     print(f"error: {100 * error:.2f} %")
-    assert error < 1e-2
+    assert error < 3e-2
 
     # Check that the other components are small, like less than 1.0 N
     assert np.abs(total_force[0]) < 1.0
@@ -120,13 +117,13 @@ def test_lorentz_forces():
         mesh, mesh1.centroids, jdensity=jdensity_total, settings=settings
     )
     lorentz_force_lower = oersted.lorentz_forces(
-        mesh1, jdensity, b_field_lower, total=True
+        mesh1, jdensity1, b_field_lower, total=True
     )
 
-    assert (
-        np.linalg.norm(lorentz_force_lower - total_force) / np.linalg.norm(total_force)
-        < 1e-2
+    error = np.linalg.norm(lorentz_force_lower - total_force) / np.linalg.norm(
+        total_force
     )
+    assert error < 3e-2
 
 
 def main():

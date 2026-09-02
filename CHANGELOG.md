@@ -134,3 +134,7 @@ for direct solves, and unified the function signatures
 method (3x faster than simple batch traversal)
 * Enable monopole/dipole expansions to be selected by the user
 * Various bugfixes and corrections of minor errors
+
+### [#34](https://github.com/retkins/oersted/pull/34)
+* Added a time-domain eddy current solver using a dense inductance matrix and direct solver
+* Added an example of the eddy current solver on a thin-walled torus

@@ -10,6 +10,8 @@ repository = "https://github.com/retkins/oersted/"
 homepage = "https://retkins.github.io/oersted/"
 
 [dependencies]
+faer = "0.24.4"
+ndarray = "0.17.2"
 numpy = {version = "0.28.0", optional=true}
 pyo3 = {version = "0.28.2", features = ["extension-module", "abi3-py310", "generate-import-lib"] , optional=true}
 rayon = {version = "1.11.0", optional=true}

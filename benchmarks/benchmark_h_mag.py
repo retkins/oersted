@@ -66,7 +66,7 @@ ax.set_title("H_mag Benchmarks")
 ax.set_xscale("log")
 ax.set_yscale("log")
 
-fig.savefig("benchmarks/figs/h_mag_benchmarks.svg")
+fig.savefig("docs/figs/benchmarks/h_mag_benchmarks.svg")
 
 # Print benchmarking results to command line as well
 print("Benchmarking Results - Magnetization Sources")

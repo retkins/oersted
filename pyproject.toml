@@ -6,7 +6,8 @@ description = "Lightning-fast magnetic fields calculations"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "numpy>=2.0.0",     # atan2 introduced here
+    "numpy>=2.0.0", # atan2 introduced here
+    "pyvista>=0.48.4",
 ]
 
 # Optional deps not exposed to pypi install interface 

@@ -66,7 +66,7 @@ def plot():
         origin="lower",
         interpolation="bicubic",
         norm="log",
-        extent=(x.min(), x.max(), z.min(), z.max()),
+        extent=(np.min(x), np.max(x), np.min(z), np.max(z)),
     )
     fig.colorbar(im, label="$|\\vec{B}|$ [T]", ax=ax)
     # Plot the solenoid cross-section
