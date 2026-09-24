@@ -9,6 +9,8 @@ mesh_sizes = np.linspace(1.0e-3, 8e-3, 10)
 thetas = np.linspace(0.1, 0.5, 1)
 thetas = [0.5]
 n_iterations = 5
+field = "a_field"
+
 
 meshes = []
 jdensities = []
@@ -16,6 +18,13 @@ for mesh_size in mesh_sizes:
     mesh, jdensity = oersted.make_helmholtz("tests/data/ring.stp", mesh_size)
     meshes.append(mesh)
     jdensities.append(jdensity)
+
+if field == "a_field":
+    fn_field = oersted.a_field 
+elif field == "b_field":
+    fn_field = oersted.b_field 
+else: 
+    raise ValueError(f"Field {field} not recognized")
 
 
 def bench(theta):
@@ -29,7 +38,7 @@ def bench(theta):
         jdensity = jdensities[i]
         start = perf_counter()
         for _ in range(n_iterations):
-            _ = oersted.b_field(
+            _ = oersted.a_field(
                 mesh,
                 mesh.centroids,
                 jdensity=jdensity,
@@ -55,4 +64,4 @@ ax.set_title(
 ax.set_xscale("log")
 ax.set_yscale("log")
 ax.legend()
-fig.savefig("docs/figs/benchmarks/octree_times.svg")
+fig.savefig(f"docs/figs/benchmarks/octree_times_{field}.svg")
