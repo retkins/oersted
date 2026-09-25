@@ -197,6 +197,8 @@ Where:
 $$ A = R + M / dt $$
 $$ F = (M/dt) \cdot J^k - V \cdot \partial{A_{ext}}/\partial{t} $$
 
+The system matrix is square and of size `3 N_el + N_red`, where `N_red` is the number of scalar potential degrees of freedom after gauge pinning.
+
 ### Gauge Pinning 
 
 On each individual body in the mesh, a single node has $\phi = 0$, which is enforced at the time of construction of the system matrices. This makes the system gauge unambiguous and allows the equations of motions to be solved without a cohomology computation.

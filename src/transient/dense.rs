@@ -2,22 +2,21 @@
 //!
 //! This solve forms a fully dense interaction matrix and therefore should only be used
 //! for relatively small systems (<10k elements)
-//!
-#![allow(unused)]
+
 
 use faer::{
     Col, Scale,
     diag::Diag,
     linalg::solvers::{PartialPivLu, Solve},
     mat::Mat,
-    sparse::SparseColMat,
 };
 use ndarray::{Array1, Array3};
 
 use crate::{
-    biotsavart::{IntegrationMethod, Kernel, SourceVectors, a_field},
+    biotsavart::{IntegrationMethod, SourceVectors, a_field},
     mesh::Mesh,
     types::{Vec3, vec3_to_3vec},
+    transient::common::assemble_r
 };
 
 type Triplets = Vec<(usize, usize, f64)>;
@@ -50,7 +49,7 @@ pub fn solve(
     println!("Assembling matrices");
     let r = assemble_r(rho, mesh);
     let g: Triplets = assemble_g(mesh);
-    let (m, asym_m) = assemble_m(mesh);
+    let (m, _) = assemble_m(mesh);
     let grounded: Vec<usize> = ground_nodes(mesh);
     let k = assemble_kkt(mesh, &m, &g, &r, dt, &grounded);
 
@@ -129,17 +128,6 @@ fn assemble_g(mesh: &Mesh) -> Triplets {
     triplets
 }
 
-// Assemble the resistance diagonal matrix R
-//
-// This matrix has length `n_elems`, each of which are rho*vol[e]
-fn assemble_r(rho: f64, mesh: &Mesh) -> Diag<f64> {
-    let mut r = Diag::zeros(mesh.n_elems());
-    for i in 0..mesh.n_elems() {
-        r[i] = rho * mesh.volumes[i];
-    }
-    r
-}
-
 // Assemble the inductance matrix M
 //
 // This matrix is fully dense, as each element couples to every other element
@@ -188,7 +176,7 @@ fn assemble_m(mesh: &Mesh) -> (Mat<f64>, f64) {
 //
 // TODO: this version assumes the mesh represents a single body and therefore just
 // grounds the first node
-fn ground_nodes(mesh: &Mesh) -> Vec<usize> {
+fn ground_nodes(_: &Mesh) -> Vec<usize> {
     let grounded: Vec<usize> = vec![0; 1];
     grounded
 }

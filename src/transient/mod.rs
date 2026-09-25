@@ -6,11 +6,12 @@
 //!    current density (J, A/m^2) defined piecewise constant (P0 basis) on the elements.
 //! 3. phi is a lagrange multiplier that enforced div J = 0 (eliminates the cohomology problem).
 
+mod common;
 mod dense;
 mod bh; 
 
 use crate::{
-    mesh::Mesh
+    mesh::Mesh, 
 };
 use ndarray::{Array1, Array3};
 
