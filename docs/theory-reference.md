@@ -63,8 +63,6 @@ This library follows the procedures described in Ref [5 & 6](references.md). Fir
 volume integral is decomposed into a summation of surface integrals. Each of these surface
 integrals is then decomposed into a summation of line integrals. 
 
-
-
 ## Force Calculation
 
 Forces on magnetic materials and current-carrying conductors are calculated according 
@@ -78,7 +76,6 @@ Notes:
 
 - Lorentz forces are volumetric and therefore calculated on a per-element basis within 
 the mesh  
-
 
 ### Maxwell Force
 
@@ -115,3 +112,94 @@ Notes:
 - The Kelvin force is much less mesh-sensitive than the Maxwell stress tensor  
 - Fields should be computed on the body as if the body itself was not magnetized  
 - The Kelvin force cannot compute forces on current-carrying conductors with unity magnetic permeability. 
+
+## Transient (Time Domain) Eddy Current Solver 
+
+`oersted` includes an eddy current solver, which makes the standard 
+[magnetoquasistatic](https://en.wikipedia.org/wiki/Magnetoquasistatic_field)
+assumptions (high-frequency radiation/wave effects can be neglected). Currently, magnetic materials are not supported by this solver.
+
+### Degrees of Freedom 
+
+`oersted` operates on 4-node tetrahedral elements. In the eddy current solution, the 
+solver assigns four scalar potential DOF to the nodes, and a current density vector 
+to the element centroid (Jx, Jy, Jz), assuming that the current density is constant
+across each element. This is a low-order discretization, so it relies on mesh refinement
+for accurate resolution of curved geometries and conductor skin depths. 
+
+### Equations of Motion
+
+Consider a conducting domain $\Omega$ with resistivity $\rho$. Combine Faraday's law, Ohm's law, the definition of the magnetic vector potential, and separating the electrostatic potential from the induced component: 
+
+Faraday's law:
+$$ \nabla \times E = - \partial{B}/\partial{t} $$
+
+Ohm's law:
+$$ E = \rho \space J $$
+
+Definition of the magnetic vector potential: 
+$$ B = \nabla \times A $$
+
+Substituting: 
+
+$$ \nabla \times E = -\partial/\partial{t} \space (\nabla \times A) = -\nabla \times (\partial{A}/\partial{t}) $$
+
+Therefore: 
+$$ \nabla \times (E + \partial{A}/\partial{t}) = 0 $$
+
+But a curl-free field is the gradient of something; choose a negative sign convention and include Ohm's law: 
+
+$$ \rho \space J  + \partial{A}/\partial{t} = - \nabla \phi $$
+
+Since magnetic materials are not supported, all fields can be decomposed into a self-field component and an external component:
+
+$$ A = A_J + A_{ext} $$
+
+Therefore:
+
+$$ \rho \space J +\partial{A_J}/\partial{t} + \nabla \phi = -\partial{A_{ext}}/\partial{t} $$
+
+The right side of the equation is the 'driving force', and the left side is the material response. 
+
+### Constraints 
+
+Within the material, electric charge can be neither created nor destroyed (no charge pile up), so within the domain $ \Omega $: 
+$$ \nabla \cdot J = 0 $$
+
+and on the surface of $ \Omega $: 
+$$ J \cdot \hat{n} = 0 $$
+
+### Inductance Kernel 
+
+The eddy current self field is defined as: 
+$$ A_J(r) = \frac{\mu_0}{4\pi} \cdot \int_{\Omega} J(r') / |r - r'| dV' $$
+
+Which is provided by the Fabbri analytical integrals over tetrahedra and accelerated by the Barnes-Hut/octree solver for large $N$ problems. 
+
+When using the dense solver, this is equivalent to the inductance matrix defined as: 
+$$ M(r) = \frac{\mu_0}{4\pi} \cdot \int_{\Omega} 1 / |r - r'| dV' $$
+
+### Time Discretization 
+
+The solver uses backward\implicit Euler time-stepping:
+
+$$ \partial{A}/\partial{t}^{k+1} = (A_J ^ {k+1} - A_J ^ k) / \Delta t $$
+
+A fixed time step is used for all calculations, which is less flexible but significantly simplifies the solution process. 
+
+### Discretization
+*TODO*
+
+### Assembled Equations of Motion, KKT System
+$$ \begin{bmatrix}A & G \\ G^T & 0 \end{bmatrix} \begin{bmatrix} J^{k+1} \\ \phi^{k+1} \end{bmatrix} = \begin{bmatrix}F \\ 0 \end{bmatrix}$$
+
+Where:
+$$ A = R + M / dt $$
+$$ F = (M/dt) \cdot J^k - V \cdot \partial{A_{ext}}/\partial{t} $$
+
+### Gauge Pinning 
+
+On each individual body in the mesh, a single node has $\phi = 0$, which is enforced at the time of construction of the system matrices. This makes the system gauge unambiguous and allows the equations of motions to be solved without a cohomology computation.
+
+### Cyclic Symmetry Conditions
+*TODO*
