@@ -97,28 +97,31 @@ impl Octree {
             settings,
         };
 
+        // First build of octree requires multipole expansion centers to be computed
+        let recompute_centers: bool = true;
+
         if let Some(j) = jdensity {
-            octree.update_jdensity(j);
+            octree.update_jdensity(j, recompute_centers);
         }
 
         if let Some(m) = mvectors {
-            octree.update_magnetization(m);
+            octree.update_magnetization(m, recompute_centers);
         }
 
         octree
     }
 
     // Update the stored current density source information in the tree
-    pub fn update_jdensity(&mut self, jdensity: &[Vec3]) {
-        self.update_source_vectors(CurrentDensity(jdensity));
+    pub fn update_jdensity(&mut self, jdensity: &[Vec3], recompute_centers: bool) {
+        self.update_source_vectors(CurrentDensity(jdensity), recompute_centers);
     }
 
     // Update the stored magnetiation source information in the tree
-    pub fn update_magnetization(&mut self, magnetization: &[Vec3]) {
-        self.update_source_vectors(Magnetization(magnetization));
+    pub fn update_magnetization(&mut self, magnetization: &[Vec3], recompute_centers: bool) {
+        self.update_source_vectors(Magnetization(magnetization), recompute_centers);
     }
 
-    fn update_source_vectors(&mut self, vectors: SourceVectors) {
+    fn update_source_vectors(&mut self, vectors: SourceVectors, recompute_centers: bool) {
         let mut vectors_sorted: Vec<Vec3> = match vectors {
             SourceVectors::CurrentDensity(v) => v.to_vec(),
             SourceVectors::Magnetization(v) => v.to_vec(),
@@ -137,7 +140,7 @@ impl Octree {
             &self.sources.elem_centroids,
             &self.sources.elem_extents,
             &self.topology,
-            true,
+            recompute_centers,
         );
 
         match vectors {
@@ -388,7 +391,7 @@ mod tests {
         // println!("Far: {:?}", far);
 
         let jdensity: Vec<Vec3> = vec![Vec3([1.0e7, 0.0, 0.0]); 8];
-        tree.update_jdensity(&jdensity);
+        tree.update_jdensity(&jdensity, true);
 
         // Each leaf should have moment = vol*J
         let m_exp = jdensity[0][0] * tree.sources.elem_volumes[0];

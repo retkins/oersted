@@ -66,7 +66,7 @@ pub fn magnetization_solve(
     for it in 0..max_iterations {
         // Dispatch over solver method to compute the current iteration of the demag field
         if let Some(oc) = &mut octree {
-            oc.update_magnetization(mvectors);
+            oc.update_magnetization(mvectors, true);
             oc.compute_fields(
                 centroids,
                 (hx, hy, hz),
