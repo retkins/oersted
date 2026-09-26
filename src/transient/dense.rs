@@ -61,7 +61,7 @@ pub fn solve(
     // These are stored component-major: i.e. all x's, all y's, then all z's
     let mut rhs = Col::<f64>::zeros(size);
     let mut j_prev = Mat::<f64>::zeros(n_elem, 3);
-    let mut mj = Mat::<f64>::zeros(n_elem, 3);
+    // let mut mj = Mat::<f64>::zeros(n_elem, 3);
 
     // Initial conditions at time = 0.0
     for e in 0..n_elem {
@@ -77,7 +77,7 @@ pub fn solve(
 
         // Compute the rhs of the system
         // Momentum block: (M/dt)*J^k - V_e * da_ext/dt
-        mj = m.as_ref() * j_prev.as_ref();
+        let mj = m.as_ref() * j_prev.as_ref();
 
         for c in 0..3 {
             for e in 0..n_elem {

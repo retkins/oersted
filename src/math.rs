@@ -57,14 +57,20 @@ where
     }
 }
 
-/// Take the vector magnitude (norm) of a slice
+/// Take the vector magnitude squared (norm squared) of a slice
 #[inline]
-pub fn mag(slice: &[f64]) -> f64 {
+pub fn mag2(slice: &[f64]) -> f64 {
     let mut sumsq: f64 = 0.0;
     for &value in slice.iter() {
         sumsq += value * value;
     }
-    sumsq.sqrt()
+    sumsq
+}
+
+/// Take the vector magnitude (norm) of a slice
+#[inline]
+pub fn mag(slice: &[f64]) -> f64 {
+    mag2(slice).sqrt()
 }
 
 /// Magnitude of a 3-length vector given separate coordinates
@@ -73,6 +79,16 @@ pub fn mag(slice: &[f64]) -> f64 {
 #[inline]
 pub fn mag3(x: f64, y: f64, z: f64) -> f64 {
     x.mul_add(x, y.mul_add(y, z * z)).sqrt()
+}
+
+/// Compute the dot product between two n-length vectors
+pub fn dot(a: &[f64], b: &[f64]) -> f64 {
+    assert!(a.len() == b.len());
+    let mut sum = 0.0; 
+    for i in 0..a.len() {
+        sum += a[i]*b[i];
+    }
+    sum
 }
 
 /// Compute the dot product between two 3-length vectors

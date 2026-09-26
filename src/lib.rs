@@ -28,6 +28,7 @@ pub mod analytical;
 pub mod biotsavart;
 pub mod errors;
 pub mod io;
+pub mod krylov;
 pub mod magnetization;
 pub mod math;
 pub mod mesh;
