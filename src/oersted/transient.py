@@ -36,8 +36,10 @@ def transient_solve(
     assert b_ext.ndim == 3 and a_ext.ndim == 3
     assert b_ext.shape[2] == 3 and a_ext.shape == b_ext.shape
 
+    # BH solver is in development, so it defaults to False
+    use_bh = False
     (time, j, a, b) = _transient_solve(
-        mesh.nodes, mesh.connectivity, rho, nt, tmax, a_ext, b_ext
+        mesh.nodes, mesh.connectivity, rho, nt, tmax, a_ext, b_ext, use_bh
     )
 
     return TransientResults(time, j, a, b)

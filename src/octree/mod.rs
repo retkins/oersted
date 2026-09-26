@@ -133,7 +133,20 @@ impl Octree {
             &self.sources.sorted_to_unsorted,
         );
 
-        let mut tree_moments = TreeMoments::new(self.topology.len());
+        let existing: Option<TreeMoments> = match vectors {
+            SourceVectors::CurrentDensity(_) => self.j_moments.take(),
+            SourceVectors::Magnetization(_) => self.m_moments.take()
+        };
+
+        // If there are existing tree moments, use the user-supplied flag for 
+        // deciding whether or not to recompute the expansion centers. Otherwise, 
+        // there are no expansion centers and they must be recomputed.
+        let (mut tree_moments, recompute_centers) = match existing {
+            Some(moments) => (moments, recompute_centers), 
+            None => (TreeMoments::new(self.topology.len()), true)
+        };
+
+
         tree_moments.update(
             &vectors_sorted,
             &self.sources.elem_volumes,

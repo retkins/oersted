@@ -94,4 +94,5 @@ def transient_solve(
     tmax: float,
     a_ext: NDArray[float64],
     b_ext: NDArray[float64],
+    use_bh: bool
 ) -> tuple[NDArray[float64], NDArray[float64], NDArray[float64], NDArray[float64]]: ...

@@ -118,7 +118,7 @@ impl TreeMoments {
             dipole: vec![Mat3::default(); n],
             centers: vec![Vec3::default(); n],
             weights: vec![0.0; n],
-            bmax: vec![0.0; n],
+            bmax: vec![std::f64::MAX; n],
         }
     }
 
