@@ -16,6 +16,9 @@ numpy = {version = "0.28.0", optional=true}
 pyo3 = {version = "0.28.2", features = ["extension-module", "abi3-py310", "generate-import-lib"] , optional=true}
 rayon = {version = "1.11.0", optional=true}
 
+[dev-dependencies]
+rand = "0.10.3"
+
 # Enable features with the flag: --features python
 [features]
 default = [] 
