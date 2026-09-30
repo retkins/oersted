@@ -1,12 +1,8 @@
 //! Internals used by multiple transient solvers
 
-use faer::{
-    diag::Diag
-};
+use faer::diag::Diag;
 
-use crate::{
-    mesh::Mesh
-};
+use crate::mesh::Mesh;
 
 /// Assemble the resistance diagonal matrix R
 ///

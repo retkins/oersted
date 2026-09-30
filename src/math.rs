@@ -84,9 +84,9 @@ pub fn mag3(x: f64, y: f64, z: f64) -> f64 {
 /// Compute the dot product between two n-length vectors
 pub fn dot(a: &[f64], b: &[f64]) -> f64 {
     assert!(a.len() == b.len());
-    let mut sum = 0.0; 
+    let mut sum = 0.0;
     for i in 0..a.len() {
-        sum += a[i]*b[i];
+        sum += a[i] * b[i];
     }
     sum
 }
@@ -163,6 +163,38 @@ pub fn running_average(
     }
 
     new_quantity
+}
+
+/// Add one vector to another, `a + b = out`
+pub fn vadd(a: &[f64], b: &[f64], out: &mut [f64]) {
+    assert!(a.len() == b.len() && b.len() == out.len());
+    for i in 0..a.len() {
+        out[i] = a[i] + b[i];
+    }
+}
+
+/// Subtract one vector from another, `a - b = out`
+pub fn vsub(a: &[f64], b: &[f64], out: &mut [f64]) {
+    assert!(a.len() == b.len() && b.len() == out.len());
+    for i in 0..a.len() {
+        out[i] = a[i] - b[i];
+    }
+}
+
+/// BLAS-1: `y = ax + y`
+pub fn axpy(a: f64, x: &[f64], y: &mut [f64]) {
+    assert!(x.len() == y.len());
+    for i in 0..y.len() {
+        y[i] = y[i] + a * x[i];
+    }
+}
+
+/// BLAS-1: `y = ay + x`
+pub fn aypx(a: f64, y: &mut [f64], x: &[f64]) {
+    assert!(x.len() == y.len());
+    for i in 0..y.len() {
+        y[i] = a * y[i] + x[i];
+    }
 }
 
 /// Compute the radius of a sphere given its volume

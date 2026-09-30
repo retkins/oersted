@@ -6,36 +6,29 @@
 //!    current density (J, A/m^2) defined piecewise constant (P0 basis) on the elements.
 //! 3. phi is a lagrange multiplier that enforced div J = 0 (eliminates the cohomology problem).
 
+mod bh;
 mod common;
 mod dense;
-mod bh; 
 
-use crate::{
-    mesh::Mesh, 
-};
+use crate::mesh::Mesh;
 use ndarray::{Array1, Array3};
 
 pub enum TransientSolver {
-    Dense, 
-    BH
+    Dense,
+    BH,
 }
 
 pub fn solve(
-    mesh: &Mesh, 
-    rho: f64, 
-    nt: usize, 
-    tmax: f64, 
-    a_ext: &Array3<f64>, 
-    b_ext: &Array3<f64>, 
-    solver: TransientSolver
-) -> (Array1<f64>, Array3<f64>, Array3<f64>, Array3<f64>)  {
+    mesh: &Mesh,
+    rho: f64,
+    nt: usize,
+    tmax: f64,
+    a_ext: &Array3<f64>,
+    b_ext: &Array3<f64>,
+    solver: TransientSolver,
+) -> (Array1<f64>, Array3<f64>, Array3<f64>, Array3<f64>) {
     match solver {
-        TransientSolver::Dense => {
-            dense::solve(mesh, rho, nt, tmax, a_ext, b_ext)
-        }, 
-        TransientSolver::BH => {
-            dense::solve(mesh, rho, nt, tmax, a_ext, b_ext)
-        }, 
+        TransientSolver::Dense => dense::solve(mesh, rho, nt, tmax, a_ext, b_ext),
+        TransientSolver::BH => dense::solve(mesh, rho, nt, tmax, a_ext, b_ext),
     }
 }
-

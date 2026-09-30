@@ -437,7 +437,7 @@ fn transient_solve<'py>(
     tmax: f64,
     a_ext: PyReadonlyArray3<f64>,
     b_ext: PyReadonlyArray3<f64>,
-    use_bh: bool
+    use_bh: bool,
 ) -> PyResult<(
     Bound<'py, PyArray1<f64>>,
     Bound<'py, PyArray3<f64>>,
@@ -454,12 +454,12 @@ fn transient_solve<'py>(
 
     let solver = if use_bh {
         crate::transient::TransientSolver::BH
-    }
-    else {
+    } else {
         crate::transient::TransientSolver::Dense
     };
 
-    let (t, j_total, a_total, b_total) = crate::transient::solve(&mesh, rho, nt, tmax, &a, &b, solver);
+    let (t, j_total, a_total, b_total) =
+        crate::transient::solve(&mesh, rho, nt, tmax, &a, &b, solver);
 
     Ok((
         PyArray1::from_owned_array(py, t),

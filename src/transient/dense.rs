@@ -3,7 +3,6 @@
 //! This solve forms a fully dense interaction matrix and therefore should only be used
 //! for relatively small systems (<10k elements)
 
-
 use faer::{
     Col, Scale,
     diag::Diag,
@@ -15,8 +14,8 @@ use ndarray::{Array1, Array3};
 use crate::{
     biotsavart::{IntegrationMethod, SourceVectors, a_field},
     mesh::Mesh,
+    transient::common::assemble_r,
     types::{Vec3, vec3_to_3vec},
-    transient::common::assemble_r
 };
 
 type Triplets = Vec<(usize, usize, f64)>;

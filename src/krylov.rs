@@ -1,15 +1,15 @@
 //! Krylov methods for solving linear systems of the form `A x = b` by iteratively
-//! computing `x` 
+//! computing `x`
 
-
-use std::{debug_assert, fmt::Display};
+use std::fmt::Display;
 
 use crate::{
-    check_lengths, math::{dot, mag}
+    check_lengths,
+    math::{axpy, aypx, dot, mag},
 };
 
-/// Computes `A*x = b`
 pub trait LinearOperator {
+    /// Computes `A*x = b`
     fn apply(&self, x: &[f64], out: &mut [f64]);
     fn len(&self) -> usize;
 }
@@ -20,77 +20,86 @@ pub trait Preconditioner {
     fn len(&self) -> usize;
 }
 
-
 pub enum KrylovResult {
-    Converged(usize, f64), 
-    DidNotConverge(usize, f64), 
+    Converged(usize, f64),
+    DidNotConverge(usize, f64),
     Breakdown(usize),
-    ZeroUnknowns, 
-    ZeroRhs, 
-
+    ZeroUnknowns,
+    ZeroRhs,
 }
 
 impl Display for KrylovResult {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            KrylovResult::Converged(i, residual) => write!(f, "Converged in {} iterations with residual {:.6e}", i, residual), 
-            KrylovResult::DidNotConverge(i, residual) => write!(f, "Did not converge after {} iterations with residual {:.6e}", i, residual),
-            KrylovResult::ZeroUnknowns => write!(f, "Unknowns were length zero"), 
-            KrylovResult::ZeroRhs => write!(f, "RHS was zero, no solution needed"), 
-            KrylovResult::Breakdown(i) => write!(f, "Breakdown in SPD at iteration {}", i)
+            KrylovResult::Converged(i, residual) => write!(
+                f,
+                "Converged in {} iterations with residual {:.6e}",
+                i, residual
+            ),
+            KrylovResult::DidNotConverge(i, residual) => write!(
+                f,
+                "Did not converge after {} iterations with residual {:.6e}",
+                i, residual
+            ),
+            KrylovResult::ZeroUnknowns => write!(f, "Unknowns were length zero"),
+            KrylovResult::ZeroRhs => write!(f, "RHS was zero, no solution needed"),
+            KrylovResult::Breakdown(i) => write!(f, "Breakdown in SPD at iteration {}", i),
         }
     }
 }
 
-
-
-pub struct CgSolver {
-    pub max_iterations: usize, 
-    pub rtol: f64, 
+pub struct Workspace {
+    r: Vec<f64>,
+    z: Vec<f64>,
+    p: Vec<f64>,
+    ap: Vec<f64>,
 }
 
-/// Add one vector to another, `a + b = out`
-fn vadd(a: &[f64], b: &[f64], out: &mut[f64]) {
-    assert!(a.len() == b.len() && b.len() == out.len());
-    for i in 0..a.len() {
-        out[i] = a[i] + b[i];
+impl Workspace {
+    pub fn new(n: usize) -> Self {
+        Self {
+            r: vec![0.0; n],
+            z: vec![0.0; n],
+            p: vec![0.0; n],
+            ap: vec![0.0; n],
+        }
     }
-}
-
-/// Subtract one vector from another, `a - b = out`
-fn vsub(a: &[f64], b: &[f64], out: &mut[f64]) {
-    assert!(a.len() == b.len() && b.len() == out.len());
-    for i in 0..a.len() {
-        out[i] = a[i] - b[i];
-    }
-}
-
-/// BLAS-1: `y = ax + y`
-fn axpy(a: f64, x: &[f64], y: &mut [f64]) {
-    assert!(x.len() == y.len());
-    for i in 0..y.len() {
-        y[i] = y[i] + a * x[i];
-    }
-}
-
-/// BLAS-1: `y = ay + x`
-fn aypx(a: f64, y: &mut [f64], x: &[f64]) {
-    assert!(x.len() == y.len());
-    for i in 0..y.len() {
-        y[i] = a * y[i] + x[i];
+    pub fn reset(&mut self, n: usize) {
+        for v in [&mut self.r, &mut self.z, &mut self.p, &mut self.ap] {
+            v.resize(n, 0.0);
+        }
     }
 }
 
 pub trait KrylovSolver {
     /// Solve `Ax = b`, using a preconditioner `M` and starting with initial guess `x0`
-    fn solve(&self, a: impl LinearOperator, m: impl Preconditioner, x0: &[f64], b: &[f64], x: &mut [f64]) -> KrylovResult;
+    fn solve(
+        &self,
+        ws: &mut Workspace,
+        a: &impl LinearOperator,
+        m: &impl Preconditioner,
+        x0: &[f64],
+        b: &[f64],
+        x: &mut [f64],
+    ) -> KrylovResult;
 }
 
-impl KrylovSolver for CgSolver {
-    // TODO: make multithreaded, move workspace into struct so that it can be 
-    // reused across calls
-    fn solve(&self, a: impl LinearOperator, m: impl Preconditioner, x0: &[f64], b: &[f64], x: &mut [f64]) -> KrylovResult {
+/// Preconditioned conjugate gradient solver
+pub struct PcgSolver {
+    pub max_iterations: usize,
+    pub rtol: f64,
+}
 
+impl KrylovSolver for PcgSolver {
+    fn solve(
+        &self,
+        ws: &mut Workspace,
+        a: &impl LinearOperator,
+        m: &impl Preconditioner,
+        x0: &[f64],
+        b: &[f64],
+        x: &mut [f64],
+    ) -> KrylovResult {
         let n: usize = check_lengths!(a, m, x0, b, x);
 
         if n == 0 {
@@ -106,66 +115,62 @@ impl KrylovSolver for CgSolver {
         }
 
         // Allocate workspace
-        let mut r: Vec<f64> = vec![0.0; n];
-        let mut z: Vec<f64> = vec![0.0; n];
-        let mut ap: Vec<f64> = vec![0.0; n];
+        ws.reset(n);
 
         // Start with x = x0
         x.copy_from_slice(x0);
 
         // Compute initial residual `r0 = b - A*x0` and `z = M^-1 r`
-        a.apply(x0, &mut r);
-        for i in 0..r.len() {
-            r[i] = b[i] - r[i];
+        a.apply(x0, &mut ws.r);
+        for i in 0..ws.r.len() {
+            ws.r[i] = b[i] - ws.r[i];
         }
-        m.apply(&r, &mut z);
+        m.apply(&ws.r, &mut ws.z);
 
-        // Initial search direction 
-        let mut p: Vec<f64> = z.clone();
+        // Initial search direction
+        ws.p.copy_from_slice(&ws.z);
 
         // Early return (lucky guess!)
-        let rmag = mag(&r);
+        let rmag = mag(&ws.r);
         if rmag <= atol {
             return KrylovResult::Converged(0usize, rmag);
         }
 
-        let mut rz = dot(&r, &z);
+        let mut rz = dot(&ws.r, &ws.z);
 
-        for i in 0..self.max_iterations {   
-        
+        for i in 0..self.max_iterations {
             // Compute A*p for the current iteration
-            a.apply(&p, &mut ap); 
+            a.apply(&ws.p, &mut ws.ap);
 
-            // Compute r_k^2 and alpha_k 
-            let den: f64 = dot(&p, &ap);
-            let alpha: f64 = rz/den;
+            // Compute r_k^2 and alpha_k
+            let den: f64 = dot(&ws.p, &ws.ap);
+
             if !(den > 0.0) {
-
+                return KrylovResult::Breakdown(i + 1);
             }
+            let alpha: f64 = rz / den;
 
             // Update x and r
-            axpy(alpha, &p, x);
-            axpy(-alpha, &ap, &mut r);
-            
-            // Check for convergence 
-            let rmag = mag(&r);
+            axpy(alpha, &ws.p, x);
+            axpy(-alpha, &ws.ap, &mut ws.r);
+
+            // Check for convergence
+            let rmag = mag(&ws.r);
             if rmag < atol {
-                return KrylovResult::Converged(i+1, rmag);
+                return KrylovResult::Converged(i + 1, rmag);
             }
 
             // Update z, `z = M^-1 r`
-            m.apply(&r, &mut z);
+            m.apply(&ws.r, &mut ws.z);
 
             // Update search direction: `p_k+1 = r_k+1 + beta*p_k`
-            let rz_kp1: f64 = dot(&r, &z); 
+            let rz_kp1: f64 = dot(&ws.r, &ws.z);
             let beta: f64 = rz_kp1 / rz;
-            aypx(beta, &mut p, &z);
+            aypx(beta, &mut ws.p, &ws.z);
             rz = rz_kp1;
-
         }
-        let rmag = mag(&r);
+        let rmag = mag(&ws.r);
         KrylovResult::DidNotConverge(self.max_iterations, rmag)
-
     }
 }
 
@@ -173,37 +178,64 @@ impl KrylovSolver for CgSolver {
 mod tests {
 
     use super::*;
-    use faer::{Mat, diag::Diag};
+    use crate::math::vsub;
+    use faer::{Accum, Mat, MatMut, MatRef, Par, diag::Diag, linalg::matmul::matmul};
     use rand;
+    use std::time::Instant;
 
-    pub struct ClosureOperator<F> {
-        pub n: usize,
-        pub f: F
+    struct MatrixOperator {
+        a: Mat<f64>,
     }
 
-    impl <F: Fn(&[f64], &mut [f64])> LinearOperator for ClosureOperator<F> {
+    impl LinearOperator for MatrixOperator {
         fn apply(&self, x: &[f64], out: &mut [f64]) {
-            (self.f)(x, out)
+            let n = x.len();
+            matmul(
+                MatMut::from_column_major_slice_mut(out, n, 1),
+                Accum::Replace,
+                self.a.as_ref(),
+                MatRef::from_column_major_slice(&x, n, 1),
+                1.0,
+                Par::Seq,
+            )
+        }
+        fn len(&self) -> usize {
+            self.a.nrows()
+        }
+    }
+
+    struct NoPreconditioner {
+        n: usize,
+    }
+
+    impl Preconditioner for NoPreconditioner {
+        fn apply(&self, x: &[f64], out: &mut [f64]) {
+            for i in 0..x.len() {
+                out[i] = x[i];
+            }
         }
         fn len(&self) -> usize {
             self.n
         }
     }
 
-    pub struct ClosurePreconditioner<F> {
-        pub n: usize,
-        pub f: F, 
+    struct JacobiPreconditioner<'a> {
+        a: MatRef<'a, f64>,
     }
 
-    impl <F: Fn(& [f64], &mut [f64])> Preconditioner for ClosurePreconditioner<F> {
+    impl Preconditioner for JacobiPreconditioner<'_> {
         fn apply(&self, x: &[f64], out: &mut [f64]) {
-            (self.f)(x, out)
+            for i in 0..x.len() {
+                out[i] = x[i] / self.a[(i, i)];
+            }
         }
-        fn len(&self) -> usize {self.n}
+        fn len(&self) -> usize {
+            self.a.nrows()
+        }
     }
-
 
     // Make a symmetric positive definite matrix, A = Bt * B + I
+    #[allow(unused)]
     fn make_spd(n: usize) -> Mat<f64> {
         let m = Mat::<f64>::from_fn(n, n, |_, _| rand::random::<f64>() - 0.5);
         let mt = m.transpose().to_owned();
@@ -211,57 +243,108 @@ mod tests {
         for i in 0..n {
             d[i] = rand::random::<f64>();
         }
-        d.as_ref()*(mt * m + Mat::<f64>::identity(n, n))*d.as_ref()
+        d.as_ref() * (mt * m + Mat::<f64>::identity(n, n)) * d.as_ref()
     }
 
-    // Make a random vector 
+    // Make an 'inductance' matrix, which is SPD by construction
+    fn make_ind(n: usize) -> Mat<f64> {
+        let s: Vec<f64> = (0..n)
+            .map(|i| 10f64.powf(((i * 61 % 41) as f64) / 20.0 - 1.0))
+            .collect();
+        Mat::<f64>::from_fn(n, n, |i, j| {
+            let d = (i as f64 - j as f64).abs();
+            let k = if i == j { 2.0 } else { 1.0 / (1.0 + d) };
+            s[i] * s[j] * k
+        })
+    }
+
+    // Make a random vector
     fn make_random_vector(n: usize) -> Vec<f64> {
-        let mut v = vec![0.0; n]; 
+        let mut v = vec![0.0; n];
         for i in 0..v.len() as usize {
             v[i] = rand::random();
         }
         v
     }
 
+    fn count_iterations(
+        cg: &PcgSolver,
+        ws: &mut Workspace,
+        op: &impl LinearOperator,
+        m: &impl Preconditioner,
+        b: &[f64],
+        x: &mut [f64], 
+        xref: &[f64],
+    ) -> usize {
+        let n: usize = op.len();
+        let it = match cg.solve(ws, op, m, &mut vec![0.0; n], b, x) {
+            KrylovResult::Converged(i, _) => i,
+            other => panic!("{}", other),
+        };
+
+        let mut err = vec![0.0; n];
+        vsub(&x, xref, &mut err);
+        let r_err = mag(&err) / mag(xref);
+        assert!(r_err < 1e-6, "Relative solution error: {:.6e}", r_err);
+        it
+    }
+
+    // Compute |Ax - b| < rtol*|b|
+    fn check_residual(rtol: f64, op: &impl LinearOperator, x: &[f64], b: &[f64]) {
+        let n = op.len();
+        let mut ax = vec![0.0; n];
+        op.apply(&x, &mut ax);
+
+        // res = Ax - b
+        let mut res = vec![0.0; n];
+        vsub(b, &ax, &mut res);
+        let rmag = mag(&res);
+
+        // |res| < rtol * |b|
+        assert!(rmag <= rtol * mag(b), "Residual {:.3e}", rmag);
+    }
+
     #[test]
-    fn test_cg() {
-        let n = 200; 
-        let rtol = 1e-8;
-        let a = make_spd(n);
-        let x = make_random_vector(n);
-        let b = a.as_ref() * Mat::from_fn(n, 1, |i, _| x[i]);
-        let mut bv = vec![0.0; n]; 
-        for i in 0..bv.len() as usize {
-            bv[i] = b[(i,0)];
-        }
+    fn test_pcg() {
+        let n = 1000;
+        let rtol = 1e-10;
+        let a = make_ind(n);
+        let xref = make_random_vector(n);
+        let b = a.as_ref() * MatRef::from_column_major_slice(&xref, n, 1);
+        let bv = b.col_as_slice(0).to_vec();
 
-        let operator = ClosureOperator{n: n, f: |xin: &[f64], bout: &mut [f64]| {
-            let b = a.as_ref() * Mat::<f64>::from_fn(n, 1, |i, _| xin[i]);
-            for i in 0..bout.len() as usize {
-                bout[i] = b[(i,0)];
-            }
-        }};
+        let cg = PcgSolver {
+            max_iterations: 10000,
+            rtol: rtol,
+        };
 
-        let preconditioner = ClosurePreconditioner{n: n, f: |xin: &[f64], out: &mut [f64]| {
-            for i in 0..out.len() {
-                out[i] = xin[i] / a[(i,i)];
-            }
-        }};
+        let mut ws = Workspace::new(n);
 
-        let cg = CgSolver {max_iterations: 1000, rtol: rtol};
-        let mut out = vec![0.0; n]; 
-        let x0 = vec![0.0; n];
+        let op = MatrixOperator { a: a.clone() };
 
-        use std::time::Instant; 
+        let m_none = NoPreconditioner { n };
+        let m_jacobi = JacobiPreconditioner { a: a.as_ref() };
+
+        let mut x = vec![0.0; n];
+
         let start = Instant::now();
-        let result = cg.solve(operator, preconditioner, &x0, &bv, &mut out);
-        let elapsed = start.elapsed().as_secs_f64() * 1e3;
-        
-        println!("{}", result);
+        let it_none: usize = count_iterations(&cg, &mut ws, &op, &m_none, &bv, &mut x, &xref);
+        let elapsed: f64 = start.elapsed().as_secs_f64() * 1e3;
         println!("Solved {}-size matrix in {:.3} ms", n, elapsed);
+        println!("Using no preconditioner: {} iterations", it_none);
 
-        for i in 0..n {
-            assert!((out[i] - x[i]).abs() < rtol*10.0);
-        }
+        check_residual(cg.rtol, &op, &x, &bv);
+        x.fill(0.0);
+
+        let start = Instant::now();
+        let it_jacobi: usize = count_iterations(&cg, &mut ws, &op, &m_jacobi, &bv, &mut x, &xref);
+        let elapsed: f64 = start.elapsed().as_secs_f64() * 1e3;
+        println!("Solved {}-size matrix in {:.3} ms", n, elapsed);
+        println!("Using jacobi preconditioner: {} iterations", it_jacobi);
+
+        check_residual(cg.rtol, &op, &x, &bv);
+
+        let m_iter_ratio: f64 = it_none as f64 / it_jacobi as f64;
+        assert!(m_iter_ratio > 2.0, "No preconditioner / Jacobi preconditioner iterations: {:.1}", m_iter_ratio);
     }
 }
