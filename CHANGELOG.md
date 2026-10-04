@@ -138,3 +138,10 @@ method (3x faster than simple batch traversal)
 ### [#34](https://github.com/retkins/oersted/pull/34)
 * Added a time-domain eddy current solver using a dense inductance matrix and direct solver
 * Added an example of the eddy current solver on a thin-walled torus
+
+### In Work
+* Added a preconditioned conjugate gradient solver as a stepping stone for GMRES
+* Added a preconditioned GMRES solver, but without a good preconditioner this is much
+less effective than the dense solver (for small) problems; iteration counts nearly 500
+per step. 
+* Added transient solver settings to `SolverSettings`

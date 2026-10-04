@@ -185,7 +185,7 @@ pub fn vsub(a: &[f64], b: &[f64], out: &mut [f64]) {
 pub fn axpy(a: f64, x: &[f64], y: &mut [f64]) {
     assert!(x.len() == y.len());
     for i in 0..y.len() {
-        y[i] = y[i] + a * x[i];
+        y[i] += a * x[i];
     }
 }
 

@@ -14,7 +14,8 @@ use crate::mesh::Mesh;
 use ndarray::{Array1, Array3};
 
 pub enum TransientSolver {
-    Dense,
+    DenseDirect,
+    DenseIterative,
     BH,
 }
 
@@ -28,7 +29,32 @@ pub fn solve(
     solver: TransientSolver,
 ) -> (Array1<f64>, Array3<f64>, Array3<f64>, Array3<f64>) {
     match solver {
-        TransientSolver::Dense => dense::solve(mesh, rho, nt, tmax, a_ext, b_ext),
-        TransientSolver::BH => dense::solve(mesh, rho, nt, tmax, a_ext, b_ext),
+        TransientSolver::DenseDirect => dense::solve(
+            mesh,
+            rho,
+            nt,
+            tmax,
+            a_ext,
+            b_ext,
+            dense::DenseSolver::Direct,
+        ),
+        TransientSolver::DenseIterative => dense::solve(
+            mesh,
+            rho,
+            nt,
+            tmax,
+            a_ext,
+            b_ext,
+            dense::DenseSolver::Iterative,
+        ),
+        TransientSolver::BH => dense::solve(
+            mesh,
+            rho,
+            nt,
+            tmax,
+            a_ext,
+            b_ext,
+            dense::DenseSolver::Direct,
+        ),
     }
 }

@@ -32,7 +32,9 @@ def test_transient():
     )
 
     # mesh = torus.append(ring)
-    # oersted.mesh.plot_mesh(mesh, transparency=True, filename="docs/figs/torus_mesh.svg")
+    # oersted.mesh.plot_mesh(
+    #   mesh, transparency=True, filename="docs/figs/torus_mesh.svg"
+    # )
 
     # Time properties
     nt = 50

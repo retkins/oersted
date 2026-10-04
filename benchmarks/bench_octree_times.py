@@ -20,10 +20,10 @@ for mesh_size in mesh_sizes:
     jdensities.append(jdensity)
 
 if field == "a_field":
-    fn_field = oersted.a_field 
+    fn_field = oersted.a_field
 elif field == "b_field":
-    fn_field = oersted.b_field 
-else: 
+    fn_field = oersted.b_field
+else:
     raise ValueError(f"Field {field} not recognized")
 
 

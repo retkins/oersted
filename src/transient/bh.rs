@@ -2,6 +2,7 @@
 //!
 //! This is a prototype feature that may have trouble with preconditioning until one is
 //! implemented.
+#![allow(unused, dead_code)]
 
 use crate::octree::Octree;
 use faer::{diag::Diag, sparse::SparseColMat};

@@ -37,9 +37,19 @@ def transient_solve(
     assert b_ext.shape[2] == 3 and a_ext.shape == b_ext.shape
 
     # BH solver is in development, so it defaults to False
-    use_bh = False
+    use_bh = settings.transient_method == "octree"
+    use_dense_iterative = settings.transient_method == "dense-iterative"
+
     (time, j, a, b) = _transient_solve(
-        mesh.nodes, mesh.connectivity, rho, nt, tmax, a_ext, b_ext, use_bh
+        mesh.nodes,
+        mesh.connectivity,
+        rho,
+        nt,
+        tmax,
+        a_ext,
+        b_ext,
+        use_bh,
+        use_dense_iterative,
     )
 
     return TransientResults(time, j, a, b)

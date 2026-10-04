@@ -6,6 +6,7 @@ from typing import Literal, get_args
 Method = Literal["direct", "octree"]
 Integration = Literal["element", "point"]
 MultipoleOrder = Literal["monopole", "dipole"]
+TransientMethod = Literal["dense-direct", "dense-iterative", "octree"]
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -50,6 +51,10 @@ class SolverSettings:
     atol: float = 1e-6
     under_relaxation_factor: float = 0.5
     verbose: bool = False
+
+    # Transient solve settings
+    rtol: float = 1e-8
+    transient_method: TransientMethod = "dense-direct"
 
     def __post_init__(self):
         if self.method not in get_args(Method):

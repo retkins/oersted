@@ -4,7 +4,7 @@
 //! for relatively small systems (<10k elements)
 
 use faer::{
-    Col, Scale,
+    Col, MatRef, Scale,
     diag::Diag,
     linalg::solvers::{PartialPivLu, Solve},
     mat::Mat,
@@ -13,12 +13,37 @@ use ndarray::{Array1, Array3};
 
 use crate::{
     biotsavart::{IntegrationMethod, SourceVectors, a_field},
+    krylov::{GmresSolver, KrylovSolver, MatrixOperator, Preconditioner, Workspace},
     mesh::Mesh,
     transient::common::assemble_r,
     types::{Vec3, vec3_to_3vec},
 };
 
 type Triplets = Vec<(usize, usize, f64)>;
+
+pub enum DenseSolver {
+    Direct,
+    Iterative,
+}
+
+struct KktJacobiPreconditioner<'a> {
+    k: MatRef<'a, f64>,
+    n_el: usize,
+}
+
+impl Preconditioner for KktJacobiPreconditioner<'_> {
+    fn apply(&self, x: &[f64], out: &mut [f64]) {
+        for i in 0..(3 * self.n_el) {
+            out[i] = x[i] / self.k[(i, i)];
+        }
+        // The lower block has 0's in it, so the traditional Jacobi preconditioner
+        // would produce NaN's, so just put ones in these indices
+        out[3 * self.n_el..self.len()].copy_from_slice(&x[3 * self.n_el..self.len()]);
+    }
+    fn len(&self) -> usize {
+        self.k.nrows()
+    }
+}
 
 /// Solve a transient problem
 pub fn solve(
@@ -28,7 +53,12 @@ pub fn solve(
     tmax: f64,
     a_ext: &Array3<f64>,
     b_ext: &Array3<f64>,
+    solver: DenseSolver,
 ) -> (Array1<f64>, Array3<f64>, Array3<f64>, Array3<f64>) {
+    match solver {
+        DenseSolver::Direct => println!("Using Direct Solver"),
+        DenseSolver::Iterative => println!("Using Iterative Solver"),
+    }
     let n_elem: usize = mesh.n_elems();
     let size = 3 * n_elem + mesh.n_nodes();
     let vols = mesh.volumes();
@@ -52,15 +82,39 @@ pub fn solve(
     let grounded: Vec<usize> = ground_nodes(mesh);
     let k = assemble_kkt(mesh, &m, &g, &r, dt, &grounded);
 
-    // Factorize the KKT system
-    println!("Factorizing KKT system");
-    let lu: PartialPivLu<f64> = k.partial_piv_lu();
+    // Solution
+    let mut lu: Option<PartialPivLu<f64>> = None;
+    let n: usize = k.nrows();
+    let gmres = GmresSolver {
+        max_iterations: 1000,
+        rtol: 1e-8,
+        restarts: 100,
+    };
+    let mut ws: Workspace = Workspace::new(0);
+
+    #[allow(non_snake_case)]
+    let A: MatrixOperator = MatrixOperator { a: k.as_ref() };
+    #[allow(non_snake_case)]
+    let M = KktJacobiPreconditioner {
+        k: k.as_ref(),
+        n_el: n_elem,
+    };
+
+    match solver {
+        DenseSolver::Direct => {
+            println!("Factorizing KKT system");
+            lu = Some(k.partial_piv_lu());
+        }
+        DenseSolver::Iterative => {
+            ws.reset(n, gmres.max_iterations);
+        }
+    };
 
     // Buffers reused at every step: rhs, J^k, (M/dt)*J^k
     // These are stored component-major: i.e. all x's, all y's, then all z's
     let mut rhs = Col::<f64>::zeros(size);
     let mut j_prev = Mat::<f64>::zeros(n_elem, 3);
-    // let mut mj = Mat::<f64>::zeros(n_elem, 3);
+    let mut xprev = Col::<f64>::zeros(n);
 
     // Initial conditions at time = 0.0
     for e in 0..n_elem {
@@ -86,7 +140,23 @@ pub fn solve(
         }
 
         // Solve the system
-        let x = lu.solve(&rhs);
+        let x = match solver {
+            DenseSolver::Direct => lu.as_ref().unwrap().solve(&rhs),
+            DenseSolver::Iterative => {
+                let mut x = vec![0.0; n];
+                gmres.solve(
+                    &mut ws,
+                    &A,
+                    &M,
+                    xprev.try_as_col_major().unwrap().as_slice(),
+                    rhs.try_as_col_major().unwrap().as_slice(),
+                    &mut x,
+                );
+                Col::from_fn(n, |i| x[i])
+            }
+        };
+
+        xprev.copy_from(&x);
 
         // Store J from this time step
         for c in 0..3 {

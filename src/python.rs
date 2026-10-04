@@ -438,6 +438,7 @@ fn transient_solve<'py>(
     a_ext: PyReadonlyArray3<f64>,
     b_ext: PyReadonlyArray3<f64>,
     use_bh: bool,
+    use_dense_iterative: bool,
 ) -> PyResult<(
     Bound<'py, PyArray1<f64>>,
     Bound<'py, PyArray3<f64>>,
@@ -455,7 +456,11 @@ fn transient_solve<'py>(
     let solver = if use_bh {
         crate::transient::TransientSolver::BH
     } else {
-        crate::transient::TransientSolver::Dense
+        if use_dense_iterative {
+            crate::transient::TransientSolver::DenseIterative
+        } else {
+            crate::transient::TransientSolver::DenseDirect
+        }
     };
 
     let (t, j_total, a_total, b_total) =
