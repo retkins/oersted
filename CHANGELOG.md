@@ -145,3 +145,7 @@ method (3x faster than simple batch traversal)
 less effective than the dense solver (for small) problems; iteration counts nearly 500
 per step. 
 * Added transient solver settings to `SolverSettings`
+* Added a function that pins (grounds) nodes based on the union-find over the mesh 
+(now handles 'islands' properly)
+* Added a function that finds matching nodes on the cyclic faces to generate tie 
+constaints

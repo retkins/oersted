@@ -15,7 +15,7 @@ use crate::{
     biotsavart::{IntegrationMethod, SourceVectors, a_field},
     krylov::{GmresSolver, KrylovSolver, MatrixOperator, Preconditioner, Workspace},
     mesh::Mesh,
-    transient::common::assemble_r,
+    transient::common::{assemble_r, find_pin_nodes},
     types::{Vec3, vec3_to_3vec},
 };
 
@@ -79,7 +79,7 @@ pub fn solve(
     let r = assemble_r(rho, mesh);
     let g: Triplets = assemble_g(mesh);
     let (m, _) = assemble_m(mesh);
-    let grounded: Vec<usize> = ground_nodes(mesh);
+    let grounded: Vec<usize> = find_pin_nodes(mesh);
     let k = assemble_kkt(mesh, &m, &g, &r, dt, &grounded);
 
     // Solution
@@ -239,15 +239,6 @@ fn assemble_m(mesh: &Mesh) -> (Mat<f64>, f64) {
     let asym: f64 = (&m - m.transpose()).norm_l2() / m.norm_l2();
 
     (0.5 * (&m + m.transpose()), asym)
-}
-
-// Ground nodes by identifying separated bodies and returning one node index per body
-//
-// TODO: this version assumes the mesh represents a single body and therefore just
-// grounds the first node
-fn ground_nodes(_: &Mesh) -> Vec<usize> {
-    let grounded: Vec<usize> = vec![0; 1];
-    grounded
 }
 
 // Assemble the KKT system as a dense square matrix
