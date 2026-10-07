@@ -212,11 +212,7 @@ class Mesh:
 
     @classmethod
     def from_step(
-        cls,
-        filename: str | Path,
-        mesh_size: float,
-        mesh_size_scale: float = 1e3,
-        part_size_scale: float = 1e-3,
+        cls, filename: str | Path, mesh_size: float, n_sectors: int = 1
     ) -> Mesh:
         """Create a Mesh from a step file
 
@@ -235,12 +231,7 @@ class Mesh:
         Returns:
             volumetric tet4 mesh of the STEP file
         """
-        return mesh_step(
-            str(filename),
-            mesh_size * mesh_size_scale,
-            mesh_size * mesh_size_scale,
-            part_size_scale,
-        )
+        return mesh_step(str(filename), mesh_size, mesh_size, n_sectors=n_sectors)
 
     def append(self, mesh: Mesh) -> Mesh:
         """Convenience function for appending two meshes together."""
@@ -322,7 +313,11 @@ def plot_mesh(
 
 
 def mesh_step(
-    infile: Path | str, max_size: float, min_size: float = 0.0, scale: float = 1e-3
+    infile: Path | str,
+    max_size: float,
+    min_size: float = 0.0,
+    scale: float = 1e-3,
+    n_sectors: int = 1,
 ) -> Mesh:
     """Mesh a step file using gmsh
 
@@ -333,7 +328,6 @@ def mesh_step(
         infile: path to the STEP file to mesh
         max_size: (m) maximum allowable element size
         min_size: (m) minimum allowable element size
-        scale: (mm/m) adjust if the part or mesh is scaled incorrectly
 
     Returns:
         a tet4 (volumetric) mesh of the component
@@ -349,10 +343,18 @@ def mesh_step(
 
         gmsh.initialize()
         gmsh.option.setNumber("General.Terminal", 0)  # suppress output
+        gmsh.option.setString("Geometry.OCCTargetUnit", "M")
         gmsh.model.occ.importShapes(infile)
         gmsh.model.occ.synchronize()
         gmsh.option.setNumber("Mesh.CharacteristicLengthMin", min_size)
         gmsh.option.setNumber("Mesh.CharacteristicLengthMax", max_size)
+        if n_sectors > 1:
+            phi: float = 2 * np.pi / n_sectors
+            c, s = np.cos(phi), np.sin(phi)
+            affine = [c, s, 0, 0, -s, c, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]
+            low, high = find_periodic_faces(n_sectors, tol=1e-6)
+            gmsh.model.mesh.setPeriodic(2, low, high, affine)
+
         gmsh.model.mesh.generate(3)  # mesh 3d elements
         gmsh.write(mshfile)
 
@@ -362,7 +364,7 @@ def mesh_step(
         node_tags, coords, _ = gmsh.model.mesh.getNodes()
 
         # coords is flat [x0,y0,z0,x1,y1,z1,...], reshape to (Nn, 3)
-        nodes = np.array(coords).reshape(-1, 3) * scale
+        nodes = np.array(coords).reshape(-1, 3)
 
         # Build compact renumbering: gmsh tags can be sparse/non-sequential
         tag_to_compact = {tag: i for i, tag in enumerate(node_tags)}
@@ -389,3 +391,47 @@ def mesh_step(
         raise RuntimeError(
             f"Error - gmsh is not installed. Could not mesh file `{infile}`"
         ) from None
+
+
+def find_periodic_faces(
+    n_sectors: int, tol: float = 1e-6
+) -> tuple[list[int], list[int]]:
+    """Find all matching faces in the model
+
+    Returns: [[primary id's], [target id's]] for gmsh.model.mesh.setPeriodic()
+    """
+
+    import gmsh
+
+    phi = 2.0 * np.pi / n_sectors
+    c, s = np.cos(phi), np.sin(phi)
+    rotation = np.array([[c, -s, 0.0], [s, c, 0.0], [0.0, 0.0, 1.0]])
+
+    # Get all surfaces in the model, their centroid, and area
+    surfs = [tag for (_, tag) in gmsh.model.getEntities(2)]
+    com = {t: np.array(gmsh.model.occ.getCenterOfMass(2, t)) for t in surfs}
+    area = {t: gmsh.model.occ.getMass(2, t) for t in surfs}
+
+    low: list[int] = []
+    high: list[int] = []
+    # Start with all surfaces as primary
+    # ls, hs = low surface, high surface
+    for ls in surfs:
+        if np.hypot(com[ls][0], com[ls][1]) < tol:
+            continue
+        # Rotate into target
+        t = rotation @ com[ls]
+        for hs in surfs:
+            if ls == hs:
+                continue
+            if np.linalg.norm(com[hs] - t) < tol and abs(area[ls] - area[hs]) < tol * (
+                0.5 * (area[ls] + area[hs])
+            ):
+                # Centroids are in same location and they have the same area
+                low.append(ls)
+                high.append(hs)
+                break
+
+    assert len(low) == len(high)
+    assert len(low) > 0
+    return low, high

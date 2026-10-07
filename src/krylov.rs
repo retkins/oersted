@@ -16,6 +16,8 @@ use faer::{
 pub trait LinearOperator {
     /// Computes `A*x = b`
     fn apply(&self, x: &[f64], out: &mut [f64]);
+    /// Computes the diagonal of `A`
+    fn diagonal(&self, out: &mut [f64]);
     fn len(&self) -> usize;
 }
 
@@ -25,7 +27,7 @@ pub struct MatrixOperator<'a> {
 
 impl LinearOperator for MatrixOperator<'_> {
     fn apply(&self, x: &[f64], out: &mut [f64]) {
-        let n = x.len();
+        let n: usize = check_lengths!(self, x, out);
         matmul(
             MatMut::from_column_major_slice_mut(out, n, 1),
             Accum::Replace,
@@ -34,6 +36,12 @@ impl LinearOperator for MatrixOperator<'_> {
             1.0,
             Par::Seq,
         )
+    }
+    fn diagonal(&self, out: &mut [f64]) {
+        let n: usize = check_lengths!(self, out);
+        for i in 0..n {
+            out[i] = self.a[(i, i)];
+        }
     }
     fn len(&self) -> usize {
         self.a.nrows()

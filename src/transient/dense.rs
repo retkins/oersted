@@ -15,16 +15,11 @@ use crate::{
     biotsavart::{IntegrationMethod, SourceVectors, a_field},
     krylov::{GmresSolver, KrylovSolver, MatrixOperator, Preconditioner, Workspace},
     mesh::Mesh,
-    transient::common::{assemble_r, find_pin_nodes},
+    transient::common::{
+        TransientOptions, TransientSolver, Triplets, assemble_g, assemble_r, find_pin_nodes,
+    },
     types::{Vec3, vec3_to_3vec},
 };
-
-type Triplets = Vec<(usize, usize, f64)>;
-
-pub enum DenseSolver {
-    Direct,
-    Iterative,
-}
 
 struct KktJacobiPreconditioner<'a> {
     k: MatRef<'a, f64>,
@@ -48,16 +43,17 @@ impl Preconditioner for KktJacobiPreconditioner<'_> {
 /// Solve a transient problem
 pub fn solve(
     mesh: &Mesh,
-    rho: f64,
+    (rho_values, rho_indices): (&[f64], &[usize]),
     nt: usize,
     tmax: f64,
     a_ext: &Array3<f64>,
     b_ext: &Array3<f64>,
-    solver: DenseSolver,
+    options: TransientOptions,
 ) -> (Array1<f64>, Array3<f64>, Array3<f64>, Array3<f64>) {
-    match solver {
-        DenseSolver::Direct => println!("Using Direct Solver"),
-        DenseSolver::Iterative => println!("Using Iterative Solver"),
+    match options.solver {
+        TransientSolver::DenseDirect => println!("Using Direct Solver"),
+        TransientSolver::DenseIterative => println!("Using Iterative Solver"),
+        _ => panic!("Error! Incorrect solver options selected!"),
     }
     let n_elem: usize = mesh.n_elems();
     let size = 3 * n_elem + mesh.n_nodes();
@@ -76,10 +72,12 @@ pub fn solve(
 
     // Assembly
     println!("Assembling matrices");
-    let r = assemble_r(rho, mesh);
-    let g: Triplets = assemble_g(mesh);
+    let r = assemble_r(mesh, rho_values, rho_indices);
+    let grounded: Vec<usize> = find_pin_nodes(&mesh.connectivity, mesh.n_nodes(), options.verbose);
+    let node_map: Vec<usize> = (0..mesh.n_nodes()).collect();
+    let g: Triplets = assemble_g(mesh, &node_map, mesh.n_nodes(), &grounded);
     let (m, _) = assemble_m(mesh);
-    let grounded: Vec<usize> = find_pin_nodes(mesh);
+
     let k = assemble_kkt(mesh, &m, &g, &r, dt, &grounded);
 
     // Solution
@@ -100,14 +98,15 @@ pub fn solve(
         n_el: n_elem,
     };
 
-    match solver {
-        DenseSolver::Direct => {
+    match options.solver {
+        TransientSolver::DenseDirect => {
             println!("Factorizing KKT system");
             lu = Some(k.partial_piv_lu());
         }
-        DenseSolver::Iterative => {
+        TransientSolver::DenseIterative => {
             ws.reset(n, gmres.max_iterations);
         }
+        _ => {}
     };
 
     // Buffers reused at every step: rhs, J^k, (M/dt)*J^k
@@ -140,9 +139,9 @@ pub fn solve(
         }
 
         // Solve the system
-        let x = match solver {
-            DenseSolver::Direct => lu.as_ref().unwrap().solve(&rhs),
-            DenseSolver::Iterative => {
+        let x = match options.solver {
+            TransientSolver::DenseDirect => lu.as_ref().unwrap().solve(&rhs),
+            TransientSolver::DenseIterative => {
                 let mut x = vec![0.0; n];
                 gmres.solve(
                     &mut ws,
@@ -154,6 +153,7 @@ pub fn solve(
                 );
                 Col::from_fn(n, |i| x[i])
             }
+            _ => panic!("Error! Wrong solver selected."),
         };
 
         xprev.copy_from(&x);
@@ -171,30 +171,6 @@ pub fn solve(
     }
 
     (time, j, a, b)
-}
-
-// Assemble the constraint-gradient matrix G
-//
-// This matrix is 3*num_elems x num_nodes. The first num_elems rows are for the
-// x-dof, second num_elems (second third) rows are for y-dof, etc.
-//
-// To save on memory, G is saved as COO triplets (sparse) and never formed into its own
-// array. Instead, it is scattered into the KKT system directly.
-fn assemble_g(mesh: &Mesh) -> Triplets {
-    // let mut g = Mat::<f64>::zeros(3*mesh.n_elems(), mesh.n_nodes());
-    let mut triplets: Triplets = Vec::with_capacity(12 * mesh.n_elems());
-
-    for e in 0..mesh.n_elems() {
-        let vg_e: [Vec3; 4] = mesh.hat_gradients(e);
-
-        for ni in 0..4usize {
-            let n: usize = mesh.connectivity[e][ni] as usize;
-            for k in 0..3usize {
-                triplets.push((mesh.n_elems() * k + e, n, vg_e[ni][k]));
-            }
-        }
-    }
-    triplets
 }
 
 // Assemble the inductance matrix M

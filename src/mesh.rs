@@ -8,6 +8,7 @@ use std::collections::HashMap;
 const INV_MU0: f64 = 1.0 / MU0;
 const ONE_SIXTH: f64 = 1.0 / 6.0;
 
+#[derive(Clone)]
 pub struct Mesh {
     pub nodes: Vec<Vec3>,
     pub connectivity: Vec<[u32; 4]>,

@@ -1,18 +1,52 @@
 //! Internals used by multiple transient solvers
 #![allow(unused)]
 
-use faer::diag::Diag;
+use faer::{diag::Diag, matrix_free::LinOp, sparse::SparseColMat};
 
-use crate::{math::min_and_max, mesh::Mesh, types::Vec3};
+use crate::{
+    krylov::LinearOperator, math::min_and_max, mesh::Mesh, octree::OctreeSettings, types::Vec3,
+};
 use std::f64::consts::PI;
+
+pub type Triplets = Vec<(usize, usize, f64)>;
+
+pub enum TransientSolver {
+    DenseDirect,
+    DenseIterative,
+    BH,
+}
+
+pub struct CyclicOptions {
+    pub n_sectors: usize,
+    pub low_angle: f64,
+    pub high_angle: f64,
+    pub atol_distance: f64,
+    pub atol_angle: f64,
+}
+
+pub struct TransientOptions {
+    pub solver: TransientSolver,
+    pub verbose: bool,
+    pub rtol: f64,
+    pub cyclic: Option<CyclicOptions>,
+    pub octree_settings: OctreeSettings,
+}
 
 /// Assemble the resistance diagonal matrix R
 ///
 /// This matrix has length `n_elems`, each of which are rho*vol[e]
-pub fn assemble_r(rho: f64, mesh: &Mesh) -> Diag<f64> {
+///
+pub fn assemble_r(mesh: &Mesh, rho_values: &[f64], rho_indices: &[usize]) -> Diag<f64> {
+    assert_eq!(rho_values.len(), rho_indices.len());
     let mut r = Diag::zeros(mesh.n_elems());
+    let mut j = 0usize;
+    let mut rho = rho_values[j];
     for i in 0..mesh.n_elems() {
-        r[i] = rho * mesh.volumes[i];
+        if i >= j {
+            j = i;
+        }
+
+        r[i] = rho_values[j] * mesh.volumes[i];
     }
     r
 }
@@ -23,7 +57,7 @@ pub fn assemble_r(rho: f64, mesh: &Mesh) -> Diag<f64> {
 /// node that is chosen to have the gauge reduced (equal to zero, "set to ground")
 ///
 /// Returns: indices in the global mesh that should be guage-pinned
-pub fn find_pin_nodes(mesh: &Mesh) -> Vec<usize> {
+pub fn find_pin_nodes(connectivity: &[[u32; 4]], n_nodes: usize, verbose: bool) -> Vec<usize> {
     let mut pinned: Vec<usize> = Vec::new();
 
     // Tarjan and Van Leeuwen path-halving algorithm:
@@ -36,8 +70,8 @@ pub fn find_pin_nodes(mesh: &Mesh) -> Vec<usize> {
         i
     }
 
-    let mut parent: Vec<usize> = (0..mesh.n_nodes()).collect();
-    for elem in &mesh.connectivity {
+    let mut parent: Vec<usize> = (0..n_nodes).collect();
+    for elem in connectivity {
         let root0 = find(elem[0] as usize, &mut parent);
         for &n in &elem[1..] {
             let root = find(n as usize, &mut parent);
@@ -48,10 +82,20 @@ pub fn find_pin_nodes(mesh: &Mesh) -> Vec<usize> {
     }
 
     // Return only the nodes that are the parent of other nodes on that island
-    for i in 0..mesh.n_nodes() {
+    for i in 0..n_nodes {
         if find(i, &mut parent) == i {
             pinned.push(i);
         }
+    }
+
+    if verbose {
+        println!(
+            "Number of nodes chosen for gauge pinning on island bodies: {}",
+            pinned.len()
+        );
+        println!(
+            "If this does not match the number of individual disconnected bodies in your model, check the input data carefully."
+        );
     }
 
     pinned
@@ -72,6 +116,7 @@ pub fn find_cyclic_nodes(
     n_sectors: usize,
     (theta_low, theta_high): (f64, f64),
     (tol_distance, tol_angle): (f64, f64),
+    verbose: bool,
 ) -> (Vec<usize>, usize) {
     let theta_total = theta_high - theta_low;
     assert!((theta_total * n_sectors as f64 - 2.0 * PI).abs() < tol_angle);
@@ -129,6 +174,15 @@ pub fn find_cyclic_nodes(
         node_map[h] = node_map[l];
     }
 
+    if verbose {
+        println!(
+            "Computed an angular extent of {:.3} degrees each for {} total sectors.",
+            theta_total * 180.0 / (2.0 * PI),
+            n_sectors
+        );
+        println!("{} matching cyclic node pairs found.", n_pairs);
+    }
+
     (node_map, n_reduced)
 }
 
@@ -150,6 +204,78 @@ fn sort_nodes(mesh: &Mesh, node_set: &[usize]) -> Vec<usize> {
     sorted
 }
 
+// Assemble the constraint-gradient matrix G
+//
+// This matrix is 3*num_elems x num_nodes. The first num_elems rows are for the
+// x-dof, second num_elems (second third) rows are for y-dof, etc.
+//
+// To save on memory, G is saved as COO triplets (sparse) and never formed into its own
+// array. Instead, it is scattered into the KKT system directly.
+pub fn assemble_g(
+    mesh: &Mesh,
+    node_map: &[usize],
+    n_reduced: usize,
+    grounded: &[usize],
+) -> Triplets {
+    let mut triplets: Triplets = Vec::with_capacity(12 * mesh.n_elems());
+    let mut pinned = vec![false; n_reduced];
+    for &g in grounded {
+        pinned[g] = true;
+    }
+
+    for e in 0..mesh.n_elems() {
+        let vg_e: [Vec3; 4] = mesh.hat_gradients(e);
+
+        for ni in 0..4usize {
+            let n: usize = mesh.connectivity[e][ni] as usize;
+            let col = node_map[n];
+            if pinned[col] {
+                // Skip pinned columns
+                continue;
+            }
+            for k in 0..3usize {
+                triplets.push((mesh.n_elems() * k + e, col, vg_e[ni][k]));
+            }
+        }
+    }
+    triplets
+}
+
+/// Assemble the momentum diagonal, diag(A) = R + M[e,e]/dt
+///
+/// Computing M[e,e] can't be a simple loop over self-fields, because for cyclic
+/// calculations, there are n_sectors-1 additional terms to consider.
+pub fn assemble_d(mesh: &Mesh, r: &Diag<f64>, dt: f64, m: &impl LinearOperator) -> Vec<f64> {
+    let inv_dt: f64 = 1.0 / dt;
+    let n_el = mesh.n_elems();
+    let mut d: Vec<f64> = vec![0.0; 3 * mesh.n_elems()];
+    m.diagonal(&mut d);
+
+    for c in 0..3 {
+        for i in 0..d.len() {
+            let k = c * n_el + i;
+            d[k] = r[i] + d[k] * inv_dt;
+        }
+    }
+
+    debug_assert!(d.iter().all(|&v| v > 0.0 && v.is_finite()));
+    d
+}
+
+/// Assemble the nodal graph Laplacian, `L = G^T D^-1 G`
+// pub fn assemble_l(g_coo: &Triplets, d: &Diag<f64>, n_el: usize, n_reduced: usize) {
+//     // G size `3*n_el x n_reduced`
+//     // L is square and size `n_reduced`
+//     let g_size = 3*n_el + n_reduced;
+//     let g = SparseColMat::try_new_from_triplets(
+//         g_size, g_size, g_coo).unwrap();
+//     let mut d_inv = d.clone();
+//     for i in 0..d_inv.nrows() {
+//         d_inv[i] = 1.0 / d_inv[i];
+//     }
+
+//     let l = g.transpose() * d_inv * g;
+// }
 
 #[cfg(test)]
 mod tests {
